@@ -20,7 +20,9 @@ public static class HelpTexts
     {
         var texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!File.Exists(HelpFilePath))
+        {
             return texts;
+        }
 
         string? currentKey = null;
         var builder = new System.Text.StringBuilder();
@@ -31,7 +33,10 @@ public static class HelpTexts
             if (string.IsNullOrWhiteSpace(rawLine))
             {
                 if (currentKey != null && builder.Length > 0)
+                {
                     builder.AppendLine();
+                }
+
                 continue;
             }
 
@@ -47,7 +52,9 @@ public static class HelpTexts
             }
 
             if (rawLine.StartsWith("-ENDOFFILE", StringComparison.OrdinalIgnoreCase))
+            {
                 break;
+            }
 
             if (rawLine.StartsWith("-"))
             {
@@ -62,24 +69,30 @@ public static class HelpTexts
             }
 
             if (currentKey == null)
+            {
                 continue;
+            }
 
             builder.AppendLine(rawLine);
         }
 
         if (currentKey != null)
+        {
             texts[currentKey] = builder.ToString().TrimEnd();
+        }
 
         return texts;
     }
 
     private static readonly (string Titulo, string[] Comandos)[] Categorias =
-    {
-        ("Arquivos e diretórios", new[] { "DIR", "CD", "MD", "RD", "COPY", "ERASE", "REN", "TYPE", "SIZE", "TREE", "PWD", "PRINT" }),
-        ("Sistema", new[] { "CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "RPT", "HISTORY", "HOSTNAME", "USER" }),
-        ("Aplicativos e jogos", new[] { "APLIC", "GAMES", "CAL", "KISS", "X" }),
-        ("Programas externos", new[] { "." }),
-    };
+    [
+        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "ERASE", "REN", "TYPE", "SIZE", "TREE", "PWD", "PRINT"
+        ]),
+        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "RPT", "HISTORY", "HOSTNAME", "USER"
+        ]),
+        ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "X"]),
+        ("Programas externos", ["."])
+    ];
 
     /// <summary>O que HELP (sem argumento) mostra: a lista de comandos por categoria, mais dicas.</summary>
     private static string BuildOverview()
@@ -119,8 +132,12 @@ public static class HelpTexts
         }
 
         if (Texts.TryGetValue(command, out var text))
+        {
             Console.WriteLine(text);
+        }
         else
+        {
             Console.WriteLine($"Tópico de ajuda não encontrado: '{command}'. Digite HELP para ver a lista completa.");
+        }
     }
 }

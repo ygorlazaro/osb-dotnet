@@ -21,18 +21,18 @@ public sealed class LinhasEffect : IScreenEffect
     // Cada figura: (A = número de vértices, [XU,YU,ZU] por vértice, [P] fase por vértice).
     // Transcrito diretamente das linhas DATA de LINHAS.BAS.
     private static readonly Shape[] Shapes =
-    {
-        new(new (double, double, double)[] { (1, 2, 2), (1, 2, 2), (2, 3, 2), (2, 1, 2) }, new[] { 1.1, 1.1, 2.1, 1.6 }),
-        new(new (double, double, double)[] { (1, 4, 1), (2, 1, 1), (3, 3, 2) }, new[] { 2.7, 2.2, 3.2 }),
-        new(new (double, double, double)[] { (3, 4, 1), (5, 3, 2), (1, 4, 2), (4, 3, 5) }, new[] { 1.0, 1, 0, 0 }),
-        new(new (double, double, double)[] { (2, 4, 3), (3, 4, 1), (1, 3, 2) }, new[] { 1.0, 0, 0 }),
-        new(new (double, double, double)[] { (2, 3, 4), (3, 2, 1) }, new[] { 0.0, 1 }),
-        new(new (double, double, double)[] { (1, 3, 2), (3, 4, 2), (3, 4, 1) }, new[] { 0.0, 0, 0 }),
-        new(new (double, double, double)[] { (2, 1, 2), (2, 2, 1), (1, 2, 2), (2, 2, 1) }, new[] { 1.5, 2.5, 1.5, 2.5 }),
-        new(new (double, double, double)[] { (3, 1, 2), (2, 3, 2), (1, 2, 2) }, new[] { 0.0, 0, 0 }),
-    };
+    [
+        new([(1, 2, 2), (1, 2, 2), (2, 3, 2), (2, 1, 2)], [1.1, 1.1, 2.1, 1.6]),
+        new([(1, 4, 1), (2, 1, 1), (3, 3, 2)], [2.7, 2.2, 3.2]),
+        new([(3, 4, 1), (5, 3, 2), (1, 4, 2), (4, 3, 5)], [1.0, 1, 0, 0]),
+        new([(2, 4, 3), (3, 4, 1), (1, 3, 2)], [1.0, 0, 0]),
+        new([(2, 3, 4), (3, 2, 1)], [0.0, 1]),
+        new([(1, 3, 2), (3, 4, 2), (3, 4, 1)], [0.0, 0, 0]),
+        new([(2, 1, 2), (2, 2, 1), (1, 2, 2), (2, 2, 1)], [1.5, 2.5, 1.5, 2.5]),
+        new([(3, 1, 2), (2, 3, 2), (1, 2, 2)], [0.0, 0, 0])
+    ];
 
-    private readonly List<LineShape> _lines = new();
+    private readonly List<LineShape> _lines = [];
     private int _shapeIndex;
     private double _k;
 
@@ -52,7 +52,7 @@ public sealed class LinhasEffect : IScreenEffect
         var px = new double[n];
         var py = new double[n];
 
-        for (int i = 0; i < n; i++)
+        for (var i = 0; i < n; i++)
         {
             var (xu, yu, zu) = shape.Vertices[i];
             var p = shape.Phase[i];
@@ -65,7 +65,7 @@ public sealed class LinhasEffect : IScreenEffect
         }
 
         _lines.Clear();
-        for (int i = 0; i < n - 1; i++)
+        for (var i = 0; i < n - 1; i++)
             _lines.Add(new LineShape(px[i], py[i], px[i + 1], py[i + 1], i + 1));
         _lines.Add(new LineShape(px[n - 1], py[n - 1], px[0], py[0], n));
 

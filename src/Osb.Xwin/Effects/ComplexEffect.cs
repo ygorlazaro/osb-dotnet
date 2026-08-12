@@ -12,7 +12,7 @@ public sealed class ComplexEffect : IScreenEffect
     private const double Deg2Rad = Math.PI / 180.0;
 
     private readonly Random _rnd = new();
-    private readonly List<CircleShape> _shapes = new();
+    private readonly List<CircleShape> _shapes = [];
 
     private int _c = 1;      // original: FOR c = 1 TO 10  (c=10 é a passada que "apaga" em preto)
     private int _b = 1;      // original: FOR b = 1 TO 200 STEP 5

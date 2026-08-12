@@ -14,7 +14,7 @@ public sealed class RadiaisEffect : IScreenEffect
     private static readonly double SqrtHalf = Math.Sqrt(0.5);
 
     private readonly Random _rnd = new();
-    private readonly List<CircleShape> _shapes = new();
+    private readonly List<CircleShape> _shapes = [];
     private int _color;
     private double _rot;
 

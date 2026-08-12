@@ -25,7 +25,9 @@ public class OsbEnvironment
         Users = new UserManager(UserConfigFile);
 
         if (firstBoot)
+        {
             PerformFirstBootSetup();
+        }
     }
 
     private bool EnsureInstalled()
@@ -55,7 +57,10 @@ public class OsbEnvironment
 
     private static void WriteIfMissing(string path, string content)
     {
-        if (!File.Exists(path)) File.WriteAllText(path, content);
+        if (!File.Exists(path))
+        {
+            File.WriteAllText(path, content);
+        }
     }
 
     public void ApplyColors()
@@ -69,9 +74,11 @@ public class OsbEnvironment
         try
         {
             if (!File.Exists(HostnameFile))
+            {
                 return "OSB";
+            }
 
-            var name = File.ReadAllText(HostnameFile).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            var name = File.ReadAllText(HostnameFile).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
             return string.IsNullOrWhiteSpace(name) ? "OSB" : name.Trim();
         }
         catch
@@ -94,7 +101,9 @@ public class OsbEnvironment
         Console.Write("Nome da máquina [OSB]: ");
         var hostName = (Console.ReadLine() ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(hostName))
+        {
             hostName = "OSB";
+        }
 
         SaveMachineName(hostName);
 
@@ -105,7 +114,9 @@ public class OsbEnvironment
             Console.Write("Usuário inicial: ");
             username = (Console.ReadLine() ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(username))
+            {
                 Console.WriteLine("O nome do usuário não pode ficar vazio.");
+            }
         } while (string.IsNullOrWhiteSpace(username));
 
         string password;

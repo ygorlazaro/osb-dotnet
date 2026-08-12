@@ -22,7 +22,7 @@ public sealed class FogoEffect : IScreenEffect
     private const double Gravity = 0.01;   // igual ao original
 
     private readonly Random _rnd = new();
-    private readonly List<PointShape> _points = new();
+    private readonly List<PointShape> _points = [];
 
     private enum Phase { Ascending, Exploding }
     private Phase _phase;
@@ -41,9 +41,9 @@ public sealed class FogoEffect : IScreenEffect
 
     // Pares cor viva/escura da mesma família, pra simular o esfriamento sem paleta.
     private static readonly (int Bright, int Dark)[] ColorPairs =
-    {
-        (12, 4), (14, 6), (10, 2), (11, 3), (13, 5), (9, 1), (15, 7),
-    };
+    [
+        (12, 4), (14, 6), (10, 2), (11, 3), (13, 5), (9, 1), (15, 7)
+    ];
 
     public FogoEffect() => Reset();
 
@@ -82,7 +82,11 @@ public sealed class FogoEffect : IScreenEffect
         // Física idêntica ao original: Y -= YD; YD -= RND*.09; X += Xd (com ricochete elástico).
         _y -= _yd;
         _yd -= _rnd.NextDouble() * 0.09;
-        if (_x + _xd > 320 || _x + _xd < 0) _xd = -_xd;
+        if (_x + _xd > 320 || _x + _xd < 0)
+        {
+            _xd = -_xd;
+        }
+
         _x += _xd;
 
         _points.Clear();
@@ -98,7 +102,7 @@ public sealed class FogoEffect : IScreenEffect
     {
         _phase = Phase.Exploding;
         _age = 0;
-        for (int i = 0; i < ParticleCount; i++)
+        for (var i = 0; i < ParticleCount; i++)
         {
             _ex[i] = _x;
             _ey[i] = _y;
@@ -112,11 +116,19 @@ public sealed class FogoEffect : IScreenEffect
         _points.Clear();
         var color = _age < MaxAge / 2 ? _brightColor : _darkColor;
 
-        for (int i = 0; i < ParticleCount; i++)
+        for (var i = 0; i < ParticleCount; i++)
         {
-            if (_ex[i] + _exd[i] > 320 || _ex[i] + _exd[i] < 0) _exd[i] = -_exd[i];
+            if (_ex[i] + _exd[i] > 320 || _ex[i] + _exd[i] < 0)
+            {
+                _exd[i] = -_exd[i];
+            }
+
             _ex[i] += _exd[i];
-            if (_ey[i] + _eyd[i] > 200 || _ey[i] + _eyd[i] < 0) _eyd[i] = -_eyd[i];
+            if (_ey[i] + _eyd[i] > 200 || _ey[i] + _eyd[i] < 0)
+            {
+                _eyd[i] = -_eyd[i];
+            }
+
             _ey[i] += _eyd[i];
             _eyd[i] += Gravity * _rnd.NextDouble();
 
@@ -124,7 +136,10 @@ public sealed class FogoEffect : IScreenEffect
         }
 
         _age++;
-        if (_age > MaxAge) LaunchRocket();
+        if (_age > MaxAge)
+        {
+            LaunchRocket();
+        }
     }
 
     public IReadOnlyList<PointShape> CurrentPoints => _points;

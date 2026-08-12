@@ -2,14 +2,6 @@ using Osb.Shell.Kernel;
 
 namespace Osb.Shell.Apps;
 
-/// <summary>
-/// Porte do KISS (o editor de texto simples do OSB original). O .BAS original não
-/// sobreviveu em texto, então este é um editor novo, mas com a mesma proposta:
-/// simples, direto, em modo texto, sem depender de nada além da Console API.
-///
-/// Teclas: setas para navegar, Enter quebra linha, Backspace/Delete apagam,
-/// Ctrl+S salva, Ctrl+Q ou ESC sai (perguntando antes se há alterações não salvas).
-/// </summary>
 public static class TextEditor
 {
     public static void Run(string filenameArg, OsbEnvironment env)
@@ -22,31 +14,41 @@ public static class TextEditor
         {
             lines = path is not null && File.Exists(path)
                 ? File.ReadAllLines(path).ToList()
-                : new List<string> { "" };
+                : [""];
         }
         catch (Exception ex)
         {
             Console.WriteLine("Erro ao abrir o arquivo: " + ex.Message);
             return;
         }
-        if (lines.Count == 0) lines.Add("");
+        if (lines.Count == 0)
+        {
+            lines.Add("");
+        }
 
         int row = 0, col = 0, scrollTop = 0;
-        bool modified = false;
-        bool running = true;
+        var modified = false;
+        var running = true;
         string? status = null;
 
         var prevCursorVisible = true;
         try { prevCursorVisible = Console.CursorVisible; } catch { /* alguns terminais não suportam ler isso */ }
         Console.CursorVisible = true;
-        env.ApplyColors(); // o KISS usa o mesmo esquema de cor configurado no OSB (COLOR)
+        env.ApplyColors();
         Console.Clear();
 
         while (running)
         {
             var visibleRows = Math.Max(3, Console.WindowHeight - 2);
-            if (row < scrollTop) scrollTop = row;
-            if (row >= scrollTop + visibleRows) scrollTop = row - visibleRows + 1;
+            if (row < scrollTop)
+            {
+                scrollTop = row;
+            }
+
+            if (row >= scrollTop + visibleRows)
+            {
+                scrollTop = row - visibleRows + 1;
+            }
 
             Render(lines, row, col, scrollTop, visibleRows, filename, modified, status);
             status = null;
@@ -62,7 +64,11 @@ public static class TextEditor
 
             if (key.Key == ConsoleKey.Escape || (key.Modifiers.HasFlag(ConsoleModifiers.Control) && key.Key == ConsoleKey.Q))
             {
-                if (modified && !ConfirmDiscard()) continue;
+                if (modified && !ConfirmDiscard())
+                {
+                    continue;
+                }
+
                 running = false;
                 continue;
             }
@@ -70,19 +76,33 @@ public static class TextEditor
             switch (key.Key)
             {
                 case ConsoleKey.UpArrow:
-                    if (row > 0) row--;
+                    if (row > 0)
+                    {
+                        row--;
+                    }
+
                     col = Math.Min(col, lines[row].Length);
                     break;
                 case ConsoleKey.DownArrow:
-                    if (row < lines.Count - 1) row++;
+                    if (row < lines.Count - 1)
+                    {
+                        row++;
+                    }
+
                     col = Math.Min(col, lines[row].Length);
                     break;
                 case ConsoleKey.LeftArrow:
-                    if (col > 0) col--;
+                    if (col > 0)
+                    {
+                        col--;
+                    }
                     else if (row > 0) { row--; col = lines[row].Length; }
                     break;
                 case ConsoleKey.RightArrow:
-                    if (col < lines[row].Length) col++;
+                    if (col < lines[row].Length)
+                    {
+                        col++;
+                    }
                     else if (row < lines.Count - 1) { row++; col = 0; }
                     break;
                 case ConsoleKey.Home:
@@ -148,7 +168,11 @@ public static class TextEditor
             Console.SetCursorPosition(0, Console.WindowHeight - 1);
             Console.Write("Salvar como: ");
             var typed = (Console.ReadLine() ?? "").Trim();
-            if (typed == "") return "Salvamento cancelado (nenhum nome informado).";
+            if (typed == "")
+            {
+                return "Salvamento cancelado (nenhum nome informado).";
+            }
+
             filename = typed;
             path = PathResolver.Resolve(typed);
         }
@@ -178,23 +202,38 @@ public static class TextEditor
         Console.SetCursorPosition(0, 0);
         var width = Math.Max(20, Console.WindowWidth);
 
-        for (int i = 0; i < visibleRows; i++)
+        for (var i = 0; i < visibleRows; i++)
         {
             var lineIndex = scrollTop + i;
             var text = lineIndex < lines.Count ? lines[lineIndex] : "~";
-            if (text.Length > width) text = text[..width];
+            if (text.Length > width)
+            {
+                text = text[..width];
+            }
+
             Console.Write(text.PadRight(width));
-            if (i < visibleRows - 1) Console.WriteLine();
+            if (i < visibleRows - 1)
+            {
+                Console.WriteLine();
+            }
         }
 
         Console.WriteLine();
         var title = filename == "" ? "(sem nome)" : filename;
         var header = $" KISS - {title}{(modified ? " [modificado]" : "")} ";
-        if (header.Length > width) header = header[..width];
+        if (header.Length > width)
+        {
+            header = header[..width];
+        }
+
         Console.Write(header.PadRight(width));
 
         var help = status ?? "Ctrl+S salva | ESC/Ctrl+Q sai";
-        if (help.Length > width) help = help[..width];
+        if (help.Length > width)
+        {
+            help = help[..width];
+        }
+
         Console.Write(help.PadRight(width));
 
         var screenRow = row - scrollTop;

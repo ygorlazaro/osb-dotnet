@@ -21,7 +21,9 @@ public sealed class UserManager
     public bool Validate(string username, string password)
     {
         if (string.IsNullOrWhiteSpace(username))
+        {
             return false;
+        }
 
         return _users.TryGetValue(username.Trim(), out var entry) && entry.Password == password;
     }
@@ -34,7 +36,9 @@ public sealed class UserManager
     public string GetDisplayName(string username)
     {
         if (string.IsNullOrWhiteSpace(username))
+        {
             return string.Empty;
+        }
 
         return _users.TryGetValue(username.Trim(), out var entry)
             ? entry.Name
@@ -128,22 +132,30 @@ public sealed class UserManager
         var users = new Dictionary<string, (string Name, string Password)>(StringComparer.OrdinalIgnoreCase);
 
         if (!File.Exists(path))
+        {
             return users;
+        }
 
         foreach (var line in File.ReadAllLines(path))
         {
             var rawLine = line.Trim();
             if (string.IsNullOrEmpty(rawLine) || rawLine.StartsWith(";"))
+            {
                 continue;
+            }
 
             var equalsIndex = rawLine.IndexOf('=');
             if (equalsIndex < 1)
+            {
                 continue;
+            }
 
             var name = rawLine[..equalsIndex].Trim();
             var password = rawLine[(equalsIndex + 1)..].Trim();
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(password))
+            {
                 continue;
+            }
 
             users[name] = (name, password);
         }

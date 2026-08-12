@@ -1,10 +1,9 @@
 namespace Osb.Shell.Kernel;
 
-/// <summary>Porte simplificado do ABOUT.BAS (tela de créditos).</summary>
 public static class About
 {
     private static readonly string[] Lines =
-    {
+    [
         "****************************************",
         "******                            ******",
         "******       OSB Versão 0.2       ******",
@@ -15,8 +14,8 @@ public static class About
         "******                            ******",
         "******      www.osb.rg3.net       ******",
         "******                            ******",
-        "****************************************",
-    };
+        "****************************************"
+    ];
 
     public static void Show()
     {
@@ -33,6 +32,6 @@ public static class About
         Console.WriteLine();
         Console.WriteLine("Site original: http://www.osb.rg3.net");
         Console.WriteLine("Criado por: Ygor Lazaro, entre os 14 e 16 anos, em BASIC (BC7)");
-        Console.WriteLine("Este porte: .NET 8, feito ~30 anos depois.");
+        Console.WriteLine("Este porte: .NET 10, feito ~30 anos depois.");
     }
 }

@@ -28,12 +28,12 @@ public interface IScreenEffect
     void Advance();
 
     /// <summary>Círculos do quadro/passada atual (CIRCLE). Vazio se o efeito não usa círculos.</summary>
-    IReadOnlyList<CircleShape> CurrentShapes => Array.Empty<CircleShape>();
+    IReadOnlyList<CircleShape> CurrentShapes => [];
 
     /// <summary>Linhas do quadro/passada atual (LINE). Vazio se o efeito não usa linhas.</summary>
-    IReadOnlyList<LineShape> CurrentLines => Array.Empty<LineShape>();
+    IReadOnlyList<LineShape> CurrentLines => [];
 
     /// <summary>Pontos do quadro/passada atual (PSET). Vazio se o efeito não usa pontos soltos.</summary>
-    IReadOnlyList<PointShape> CurrentPoints => Array.Empty<PointShape>();
+    IReadOnlyList<PointShape> CurrentPoints => [];
 }
 

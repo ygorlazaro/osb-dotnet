@@ -1,0 +1,57 @@
+clear
+user
+dir
+clear
+help
+hangman
+games
+rpt
+games hangman
+rpt
+help
+hostname
+user
+user list
+user add
+user list
+user del
+dir
+user list
+clear
+dir
+history
+dir/w
+dir /w
+help[
+help
+config
+clear
+dir
+dir /w
+dir
+wget
+clear
+dir
+cd conf
+dir
+cat hangman.wds
+type hangman.wds
+clear
+games rangman
+games hangman
+hangman
+rpt
+games hangman
+rpt
+clear
+dir
+cd ..
+dir
+exit
+user
+clear
+dir
+help
+ver
+git status
+git add ..

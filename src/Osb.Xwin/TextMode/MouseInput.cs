@@ -36,20 +36,37 @@ public static class MouseInput
     public static InputEvent Read()
     {
         var key = Console.ReadKey(true);
-        if (key.Key != ConsoleKey.Escape) return InputEvent.FromKey(key);
+        if (key.Key != ConsoleKey.Escape)
+        {
+            return InputEvent.FromKey(key);
+        }
 
         // Pode ser um ESC "de verdade" (usuário quer voltar) ou o início de uma sequência
         // de mouse SGR: ESC [ < Cb ; Cx ; Cy (M ou m). Espera um pouquinho pra ver se vem mais.
-        if (!WaitAvailable()) return InputEvent.FromKey(key);
-        var c1 = Console.ReadKey(true);
-        if (c1.KeyChar != '[') return InputEvent.FromKey(key);
+        if (!WaitAvailable())
+        {
+            return InputEvent.FromKey(key);
+        }
 
-        if (!WaitAvailable()) return InputEvent.FromKey(key);
+        var c1 = Console.ReadKey(true);
+        if (c1.KeyChar != '[')
+        {
+            return InputEvent.FromKey(key);
+        }
+
+        if (!WaitAvailable())
+        {
+            return InputEvent.FromKey(key);
+        }
+
         var c2 = Console.ReadKey(true);
-        if (c2.KeyChar != '<') return InputEvent.FromKey(key);
+        if (c2.KeyChar != '<')
+        {
+            return InputEvent.FromKey(key);
+        }
 
         var sb = new StringBuilder();
-        char terminator = '\0';
+        var terminator = '\0';
         while (WaitAvailable())
         {
             var c = Console.ReadKey(true);
@@ -73,7 +90,11 @@ public static class MouseInput
         var sw = Stopwatch.StartNew();
         while (sw.ElapsedMilliseconds < 300)
         {
-            if (Console.KeyAvailable) return true;
+            if (Console.KeyAvailable)
+            {
+                return true;
+            }
+
             Thread.Sleep(2);
         }
         return Console.KeyAvailable;

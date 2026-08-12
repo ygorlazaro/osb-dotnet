@@ -28,7 +28,11 @@ public static class AnimationRunner
                 foreach (var shape in effect.CurrentShapes)
                 {
                     var radius = shape.Radius * scale;
-                    if (radius < 0) continue;
+                    if (radius < 0)
+                    {
+                        continue;
+                    }
+
                     canvas.DrawCircle(shape.CenterX * scaleX, shape.CenterY * scaleY, radius, shape.Color);
                 }
                 foreach (var line in effect.CurrentLines)
@@ -51,7 +55,10 @@ public static class AnimationRunner
             while (Console.KeyAvailable || (DateTime.UtcNow - drainStart).TotalMilliseconds < 50)
             {
                 if (Console.KeyAvailable) { Console.ReadKey(true); drainStart = DateTime.UtcNow; }
-                else Thread.Sleep(2);
+                else
+                {
+                    Thread.Sleep(2);
+                }
             }
         }
         finally

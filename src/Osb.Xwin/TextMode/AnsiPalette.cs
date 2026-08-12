@@ -8,7 +8,7 @@ namespace Osb.Xwin.TextMode;
 public static class AnsiPalette
 {
     private static readonly (byte R, byte G, byte B)[] Colors =
-    {
+    [
         (0, 0, 0),       // 0 Preto
         (0, 0, 170),     // 1 Azul escuro
         (0, 170, 0),     // 2 Verde
@@ -24,8 +24,8 @@ public static class AnsiPalette
         (255, 85, 85),   // 12 Vermelho claro
         (255, 85, 255),  // 13 Magenta claro
         (255, 255, 85),  // 14 Amarelo
-        (255, 255, 255), // 15 Branco alta intensidade
-    };
+        (255, 255, 255) // 15 Branco alta intensidade
+    ];
 
     public const int Transparent = -1;
 

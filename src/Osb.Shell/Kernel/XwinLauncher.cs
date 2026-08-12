@@ -44,7 +44,9 @@ public static class XwinLauncher
         // 1) Variável de ambiente tem prioridade (útil se o XWIN foi publicado em outro lugar).
         var envPath = Environment.GetEnvironmentVariable("OSB_XWIN_PATH");
         if (!string.IsNullOrWhiteSpace(envPath) && File.Exists(envPath))
+        {
             return envPath;
+        }
 
         // 2) Layout padrão do repositório: src/Osb.Shell e src/Osb.Xwin são projetos irmãos.
         //    A partir de AppContext.BaseDirectory (.../src/Osb.Shell/bin/<config>/<tfm>/),
@@ -55,21 +57,14 @@ public static class XwinLauncher
         while (srcDir is not null && srcDir.Name != "src")
             srcDir = srcDir.Parent;
 
-        if (srcDir is not null)
-        {
-            foreach (var config in new[] { "Debug", "Release" })
-            {
-                var binDir = Path.Combine(srcDir.FullName, "Osb.Xwin", "bin", config);
-                if (!Directory.Exists(binDir)) continue;
-
-                // Procura Osb.Xwin.dll em qualquer subpasta de TFM (net10.0, net8.0, ...).
-                var found = Directory.GetFiles(binDir, "Osb.Xwin.dll", SearchOption.AllDirectories)
+        if (srcDir is null) return null;
+        return (from config in new[] { "Debug", "Release" }
+                select Path.Combine(srcDir.FullName, "Osb.Xwin", "bin", config)
+                into binDir
+                where Directory.Exists(binDir)
+                select Directory.GetFiles(binDir, "Osb.Xwin.dll", SearchOption.AllDirectories)
                     .OrderByDescending(File.GetLastWriteTimeUtc)
-                    .FirstOrDefault();
-                if (found is not null) return found;
-            }
-        }
-
-        return null;
+                    .FirstOrDefault()).OfType<string>()
+            .FirstOrDefault();
     }
 }

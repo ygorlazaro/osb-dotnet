@@ -34,7 +34,11 @@ public sealed class TextCanvas
 
     public void SetPixel(int x, int y, int color)
     {
-        if (x < 0 || x >= PixelWidth || y < 0 || y >= PixelHeight) return;
+        if (x < 0 || x >= PixelWidth || y < 0 || y >= PixelHeight)
+        {
+            return;
+        }
+
         _pixels[y * PixelWidth + x] = color;
     }
 
@@ -52,7 +56,11 @@ public sealed class TextCanvas
         {
             PlotOctants(icx, icy, x, y, color);
             y++;
-            if (err <= 0) err += 2 * y + 1;
+            if (err <= 0)
+            {
+                err += 2 * y + 1;
+            }
+
             if (err > 0) { x--; err -= 2 * x + 1; }
         }
     }
@@ -77,14 +85,18 @@ public sealed class TextCanvas
 
         int dx = Math.Abs(ix2 - ix1), sx = ix1 < ix2 ? 1 : -1;
         int dy = -Math.Abs(iy2 - iy1), sy = iy1 < iy2 ? 1 : -1;
-        int err = dx + dy;
+        var err = dx + dy;
 
         int x = ix1, y = iy1;
         while (true)
         {
             SetPixel(x, y, color);
-            if (x == ix2 && y == iy2) break;
-            int e2 = 2 * err;
+            if (x == ix2 && y == iy2)
+            {
+                break;
+            }
+
+            var e2 = 2 * err;
             if (e2 >= dy) { err += dy; x += sx; }
             if (e2 <= dx) { err += dx; y += sy; }
         }
@@ -97,14 +109,14 @@ public sealed class TextCanvas
         sb.Append("\u001b[H"); // cursor para o canto superior esquerdo
 
         int lastFg = int.MinValue, lastBg = int.MinValue;
-        for (int row = 0; row < CharHeight; row++)
+        for (var row = 0; row < CharHeight; row++)
         {
-            int topY = row * 2;
-            int botY = topY + 1;
-            for (int col = 0; col < PixelWidth; col++)
+            var topY = row * 2;
+            var botY = topY + 1;
+            for (var col = 0; col < PixelWidth; col++)
             {
-                int top = _pixels[topY * PixelWidth + col];
-                int bot = _pixels[botY * PixelWidth + col];
+                var top = _pixels[topY * PixelWidth + col];
+                var bot = _pixels[botY * PixelWidth + col];
 
                 if (top == -1 && bot == -1)
                 {

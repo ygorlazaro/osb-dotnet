@@ -10,7 +10,7 @@ public sealed class CiculosEffect : IScreenEffect
     public (double Width, double Height) DesignResolution => (640, 480);
 
     private readonly Random _rnd = new();
-    private readonly List<CircleShape> _shapes = new();
+    private readonly List<CircleShape> _shapes = [];
     private int _colorA;
     private int _colorB;
     private double _rot;

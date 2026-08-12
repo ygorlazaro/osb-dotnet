@@ -28,7 +28,7 @@ public static class MainMenu
     private sealed class Desktop
     {
         private readonly List<AppButton> _buttons;
-        private readonly List<AppWindow> _openWindows = new();
+        private readonly List<AppWindow> _openWindows = [];
         private AppWindow? _draggingWindow;
         private int _dragOffsetX;
         private int _dragOffsetY;
@@ -69,7 +69,9 @@ public static class MainMenu
             {
                 var ev = MouseInput.Read();
                 if (HandleInput(ev))
+                {
                     RenderDesktop();
+                }
             }
         }
 
@@ -90,14 +92,20 @@ public static class MainMenu
         private static IReadOnlyList<ConfigEntry> LoadConfigEntries()
         {
             var path = Path.Combine(AppContext.BaseDirectory, "CONF", "XWIN.CFG");
-            if (!File.Exists(path)) return Array.Empty<ConfigEntry>();
+            if (!File.Exists(path))
+            {
+                return [];
+            }
+
             var lines = File.ReadAllLines(path);
             var entries = new List<ConfigEntry>();
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 var rawLine = lines[i].Trim();
                 if (string.IsNullOrEmpty(rawLine) || rawLine.StartsWith(";") || rawLine.StartsWith("-"))
+                {
                     continue;
+                }
 
                 var name = rawLine.ToUpperInvariant();
                 var description = string.Empty;
@@ -121,21 +129,29 @@ public static class MainMenu
         {
             var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
             if (!File.Exists(path))
+            {
                 return (ConsoleColor.Gray, ConsoleColor.Black, 15, 1);
+            }
 
             var lines = File.ReadAllLines(path);
             var fore = 15;
             var back = 1;
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 var raw = lines[i].Trim();
                 if (string.IsNullOrEmpty(raw) || raw.StartsWith(";"))
+                {
                     continue;
+                }
 
                 if (raw.Equals("[FORECOLOR]", StringComparison.OrdinalIgnoreCase))
+                {
                     fore = ParseConfigColor(lines, ref i, fore);
+                }
                 else if (raw.Equals("[BACKCOLOR]", StringComparison.OrdinalIgnoreCase))
+                {
                     back = ParseConfigColor(lines, ref i, back);
+                }
             }
 
             return (MapDosColor(fore), MapDosColor(back), fore, back);
@@ -147,10 +163,14 @@ public static class MainMenu
             {
                 var raw = lines[index].Trim();
                 if (string.IsNullOrEmpty(raw) || raw.StartsWith(";"))
+                {
                     continue;
+                }
 
                 if (int.TryParse(raw, out var value) && value >= 0 && value < 16)
+                {
                     return value;
+                }
 
                 return defaultValue;
             }
@@ -210,7 +230,7 @@ public static class MainMenu
         internal static void SaveColorSettings(int foreIndex, int backIndex)
         {
             var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
-            var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : new List<string>();
+            var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : [];
             WriteSection(lines, "[FORECOLOR]", foreIndex.ToString());
             WriteSection(lines, "[BACKCOLOR]", backIndex.ToString());
             File.WriteAllLines(path, lines);
@@ -275,7 +295,9 @@ public static class MainMenu
             foreach (var window in _openWindows)
             {
                 if (!window.IsMinimized)
+                {
                     window.Render();
+                }
             }
         }
 
@@ -290,11 +312,17 @@ public static class MainMenu
         private void DrawTaskBar()
         {
             var minimized = MinimizedWindows();
-            if (minimized.Count == 0) return;
+            if (minimized.Count == 0)
+            {
+                return;
+            }
 
             var topRow = Console.WindowHeight - 2;
             var botRow = Console.WindowHeight - 1;
-            if (topRow < 0) return;
+            if (topRow < 0)
+            {
+                return;
+            }
 
             var previousFg = Console.ForegroundColor;
             var previousBg = Console.BackgroundColor;
@@ -304,7 +332,10 @@ public static class MainMenu
             var col = 0;
             foreach (var w in minimized)
             {
-                if (col + IconWidth > Console.WindowWidth) break;
+                if (col + IconWidth > Console.WindowWidth)
+                {
+                    break;
+                }
 
                 var label = w.Title.Length > 8 ? w.Title[..8] : w.Title;
                 var padded = label.PadLeft((8 + label.Length) / 2).PadRight(8);
@@ -344,7 +375,9 @@ public static class MainMenu
 
                 var active = _openWindows.LastOrDefault(w => !w.IsMinimized);
                 if (active is not null && active.HandleKey(key))
+                {
                     return true;
+                }
 
                 var ch = char.ToUpperInvariant(key.KeyChar);
                 var button = _buttons.FirstOrDefault(b => b.Shortcut == ch);
@@ -357,7 +390,10 @@ public static class MainMenu
                 return false;
             }
 
-            if (ev.Mouse is not { } click) return false;
+            if (ev.Mouse is not { } click)
+            {
+                return false;
+            }
 
             if (click.Row == 1)
             {
@@ -399,8 +435,15 @@ public static class MainMenu
                 {
                     if (!click.IsPress)
                     {
-                        if (action == WindowAction.Close) CloseWindow(clickedWindow);
-                        else if (action == WindowAction.Minimize) MinimizeWindow(clickedWindow);
+                        if (action == WindowAction.Close)
+                        {
+                            CloseWindow(clickedWindow);
+                        }
+                        else if (action == WindowAction.Minimize)
+                        {
+                            MinimizeWindow(clickedWindow);
+                        }
+
                         return true;
                     }
                     return false;
@@ -448,9 +491,16 @@ public static class MainMenu
             var col = 0;
             for (var i = 0; i < minimized.Count; i++)
             {
-                if (col + IconWidth > Console.WindowWidth) break;
+                if (col + IconWidth > Console.WindowWidth)
+                {
+                    break;
+                }
+
                 if (column >= col && column < col + IconWidth)
+                {
                     return i;
+                }
+
                 col += IconWidth + 1;
             }
             return -1;
@@ -459,16 +509,24 @@ public static class MainMenu
         private TopBarAction HitTopBar(int column)
         {
             if (column >= _topReopenStart && column < _topReopenEnd)
+            {
                 return TopBarAction.Reopen;
+            }
+
             if (column >= _topExitStart && column < _topExitEnd)
+            {
                 return TopBarAction.Exit;
+            }
+
             return TopBarAction.None;
         }
 
         private void BringToFront(AppWindow window)
         {
             if (_openWindows.Remove(window))
+            {
                 _openWindows.Add(window);
+            }
         }
 
         private void RestoreWindow(AppWindow window)
@@ -527,11 +585,11 @@ public static class MainMenu
     private static class XwinHelpers
     {
         public static readonly string[] Names =
-        {
+        [
             "Preto", "Azul escuro", "Verde", "Ciano", "Vermelho", "Magenta", "Marrom", "Branco",
             "Cinza", "Azul claro", "Verde claro", "Ciano claro", "Vermelho claro", "Magenta claro",
             "Amarelo", "Branco alta intensidade"
-        };
+        ];
 
         public static ConsoleColor ToConsoleColor(int dosColor)
         {
@@ -569,7 +627,7 @@ public static class MainMenu
         public static void SaveColorSettings(int foreIndex, int backIndex)
         {
             var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
-            var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : new List<string>();
+            var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : [];
             WriteSection(lines, "[FORECOLOR]", foreIndex.ToString());
             WriteSection(lines, "[BACKCOLOR]", backIndex.ToString());
             File.WriteAllLines(path, lines);
@@ -615,7 +673,9 @@ public static class MainMenu
         {
             var ch = char.ToUpperInvariant(key.KeyChar);
             if (key.Key == ConsoleKey.Escape)
+            {
                 return false;
+            }
 
             var button = _buttons.FirstOrDefault(b => b.Shortcut == ch);
             if (button is not null)
@@ -633,7 +693,9 @@ public static class MainMenu
             for (var index = 0; index < _buttons.Count; index++)
             {
                 if (row != bodyTop + index)
+                {
                     continue;
+                }
 
                 var left = X + 2;
                 var button = _buttons[index];
@@ -724,7 +786,11 @@ public static class MainMenu
         public bool TryHandleCaptionClick(int col, int row, out WindowAction action)
         {
             action = WindowAction.None;
-            if (row != Y) return false;
+            if (row != Y)
+            {
+                return false;
+            }
+
             var minimizeX = X + Width - 8;
             var closeX = X + Width - 5;
             if (col >= closeX && col < closeX + 3)
@@ -755,7 +821,10 @@ public static class MainMenu
             Console.Write('╚' + new string('═', width - 2) + '╝');
             var titleText = $" {title} ";
             if (titleText.Length > width - 10)
+            {
                 titleText = titleText[..(width - 10)];
+            }
+
             Console.SetCursorPosition(x + 1, y);
             Console.Write(titleText.PadRight(width - 10));
             Console.SetCursorPosition(x + width - 8, y);
@@ -786,14 +855,13 @@ public static class MainMenu
 
         public override void RenderBody()
         {
-            WriteLines(X + 2, Y + 2, Width - 4, new[]
-            {
+            WriteLines(X + 2, Y + 2, Width - 4, [
                 $"Aplicativo: {Name}",
                 string.Empty,
                 _message,
                 string.Empty,
                 "Feche ou minimize esta janela."
-            });
+            ]);
         }
     }
 
@@ -833,14 +901,14 @@ public static class MainMenu
         {
         }
 
-        private readonly string[][] _buttonRows = new[]
-        {
-            new[] { "7", "8", "9", "/" },
-            new[] { "4", "5", "6", "*" },
-            new[] { "1", "2", "3", "-" },
-            new[] { "0", ".", "^", "+" },
-            new[] { "C", "sqrt", "=" }
-        };
+        private readonly string[][] _buttonRows =
+        [
+            ["7", "8", "9", "/"],
+            ["4", "5", "6", "*"],
+            ["1", "2", "3", "-"],
+            ["0", ".", "^", "+"],
+            ["C", "sqrt", "="]
+        ];
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
@@ -894,7 +962,10 @@ public static class MainMenu
             {
                 var buttonRow = _buttonRows[rowIndex];
                 var top = buttonTop + rowIndex;
-                if (row != top) continue;
+                if (row != top)
+                {
+                    continue;
+                }
 
                 var left = X + 2;
                 if (rowIndex < 4)
@@ -1024,7 +1095,7 @@ public static class MainMenu
 
     private sealed class XwinTextWindow : AppWindow
     {
-        private readonly List<string> _lines = new() { string.Empty };
+        private readonly List<string> _lines = [string.Empty];
         private int _row;
         private int _col;
 
@@ -1142,7 +1213,9 @@ public static class MainMenu
         public override bool HandleKey(ConsoleKeyInfo key)
         {
             if (key.Key == ConsoleKey.Escape)
+            {
                 return false;
+            }
 
             if (key.Key == ConsoleKey.Enter)
             {
@@ -1169,13 +1242,24 @@ public static class MainMenu
             {
                 var left = X + 2 + index * (swatchWidth + 1);
                 if (row == foregroundTop && col >= left && col < left + swatchWidth)
+                {
                     SelectForeground(index);
+                }
+
                 if (row == foregroundTop + 1 && col >= left && col < left + swatchWidth)
+                {
                     SelectForeground(index + 8);
+                }
+
                 if (row == backgroundTop && col >= left && col < left + swatchWidth)
+                {
                     SelectBackground(index);
+                }
+
                 if (row == backgroundTop + 1 && col >= left && col < left + swatchWidth)
+                {
                     SelectBackground(index + 8);
+                }
             }
 
             var saveLeft = X + 2;
@@ -1313,7 +1397,10 @@ public static class MainMenu
                     while (ops.Count > 0 && ops.Peek() != '(')
                         ApplyTop(values, ops);
                     if (ops.Count > 0)
+                    {
                         ops.Pop();
+                    }
+
                     continue;
                 }
 
@@ -1334,7 +1421,11 @@ public static class MainMenu
             var builder = new StringBuilder();
             foreach (var ch in expression)
             {
-                if (char.IsWhiteSpace(ch)) continue;
+                if (char.IsWhiteSpace(ch))
+                {
+                    continue;
+                }
+
                 if (char.IsDigit(ch) || ch == '.')
                 {
                     builder.Append(ch);
@@ -1351,23 +1442,36 @@ public static class MainMenu
             }
 
             if (builder.Length > 0)
+            {
                 yield return builder.ToString();
+            }
         }
 
         private static void ApplyTop(Stack<decimal> values, Stack<char> ops)
         {
-            if (ops.Count == 0) return;
+            if (ops.Count == 0)
+            {
+                return;
+            }
+
             var op = ops.Pop();
             if (op == 's')
             {
                 if (values.Count < 1)
+                {
                     throw new InvalidOperationException("Operador sqrt sem operandos");
+                }
+
                 var operand = values.Pop();
                 values.Push((decimal)Math.Sqrt((double)operand));
                 return;
             }
 
-            if (values.Count < 2) return;
+            if (values.Count < 2)
+            {
+                return;
+            }
+
             var right = values.Pop();
             var left = values.Pop();
             values.Push(op switch

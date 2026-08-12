@@ -13,7 +13,10 @@ public static class PathResolver
 {
     public static string Resolve(string userPath)
     {
-        if (string.IsNullOrEmpty(userPath)) return userPath;
+        if (string.IsNullOrEmpty(userPath))
+        {
+            return userPath;
+        }
 
         var isRooted = Path.IsPathRooted(userPath);
         var basePath = isRooted ? Path.GetPathRoot(userPath)! : Directory.GetCurrentDirectory();
@@ -39,7 +42,10 @@ public static class PathResolver
 
     private static string? FindEntryIgnoreCase(string dir, string name)
     {
-        if (!Directory.Exists(dir)) return null;
+        if (!Directory.Exists(dir))
+        {
+            return null;
+        }
 
         try
         {
@@ -47,7 +53,9 @@ public static class PathResolver
             {
                 var entryName = Path.GetFileName(entry);
                 if (string.Equals(entryName, name, StringComparison.OrdinalIgnoreCase))
+                {
                     return entryName;
+                }
             }
         }
         catch (IOException) { }
