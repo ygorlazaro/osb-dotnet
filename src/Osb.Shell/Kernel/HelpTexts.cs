@@ -1,0 +1,126 @@
+namespace Osb.Shell.Kernel;
+
+/// <summary>
+/// Porte do sistema de ajuda original (HELP.BAS + Help/OSB.HLP). O HELP.BAS
+/// original era só um leitor: a ajuda de verdade vinha do OSB.HLP, um arquivo de
+/// blocos "-COMANDO ... -ENDCOMMAND" com sintaxe e exemplos por comando. Esse
+/// conteúdo (o arquivo é texto puro, não binário) foi recuperado e é reproduzido
+/// aqui, com pequenos ajustes onde o comportamento do port difere do DOS original
+/// (ex: DATE/TIME não alteram mais o relógio do sistema) e documentação para os
+/// comandos que não existiam no OSB.HLP original (PWD, DIR /W, CLEAR, edição de
+/// linha com setas).
+/// </summary>
+public static class HelpTexts
+{
+    private static readonly Dictionary<string, string> Texts = LoadHelpFile();
+
+    private static string HelpFilePath => Path.Combine(AppContext.BaseDirectory, "CONF", "OSB.HLP");
+
+    private static Dictionary<string, string> LoadHelpFile()
+    {
+        var texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(HelpFilePath))
+            return texts;
+
+        string? currentKey = null;
+        var builder = new System.Text.StringBuilder();
+
+        foreach (var line in File.ReadAllLines(HelpFilePath))
+        {
+            var rawLine = line.TrimEnd();
+            if (string.IsNullOrWhiteSpace(rawLine))
+            {
+                if (currentKey != null && builder.Length > 0)
+                    builder.AppendLine();
+                continue;
+            }
+
+            if (rawLine.StartsWith("-ENDCOMMAND", StringComparison.OrdinalIgnoreCase))
+            {
+                if (currentKey != null)
+                {
+                    texts[currentKey] = builder.ToString().TrimEnd();
+                    currentKey = null;
+                    builder.Clear();
+                }
+                continue;
+            }
+
+            if (rawLine.StartsWith("-ENDOFFILE", StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (rawLine.StartsWith("-"))
+            {
+                if (currentKey != null)
+                {
+                    texts[currentKey] = builder.ToString().TrimEnd();
+                    builder.Clear();
+                }
+
+                currentKey = rawLine[1..].Trim().ToUpperInvariant();
+                continue;
+            }
+
+            if (currentKey == null)
+                continue;
+
+            builder.AppendLine(rawLine);
+        }
+
+        if (currentKey != null)
+            texts[currentKey] = builder.ToString().TrimEnd();
+
+        return texts;
+    }
+
+    private static readonly (string Titulo, string[] Comandos)[] Categorias =
+    {
+        ("Arquivos e diretórios", new[] { "DIR", "CD", "MD", "RD", "COPY", "ERASE", "REN", "TYPE", "SIZE", "TREE", "PWD", "PRINT" }),
+        ("Sistema", new[] { "CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "RPT", "HISTORY", "HOSTNAME", "USER" }),
+        ("Aplicativos e jogos", new[] { "APLIC", "GAMES", "CAL", "KISS", "X" }),
+        ("Programas externos", new[] { "." }),
+    };
+
+    /// <summary>O que HELP (sem argumento) mostra: a lista de comandos por categoria, mais dicas.</summary>
+    private static string BuildOverview()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Comandos disponíveis:");
+        sb.AppendLine();
+
+        foreach (var (titulo, comandos) in Categorias)
+        {
+            sb.AppendLine($"[{titulo}]");
+            foreach (var cmd in comandos)
+            {
+                var resumo = Texts.TryGetValue(cmd, out var texto) ? texto.Split('\n')[0] : string.Empty;
+                sb.AppendLine($"  {cmd,-8}{resumo}");
+            }
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("Dicas:");
+        sb.AppendLine("  <comando>/?  exibe a ajuda detalhada de um comando específico");
+        sb.AppendLine("               (ex: DIR/? - mesma coisa que HELP DIR)");
+        sb.AppendLine("  Setas ←→     editam o comando que você está digitando, antes de enviar");
+        sb.AppendLine("  Setas ↑↓     navegam pelo histórico de comandos já digitados (estilo DOSKEY)");
+        sb.AppendLine("  RPT          repete o último comando exatamente como foi digitado");
+        sb.AppendLine("  HISTORY      lista todo o histórico numerado e deixa escolher qual repetir");
+        return sb.ToString();
+    }
+
+    public static void Show(string command)
+    {
+        command = command.Trim().ToUpperInvariant();
+        if (command is "" or "HELP")
+        {
+            Console.WriteLine(BuildOverview());
+            return;
+        }
+
+        if (Texts.TryGetValue(command, out var text))
+            Console.WriteLine(text);
+        else
+            Console.WriteLine($"Tópico de ajuda não encontrado: '{command}'. Digite HELP para ver a lista completa.");
+    }
+}

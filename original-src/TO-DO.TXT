@@ -1,0 +1,10 @@
+Adicionar suporte a Cd-rom e Zip-Drive
+ 
+Adicionar suporte para desligar o computador e reiniciar o computador no Exit
+ 
+Adicionar um comando como o Deltree do MS-DOS
+ 
+Adicionar um comando como o Copy do MS-DOS
+ 
+Utilizar outro tipo de Dir, sem ser o Files do BC7
+ 

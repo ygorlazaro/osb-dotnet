@@ -1,0 +1,233 @@
+-.
+Executa um programa/aplicativo do MS-DOS ou OSB
+Modo simples de usar: .<Nome do programa>
+
+[@] .GAME
+Executa o aplicativo GAME
+-ENDCOMMAND
+
+-ABOUT
+Mostra as informaá‰es b†sicas sobre o sistema.
+Modo simples de usar: ABOUT
+-ENDCOMMAND
+
+-APLIC
+Exibe e executa os aplicativos instalados no sistema
+Modo simples de usar: APLIC
+
+[@] APLIC
+Executar† o comando APLIC
+
+[@] APLIC KISS
+Executar† o aplicativo KISS
+-ENDCOMMAND
+
+-CAL
+Exibe um calend†rio
+Modo simples de usar: CAL
+-ENDCOMMAND
+
+-CD
+Entra em um diret¢rio.
+Modo simples de usar: CD <Nome do diret¢rio>
+
+[@] CD TEMP
+Entra no diret¢rio TEMP
+
+[@] CD..
+Sai de um diret¢rio
+
+[@] CD\
+Retorna ao diret¢rio raiz
+-ENDCOMMAND
+
+-CLS
+Limpa a tela.
+Modo simples de usar: CLS
+-ENDCOMMAND
+
+-COLOR
+Escolhe as cores de fundo e de letra do OSB 2.0.
+Modo simples de usar: COLOR
+-ENDCOMMAND
+
+-CONFIG
+Faz as alteraá‰es para as configuraá‰es b†sicas do PC.
+Modo simples de usar: CONFIG
+-ENDCOMMAND
+
+-COPY
+Copia um arquivo de texto simples.
+Modo simples de usar: COPY
+
+[@] COPY
+Entre com o arquivo de origem: C:\ORIGEM.TXT
+Entre com o arquivo de destino: C:\DESTINO.TXT
+-ENDCOMMAND
+
+-DATE
+Exibe e altera a data do sistema.
+Modo simples de usar: DATE
+-ENDCOMMAND
+
+-DIR
+Exibe os arquivos e diret¢rios.
+Modo simples de usar: DIR
+
+Para exbir somente arquivos .com, digite:
+[@] DIR *.COM
+
+Para exibir todos os arquivos do disquete:
+[@] DIR A:\
+-ENDCOMMAND
+
+-ERASE
+Exclui arquivos do disco.
+Modo simples de usar: ERASE
+
+Para excluir um arquivo:
+[@] ERASE ARQUIVO.ARQ
+
+Para excluir todos os arquivos de extens∆o .TMP:
+[@] ERASE *.TMP
+-ENDCOMMAND
+
+-EXIT
+Prepara seu computador para desligar, reiniciar ou passar o comando ao MS-DOS©
+Modo simples de usar: EXIT
+-ENDCOMMAND
+
+-GAMES
+Exibe e executa os jogos instalados no sistema
+Modo simples de usar: GAMES
+
+[@] GAMES
+Executar† o comando GAMES
+
+[@] GAMES HANGMAN
+Executar† o jogo HANGMAN
+-ENDCOMMAND
+
+-HELP
+Comandos dispon°veis: 
+
+<Comando>/? = Exibe ajuda detalhada do comando
+. = Executa um programa do MS-DOS ou OSB
+ABOUT = Sobre o OSB 2.0
+APLIC = Mostra os aplicativos inclusos com OSB 2.0
+CAL = Calend†rio simples
+CD = Entrar em um diret¢rio
+CLS = Limpar a tela
+COLOR = Trocar a cor da tela
+CONFIG = Configuraá‰es do sistema operacional e do PC
+COPY = Copia um arquivo simples
+DATE = Exibir/Trocar a data
+DIR = Mostra os arquivos de uma diret¢rio
+ERASE = Apaga arquivos
+EXIT = Desliga, reinicia ou entra no MS-DOS©
+GAMES = Mostra os jogos inclusos com OSB 2.0
+HELP = Menu de ajuda
+KISS = Editor de arquivos em modo texto
+MD = Cria um diret¢rio
+PRINT = Imprime um arquivo
+RD = Remove um diret¢rio vazio
+RPT = Repete o £ltimo comando
+REN = Renomeia um arquivo
+SIZE = Exibe o tamanho de um arquivo
+TIME = Exibir/Trocar a hora
+TREE = Lista todos os diretorios de uma unidade em arvore.
+TYPE = Mostra o conte£do de um arquivo
+VER = Exibe a vers∆o do sistema
+X = Exibe as interfaces do sistema
+Para uma ajuda mais detalhada, utilize o comando seguido de /?
+Exemplo: Para pedir uma ajuda mais detalhada do comando DIR
+[@] DIR/?
+-ENDCOMMAND
+
+-KISS
+Edita um arquivo de texto
+Modo simples de usar: KISS <Nome do arquivo>
+
+[@] KISS C:\Carta.txt
+Abre o arquivo C:\Carta.txt
+-ENDCOMMAND
+
+-MD
+Cria um diret¢rio.
+Modo simples de usar: MD <Nome do diret¢rio>
+
+[@] MD TEMP
+-ENDCOMMAND
+
+-PRINT
+Envia um arquivo para a impressora.
+Modo simples de usar: PRINT <Nome do Arquivo>
+
+[@] PRINT CARTA.TXT
+Imprimindo... (CARTA.TXT)
+-ENDCOMMAND
+
+-RD
+Exclui um diret¢rio vazio.
+Modo simples de usar: RD <Nome do diret¢rio>
+
+[@] RD TEMP
+-ENDCOMMAND
+
+-REN
+Renomeia um ou mais arquivos.
+
+[@] REN
+Entre com o nome antigo: TEXTO.TXT
+Entre com o nome novo: CARTA.TXT
+Renomeia o arquivo TEXTO.TXT para CARTA.TXT
+
+[@] REN
+Entre com o nome antigo: *.TXT
+Entre com o nome novo: *.DOC
+Renomeia todos os arquivos *.TXT para *.DOC
+-ENDCOMMAND
+
+-RPT
+Repete o £ltimo comando dado ao OSB 2.0
+Modo simples de usar: RPT
+
+[@] PRINT CARTA.TXT
+Imprimindo... (CARTA.TXT); 
+
+[@] RPT
+Imprimindo... (CARTA.TXT)
+-ENDCOMMAND
+
+-SIZE
+Retorna o tamanho de um arquivo (em Kbytes).
+Modo simples de usar: SIZE <Nome do arquivo>
+
+[@] SIZE ARQUIVO.DOC
+625 Kbytes
+-ENDCOMMAND
+
+-TIME
+Exibe e altera a hora do sistema.
+Modo simples de usar: TIME
+-ENDCOMMAND
+
+-TREE
+Lista todos os diretorios de uma unidade em uma arvore.
+Modo simples de usar: TREE
+-ENDCOMMAND
+
+-TYPE
+Exibe o conte£do de um arquivo.
+Modo simples de usar: TYPE <Nome do arquivo>
+
+[@] TYPE ARQUIVO.TXT
+Este Ç o conte£do de ARQUIVO.TXT
+-ENDCOMMAND
+
+-VER
+Exibe a vers∆o do Sistema Operacional.
+Modo simples de usar: VER
+-ENDCOMMAND
+
+-ENDOFFILE

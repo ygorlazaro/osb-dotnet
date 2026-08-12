@@ -1,0 +1,15 @@
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Shell
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Shell.deps.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Shell.runtimeconfig.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Shell.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Shell.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.GeneratedMSBuildEditorConfig.editorconfig
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.AssemblyInfoInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.AssemblyInfo.cs
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/refint/Osb.Shell.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.genruntimeconfig.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/ref/Osb.Shell.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/CONF/OSB.HLP

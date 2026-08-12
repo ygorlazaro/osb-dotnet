@@ -1,0 +1,14 @@
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/bin/Debug/net10.0/Osb.Xwin
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/bin/Debug/net10.0/Osb.Xwin.deps.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/bin/Debug/net10.0/Osb.Xwin.runtimeconfig.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/bin/Debug/net10.0/Osb.Xwin.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/bin/Debug/net10.0/Osb.Xwin.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.GeneratedMSBuildEditorConfig.editorconfig
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.AssemblyInfoInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.AssemblyInfo.cs
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/refint/Osb.Xwin.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.genruntimeconfig.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/ref/Osb.Xwin.dll

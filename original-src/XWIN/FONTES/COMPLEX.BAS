@@ -1,0 +1,20 @@
+
+  SCREEN 12
+1 FOR c = 1 TO 10
+  FOR b = 1 TO 200 STEP 5
+  FOR a = 1 TO 360 STEP 20
+  ANGLE = a * 3.141592654# / 180
+  IF INKEY$ <> "" THEN c = 9: e = 1
+  CIRCLE (b * SIN(ANGLE) + 300, b * COS(ANGLE) + 225), b
+  NEXT a
+  IF c = 10 THEN COLOR 0: GOTO 2
+  COLOR INT(RND * 16)
+  IF c = 9 THEN COLOR 0
+2 NEXT b
+  NEXT c
+  COLOR 15
+  IF e = 1 THEN END:  ELSE GOTO 1
+
+
+
+
