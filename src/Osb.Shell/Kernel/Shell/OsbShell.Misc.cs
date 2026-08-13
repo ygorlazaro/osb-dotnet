@@ -76,19 +76,39 @@ public partial class OsbShell
             return;
         }
 
-        var count = 100;
-        if (!string.IsNullOrWhiteSpace(args) && int.TryParse(args.Trim(), out var requestedCount) && requestedCount > 0)
+        var trimmedArgs = args.Trim();
+        List<string> itemsToDisplay;
+
+        if (string.IsNullOrWhiteSpace(trimmedArgs))
         {
-            count = requestedCount;
+            var count = Math.Min(100, _history.Count);
+            var startIndex = _history.Count - count;
+            itemsToDisplay = _history.GetRange(startIndex, count);
+        }
+        else if (int.TryParse(trimmedArgs, out var requestedCount) && requestedCount > 0)
+        {
+            var count = Math.Min(requestedCount, _history.Count);
+            var startIndex = _history.Count - count;
+            itemsToDisplay = _history.GetRange(startIndex, count);
+        }
+        else
+        {
+            itemsToDisplay = _history
+                .Where(h => h.Trim().StartsWith(trimmedArgs, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (itemsToDisplay.Count == 0)
+            {
+                Console.WriteLine($"Nenhum comando no histórico começa com '{trimmedArgs}'.");
+                return;
+            }
         }
 
-        count = Math.Min(count, _history.Count);
-        var startIndex = _history.Count - count;
         const int pageSize = 20;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < itemsToDisplay.Count; i++)
         {
-            Console.WriteLine($"{i + 1,4}  {_history[startIndex + i]}");
-            if ((i + 1) % pageSize == 0 && i + 1 < count)
+            Console.WriteLine($"{i + 1,4}  {itemsToDisplay[i]}");
+            if ((i + 1) % pageSize == 0 && i + 1 < itemsToDisplay.Count)
             {
                 Console.Write("-----Pressione ENTER para continuar----");
                 Console.ReadLine();
@@ -102,9 +122,9 @@ public partial class OsbShell
             return;
         }
 
-        if (int.TryParse(input, out var n) && n >= 1 && n <= count)
+        if (int.TryParse(input, out var n) && n >= 1 && n <= itemsToDisplay.Count)
         {
-            var cmd = _history[startIndex + n - 1];
+            var cmd = itemsToDisplay[n - 1];
             Console.WriteLine(cmd);
             Execute(cmd);
         }

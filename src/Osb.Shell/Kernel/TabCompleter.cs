@@ -160,6 +160,7 @@ public class TabCompleter
                     break;
 
                 case "HELP":
+                case "HISTORY":
                     foreach (var cmd in CommandVerbs)
                     {
                         if (cmd.StartsWith(cleanToken, StringComparison.OrdinalIgnoreCase))

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Osb.Xwin")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9545c1c34c7b4cd38a1071f11e380a481af68734")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5f8aa022b10efbcede1510e1190e4a62aa637e35")]
 [assembly: System.Reflection.AssemblyProductAttribute("Osb.Xwin")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Osb.Xwin")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

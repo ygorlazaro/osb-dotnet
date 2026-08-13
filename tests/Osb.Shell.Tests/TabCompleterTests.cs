@@ -55,6 +55,15 @@ public class TabCompleterTests
 
     [Fact]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
+    public void CompletesHistoryTopics()
+    {
+        var candidates = _completer.GetCandidates("HISTORY D", 9);
+        Assert.Contains("DIR ", candidates);
+        Assert.Contains("DATE ", candidates);
+    }
+
+    [Fact]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
     public void CalculatesLongestCommonPrefix()
     {
         var lcp = TabCompleter.GetLongestCommonPrefix(["CLEAR ", "CLEAN "]);

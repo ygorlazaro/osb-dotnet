@@ -59,7 +59,10 @@ public static class MainMenu
             var config = LoadConfigEntries();
             _buttons = config.Select(entry => new AppButton(entry.Name, entry.Description, entry.Shortcut)).ToList();
             _buttons.Add(new AppButton("CONTROL", "Painel de Controle", 'P'));
-            _buttons.Add(new AppButton("CALC", "Calculadora ASCII", 'C'));
+            _buttons.Add(new AppButton("CALC", "Calculadora XWin", 'C'));
+            _buttons.Add(new AppButton("XWIN_TEXT", "Editor de Texto", 'E'));
+            _buttons.Add(new AppButton("CALENDAR", "Calendário", 'L'));
+            _buttons.Add(new AppButton("CLOCK", "Relógio Digital", 'R'));
             _buttons.Add(new AppButton("ABOUT", "Sobre o XWIN", 'A'));
             _openWindows.Add(new AppMenuWindow(4, 4, Math.Min(48, Console.WindowWidth - 8), 18, _buttons, LaunchOrToggle));
         }
@@ -71,12 +74,35 @@ public static class MainMenu
             Console.Clear();
             Console.CursorVisible = false;
             RenderDesktop();
+            var lastTick = DateTime.Now;
+
             while (_running)
             {
-                var ev = MouseInput.Read();
-                if (HandleInput(ev))
+                var now = DateTime.Now;
+                if ((now - lastTick).TotalMilliseconds >= 50)
+                {
+                    lastTick = now;
+                    foreach (var w in _openWindows)
+                    {
+                        if (!w.IsMinimized)
+                        {
+                            w.Tick();
+                        }
+                    }
+                }
+
+                if (Console.KeyAvailable)
+                {
+                    var ev = MouseInput.Read();
+                    if (HandleInput(ev))
+                    {
+                        RenderDesktop();
+                    }
+                }
+                else
                 {
                     RenderDesktop();
+                    Thread.Sleep(30);
                 }
             }
         }
@@ -654,10 +680,12 @@ public static class MainMenu
             AppWindow window = appName.ToUpperInvariant() switch
             {
                 "APP_MENU" => new AppMenuWindow(4, 4, Math.Min(48, Console.WindowWidth - 8), 18, _buttons, LaunchOrToggle),
-                "XWIN_TEXT" or "XWINTEXT" => new XwinTextWindow(8, 6, 48, 14),
+                "XWIN_TEXT" or "XWINTEXT" or "EDIT" or "KISS" => new XwinTextWindow(6, 4, 56, 19),
+                "CALC" or "CALCULATOR" => new CalculatorWindow(12, 5, 38, 17),
+                "CALENDAR" or "CAL" => new CalendarWindow(14, 5, 38, 17),
+                "CLOCK" or "RELOGIO" or "TIME" => new ClockWindow(16, 6, 40, 14),
                 "MJB" => new MjbWindow(14, 5, 46, 16),
                 "CONTROL" => new ControlPanelWindow(6, 4, 58, 18, _currentForeColor, _currentBackColor, ApplyColorScheme),
-                "CALC" => new CalculatorWindow(12, 7, 36, 14),
                 "ABOUT" => new AboutWindow(16, 8, 42, 12),
                 _ => new PlaceholderWindow(appName, 18, 9, 40, 10),
             };
@@ -1016,62 +1044,81 @@ public static class MainMenu
     {
         private string _formula = string.Empty;
         private string _result = string.Empty;
-        private int _cursor = 0;
 
         public CalculatorWindow(int x, int y, int width, int height)
-            : base("CALC", "Calculadora", x, y, width, height)
+            : base("CALC", "Calculadora XWin", x, y, width, height)
         {
         }
 
-        private readonly string[][] _buttonRows =
+        private sealed record CalcButton(string Label, string Action, int Col, int Row, int Width);
+
+        private static readonly CalcButton[] Buttons =
         [
-            ["7", "8", "9", "/"],
-            ["4", "5", "6", "*"],
-            ["1", "2", "3", "-"],
-            ["0", ".", "^", "+"],
-            ["C", "sqrt", "="]
+            new("C", "CLEAR", 2, 8, 5),
+            new("(", "(", 8, 8, 5),
+            new(")", ")", 14, 8, 5),
+            new("/", "/", 20, 8, 5),
+            new("sqrt", "sqrt", 26, 8, 7),
+
+            new("7", "7", 2, 10, 5),
+            new("8", "8", 8, 10, 5),
+            new("9", "9", 14, 10, 5),
+            new("*", "*", 20, 10, 5),
+            new("^", "^", 26, 10, 7),
+
+            new("4", "4", 2, 12, 5),
+            new("5", "5", 8, 12, 5),
+            new("6", "6", 14, 12, 5),
+            new("-", "-", 20, 12, 5),
+            new("%", "%", 26, 12, 7),
+
+            new("1", "1", 2, 14, 5),
+            new("2", "2", 8, 14, 5),
+            new("3", "3", 14, 14, 5),
+            new("+", "+", 20, 14, 5),
+            new("=", "=", 26, 14, 7),
+
+            new("0", "0", 2, 16, 11),
+            new(".", ".", 14, 16, 5),
+            new("BKSP", "BKSP", 20, 16, 13),
         ];
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
-            if (key.Key == ConsoleKey.Backspace && _cursor > 0)
+            if (key.Key == ConsoleKey.Backspace)
             {
-                _formula = _formula.Remove(_cursor - 1, 1);
-                _cursor--;
-                return true;
-            }
-            if (key.Key == ConsoleKey.LeftArrow && _cursor > 0)
-            {
-                _cursor--;
-                return true;
-            }
-            if (key.Key == ConsoleKey.RightArrow && _cursor < _formula.Length)
-            {
-                _cursor++;
+                ExecuteAction("BKSP");
                 return true;
             }
             if (key.Key == ConsoleKey.Enter)
             {
-                _result = Evaluate(_formula);
+                ExecuteAction("=");
                 return true;
             }
             if (key.Key == ConsoleKey.Escape)
             {
-                _formula = string.Empty;
-                _result = string.Empty;
-                _cursor = 0;
+                ExecuteAction("CLEAR");
                 return true;
             }
-            if (!char.IsControl(key.KeyChar) && "0123456789+-*/^.()sS".Contains(key.KeyChar))
+
+            var ch = key.KeyChar;
+            if (!char.IsControl(ch))
             {
-                var text = key.KeyChar.ToString();
-                if (char.ToUpperInvariant(key.KeyChar) == 'S')
+                if ("0123456789+-*/^.()%".Contains(ch))
                 {
-                    text = "sqrt(";
+                    ExecuteAction(ch.ToString());
+                    return true;
                 }
-                _formula = _formula.Insert(_cursor, text);
-                _cursor += text.Length;
-                return true;
+                if (char.ToUpperInvariant(ch) == 'C')
+                {
+                    ExecuteAction("CLEAR");
+                    return true;
+                }
+                if (char.ToUpperInvariant(ch) == 'S')
+                {
+                    ExecuteAction("sqrt");
+                    return true;
+                }
             }
 
             return false;
@@ -1079,134 +1126,104 @@ public static class MainMenu
 
         public override void HandleMousePress(int col, int row)
         {
-            var buttonTop = Y + 12;
-            for (var rowIndex = 0; rowIndex < _buttonRows.Length; rowIndex++)
+            foreach (var b in Buttons)
             {
-                var buttonRow = _buttonRows[rowIndex];
-                var top = buttonTop + rowIndex;
-                if (row != top)
+                var btnLeft = X + b.Col;
+                var btnTop = Y + b.Row - 2;
+                if (row == btnTop && col >= btnLeft && col < btnLeft + b.Width)
                 {
-                    continue;
-                }
-
-                var left = X + 2;
-                if (rowIndex < 4)
-                {
-                    for (var colIndex = 0; colIndex < buttonRow.Length; colIndex++)
-                    {
-                        var buttonText = buttonRow[colIndex];
-                        if (col >= left && col < left + 7)
-                        {
-                            ExecuteButton(buttonText);
-                            return;
-                        }
-                        left += 8;
-                    }
-                }
-                else
-                {
-                    var widths = new[] { 10, 10, 10 };
-                    for (var colIndex = 0; colIndex < buttonRow.Length; colIndex++)
-                    {
-                        var width = widths[colIndex];
-                        if (col >= left && col < left + width)
-                        {
-                            ExecuteButton(buttonRow[colIndex]);
-                            return;
-                        }
-                        left += width + 1;
-                    }
+                    ExecuteAction(b.Action);
+                    return;
                 }
             }
         }
 
-        private void ExecuteButton(string buttonText)
+        private void ExecuteAction(string act)
         {
-            switch (buttonText)
+            switch (act)
             {
-                case "C":
+                case "CLEAR":
                     _formula = string.Empty;
                     _result = string.Empty;
-                    _cursor = 0;
+                    break;
+                case "BKSP":
+                    if (_formula.Length > 0)
+                    {
+                        _formula = _formula[..^1];
+                    }
                     break;
                 case "=":
                     _result = Evaluate(_formula);
                     break;
                 case "sqrt":
-                    _formula = _formula.Insert(_cursor, "sqrt(");
-                    _cursor += 5;
+                    _formula += "sqrt(";
                     break;
                 default:
-                    _formula = _formula.Insert(_cursor, buttonText);
-                    _cursor += buttonText.Length;
+                    _formula += act;
                     break;
             }
         }
 
         public override void RenderBody()
         {
-            var lines = new List<string>
+            var displayBoxWidth = Width - 6;
+
+            var displayLines = new List<string>
             {
-                "Calculadora ASCII",
-                string.Empty,
-                "Use números e + - * / ^ . ( ) e sqrt()",
-                "Enter ou clique em = para calcular.",
-                string.Empty,
-                "Expressão:",
-                _formula,
-                string.Empty,
-                "Resultado:",
-                _result,
-                string.Empty,
-                "Clique nos botões abaixo ou use o teclado. Esc limpa.",
-                string.Empty
+                "┌" + new string('─', displayBoxWidth) + "┐"
             };
-            WriteLines(X + 2, Y + 2, Width - 4, lines);
-            var buttonTop = Y + 14;
-            var left = X + 2;
-            for (var rowIndex = 0; rowIndex < _buttonRows.Length; rowIndex++)
+
+            var exprText = string.IsNullOrEmpty(_formula) ? "0" : _formula;
+            if (exprText.Length > displayBoxWidth - 2)
             {
-                var buttonRow = _buttonRows[rowIndex];
-                if (rowIndex < 4)
+                exprText = exprText[^(displayBoxWidth - 2)..];
+            }
+            displayLines.Add("│ " + exprText.PadRight(displayBoxWidth - 2) + " │");
+
+            var resText = string.IsNullOrEmpty(_result) ? "" : "= " + _result;
+            if (resText.Length > displayBoxWidth - 2)
+            {
+                resText = resText[..(displayBoxWidth - 2)];
+            }
+            displayLines.Add("│ " + resText.PadRight(displayBoxWidth - 2) + " │");
+            displayLines.Add("└" + new string('─', displayBoxWidth) + "┘");
+
+            WriteLines(X + 2, Y + 2, displayBoxWidth + 2, displayLines);
+
+            var oldFg = Console.ForegroundColor;
+            var oldBg = Console.BackgroundColor;
+
+            foreach (var b in Buttons)
+            {
+                var btnLeft = X + b.Col;
+                var btnTop = Y + b.Row - 2;
+
+                if (btnTop < Y + Height - 1 && btnLeft < X + Width - 1)
                 {
-                    for (var colIndex = 0; colIndex < buttonRow.Length; colIndex++)
+                    Console.SetCursorPosition(btnLeft, btnTop);
+                    Console.ForegroundColor = b.Action switch
                     {
-                        var label = $"[{buttonRow[colIndex]}]".PadRight(6);
-                        Console.SetCursorPosition(left, buttonTop + rowIndex);
-                        Console.Write(label);
-                        left += 8;
-                    }
+                        "=" or "CLEAR" or "BKSP" => ConsoleColor.Yellow,
+                        "+" or "-" or "*" or "/" or "^" or "%" or "sqrt" => ConsoleColor.Cyan,
+                        _ => ConsoleColor.White
+                    };
+                    Console.BackgroundColor = WindowBackground;
+                    var padLabel = $"[{b.Label}]".PadRight(b.Width);
+                    Console.Write(padLabel);
                 }
-                else
-                {
-                    var widths = new[] { 10, 10, 10 };
-                    for (var colIndex = 0; colIndex < buttonRow.Length; colIndex++)
-                    {
-                        var label = $"[{buttonRow[colIndex]}]".PadRight(widths[colIndex]);
-                        Console.SetCursorPosition(left, buttonTop + rowIndex);
-                        Console.Write(label);
-                        left += widths[colIndex] + 1;
-                    }
-                }
-                left = X + 2;
             }
 
-            var cursorRow = Y + 2 + 6;
-            var cursorCol = X + 2 + Math.Min(_cursor, Width - 5);
-            if (cursorRow < Console.WindowHeight && cursorCol < Console.WindowWidth)
-            {
-                Console.SetCursorPosition(cursorCol, cursorRow);
-                Console.CursorVisible = true;
-            }
+            Console.ForegroundColor = oldFg;
+            Console.BackgroundColor = oldBg;
         }
 
         private static string Evaluate(string expression)
         {
             try
             {
-                var cleaned = new string(expression.Where(c => "0123456789+-*/^.()sqrt ".Contains(c)).ToArray());
+                var cleaned = new string(expression.Where(c => "0123456789+-*/^.()%sqrt ".Contains(c)).ToArray());
                 var value = SimpleCalculator.Evaluate(cleaned);
-                return value.ToString();
+                return value.ToString("0.######");
             }
             catch (Exception ex)
             {
@@ -1217,23 +1234,83 @@ public static class MainMenu
 
     private sealed class XwinTextWindow : AppWindow
     {
-        private readonly List<string> _lines = [string.Empty];
+        private List<string> _lines = [string.Empty];
         private int _row;
         private int _col;
+        private string? _filePath;
+        private string _fileName = "sem_titulo.txt";
+        private bool _modified;
+        private string _status = "Pronto";
+
+        private enum EditorPromptMode { None, PromptOpen, PromptSave }
+        private EditorPromptMode _promptMode = EditorPromptMode.None;
+        private string _promptInput = string.Empty;
 
         public XwinTextWindow(int x, int y, int width, int height)
-            : base("XWIN_TEXT", "XWinText", x, y, width, height)
+            : base("XWIN_TEXT", "XWinText Editor", x, y, width, height)
         {
         }
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
+            if (_promptMode != EditorPromptMode.None)
+            {
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    var input = _promptInput.Trim();
+                    if (!string.IsNullOrEmpty(input))
+                    {
+                        if (_promptMode == EditorPromptMode.PromptOpen)
+                        {
+                            OpenFile(input);
+                        }
+                        else if (_promptMode == EditorPromptMode.PromptSave)
+                        {
+                            SaveFile(input);
+                        }
+                    }
+                    else
+                    {
+                        _status = "Operação cancelada.";
+                    }
+                    _promptMode = EditorPromptMode.None;
+                    _promptInput = string.Empty;
+                    return true;
+                }
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    _promptMode = EditorPromptMode.None;
+                    _promptInput = string.Empty;
+                    _status = "Operação cancelada.";
+                    return true;
+                }
+                if (key.Key == ConsoleKey.Backspace && _promptInput.Length > 0)
+                {
+                    _promptInput = _promptInput[..^1];
+                    return true;
+                }
+                if (!char.IsControl(key.KeyChar))
+                {
+                    _promptInput += key.KeyChar;
+                    return true;
+                }
+                return true;
+            }
+
+            if (key.Modifiers.HasFlag(ConsoleModifiers.Control))
+            {
+                if (key.Key == ConsoleKey.N) { ActionNew(); return true; }
+                if (key.Key == ConsoleKey.O) { ActionOpenPrompt(); return true; }
+                if (key.Key == ConsoleKey.S) { ActionSave(); return true; }
+            }
+
             if (key.Key == ConsoleKey.Backspace)
             {
                 if (_col > 0)
                 {
                     _lines[_row] = _lines[_row].Remove(_col - 1, 1);
                     _col--;
+                    _modified = true;
                 }
                 else if (_row > 0)
                 {
@@ -1242,10 +1319,27 @@ public static class MainMenu
                     _lines[_row - 1] += _lines[_row];
                     _lines.RemoveAt(_row);
                     _row--;
+                    _modified = true;
                 }
-
                 return true;
             }
+
+            if (key.Key == ConsoleKey.Delete)
+            {
+                if (_col < _lines[_row].Length)
+                {
+                    _lines[_row] = _lines[_row].Remove(_col, 1);
+                    _modified = true;
+                }
+                else if (_row < _lines.Count - 1)
+                {
+                    _lines[_row] += _lines[_row + 1];
+                    _lines.RemoveAt(_row + 1);
+                    _modified = true;
+                }
+                return true;
+            }
+
             if (key.Key == ConsoleKey.Enter)
             {
                 var current = _lines[_row];
@@ -1254,67 +1348,482 @@ public static class MainMenu
                 _lines.Insert(_row + 1, remainder);
                 _row++;
                 _col = 0;
+                _modified = true;
                 return true;
             }
-            if (key.Key == ConsoleKey.LeftArrow && _col > 0)
+
+            if (key.Key == ConsoleKey.LeftArrow)
             {
-                _col--;
+                if (_col > 0) _col--;
+                else if (_row > 0) { _row--; _col = _lines[_row].Length; }
                 return true;
             }
-            if (key.Key == ConsoleKey.RightArrow && _col < _lines[_row].Length)
+
+            if (key.Key == ConsoleKey.RightArrow)
             {
-                _col++;
+                if (_col < _lines[_row].Length) _col++;
+                else if (_row < _lines.Count - 1) { _row++; _col = 0; }
                 return true;
             }
+
             if (key.Key == ConsoleKey.UpArrow && _row > 0)
             {
                 _row--;
                 _col = Math.Min(_col, _lines[_row].Length);
                 return true;
             }
+
             if (key.Key == ConsoleKey.DownArrow && _row < _lines.Count - 1)
             {
                 _row++;
                 _col = Math.Min(_col, _lines[_row].Length);
                 return true;
             }
+
             if (!char.IsControl(key.KeyChar))
             {
                 _lines[_row] = _lines[_row].Insert(_col, key.KeyChar.ToString());
                 _col++;
+                _modified = true;
                 return true;
             }
 
             return false;
         }
 
+        public override void HandleMousePress(int col, int row)
+        {
+            var toolbarRow = Y + 2;
+            if (row == toolbarRow)
+            {
+                var left = X + 2;
+                if (col >= left && col < left + 8) { ActionNew(); return; }
+                left += 10;
+                if (col >= left && col < left + 9) { ActionOpenPrompt(); return; }
+                left += 11;
+                if (col >= left && col < left + 10) { ActionSave(); return; }
+                left += 12;
+                if (col >= left && col < left + 10) { _status = "Use botão [X] no topo para fechar."; return; }
+                return;
+            }
+
+            var editTop = Y + 4;
+            var editHeight = Height - 6;
+            if (row >= editTop && row < editTop + editHeight)
+            {
+                var targetRow = row - editTop;
+                if (targetRow >= 0 && targetRow < _lines.Count)
+                {
+                    _row = targetRow;
+                    _col = Math.Clamp(col - (X + 2), 0, _lines[_row].Length);
+                }
+            }
+        }
+
+        private void ActionNew()
+        {
+            _lines = [string.Empty];
+            _row = 0;
+            _col = 0;
+            _filePath = null;
+            _fileName = "sem_titulo.txt";
+            _modified = false;
+            _status = "Novo documento criado.";
+        }
+
+        private void ActionOpenPrompt()
+        {
+            _promptMode = EditorPromptMode.PromptOpen;
+            _promptInput = string.Empty;
+            _status = "Digite o nome do arquivo para abrir:";
+        }
+
+        private void ActionSave()
+        {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                _promptMode = EditorPromptMode.PromptSave;
+                _promptInput = _fileName;
+                _status = "Digite o nome para salvar o arquivo:";
+            }
+            else
+            {
+                SaveFile(_filePath);
+            }
+        }
+
+        private static string ResolvePath(string pathInput)
+        {
+            if (Path.IsPathRooted(pathInput)) return pathInput;
+            return Path.GetFullPath(pathInput);
+        }
+
+        private void OpenFile(string pathInput)
+        {
+            var path = ResolvePath(pathInput);
+            if (File.Exists(path))
+            {
+                try
+                {
+                    _lines = File.ReadAllLines(path).ToList();
+                    if (_lines.Count == 0) _lines.Add(string.Empty);
+                    _filePath = path;
+                    _fileName = Path.GetFileName(path);
+                    _row = 0;
+                    _col = 0;
+                    _modified = false;
+                    _status = $"Aberto: {_fileName}";
+                }
+                catch (Exception ex)
+                {
+                    _status = "Erro ao abrir: " + ex.Message;
+                }
+            }
+            else
+            {
+                _status = "Arquivo não encontrado.";
+            }
+        }
+
+        private void SaveFile(string pathInput)
+        {
+            var path = ResolvePath(pathInput);
+            try
+            {
+                File.WriteAllLines(path, _lines);
+                _filePath = path;
+                _fileName = Path.GetFileName(path);
+                _modified = false;
+                _status = $"Salvo com sucesso em {_fileName}";
+            }
+            catch (Exception ex)
+            {
+                _status = "Erro ao salvar: " + ex.Message;
+            }
+        }
+
         public override void RenderBody()
         {
-            var lines = new List<string>
-            {
-                "Editor XWinText",
-                string.Empty,
-                "Digite texto diretamente nesta janela.",
-                "Setas movimentam, Backspace apaga."
-            };
-            var bodyTop = Y + 2;
-            WriteLines(X + 2, bodyTop, Width - 4, lines);
+            var oldFg = Console.ForegroundColor;
+            var oldBg = Console.BackgroundColor;
 
-            var editTop = bodyTop + lines.Count + 1;
-            for (var i = 0; i < Height - (editTop - Y) - 2; i++)
+            Console.SetCursorPosition(X + 2, Y + 2);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("[ Novo ]  [ Abrir ]  [ Salvar ]  [ Fechar ]");
+
+            Console.SetCursorPosition(X + 2, Y + 3);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write(new string('─', Width - 4));
+
+            Console.ForegroundColor = WindowForeground;
+            Console.BackgroundColor = WindowBackground;
+            var editTop = Y + 4;
+            var editHeight = Height - 6;
+
+            for (var i = 0; i < editHeight; i++)
             {
                 var text = i < _lines.Count ? _lines[i] : string.Empty;
                 Console.SetCursorPosition(X + 2, editTop + i);
                 Console.Write(text.PadRight(Width - 4));
             }
 
-            var cursorRow = editTop + _row;
-            var cursorCol = X + 2 + Math.Min(_col, Width - 5);
-            if (cursorRow < Console.WindowHeight && cursorCol < Console.WindowWidth)
+            Console.SetCursorPosition(X + 2, Y + Height - 2);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            var modFlag = _modified ? " [Modificado]" : "";
+            var statusText = _promptMode != EditorPromptMode.None
+                ? $"{_status} {_promptInput}_"
+                : $"[{_fileName}{modFlag}]  {_status}";
+
+            if (statusText.Length > Width - 4) statusText = statusText[..(Width - 4)];
+            Console.Write(statusText.PadRight(Width - 4));
+
+            if (_promptMode == EditorPromptMode.None)
             {
-                Console.SetCursorPosition(cursorCol, cursorRow);
-                Console.CursorVisible = true;
+                var cursorRow = editTop + _row;
+                var cursorCol = X + 2 + Math.Min(_col, Width - 5);
+                if (cursorRow < Y + Height - 2 && cursorCol < X + Width - 1)
+                {
+                    Console.SetCursorPosition(cursorCol, cursorRow);
+                    Console.CursorVisible = true;
+                }
             }
+
+            Console.ForegroundColor = oldFg;
+            Console.BackgroundColor = oldBg;
+        }
+    }
+
+    private sealed class CalendarWindow : AppWindow
+    {
+        private DateTime _displayDate;
+
+        public CalendarWindow(int x, int y, int width, int height)
+            : base("CALENDAR", "Calendário XWin", x, y, width, height)
+        {
+            _displayDate = DateTime.Now;
+        }
+
+        public override bool HandleKey(ConsoleKeyInfo key)
+        {
+            if (key.Key == ConsoleKey.LeftArrow)
+            {
+                _displayDate = _displayDate.AddMonths(-1);
+                return true;
+            }
+            if (key.Key == ConsoleKey.RightArrow)
+            {
+                _displayDate = _displayDate.AddMonths(1);
+                return true;
+            }
+            if (key.Key == ConsoleKey.UpArrow)
+            {
+                _displayDate = _displayDate.AddYears(-1);
+                return true;
+            }
+            if (key.Key == ConsoleKey.DownArrow)
+            {
+                _displayDate = _displayDate.AddYears(1);
+                return true;
+            }
+            if (key.Key == ConsoleKey.Home || key.KeyChar is 'h' or 'H')
+            {
+                _displayDate = DateTime.Now;
+                return true;
+            }
+
+            return false;
+        }
+
+        public override void HandleMousePress(int col, int row)
+        {
+            var navRow = Y + 2;
+            if (row == navRow)
+            {
+                var prevLeft = X + 2;
+                if (col >= prevLeft && col < prevLeft + 4)
+                {
+                    _displayDate = _displayDate.AddMonths(-1);
+                    return;
+                }
+
+                var nextLeft = X + Width - 6;
+                if (col >= nextLeft && col < nextLeft + 4)
+                {
+                    _displayDate = _displayDate.AddMonths(1);
+                    return;
+                }
+
+                var todayLeft = X + (Width / 2) - 3;
+                if (col >= todayLeft && col < todayLeft + 6)
+                {
+                    _displayDate = DateTime.Now;
+                    return;
+                }
+            }
+        }
+
+        public override void RenderBody()
+        {
+            var oldFg = Console.ForegroundColor;
+            var oldBg = Console.BackgroundColor;
+
+            var monthName = _displayDate.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+            monthName = char.ToUpperInvariant(monthName[0]) + monthName[1..];
+
+            Console.SetCursorPosition(X + 2, Y + 2);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("[<]");
+
+            Console.SetCursorPosition(X + (Width / 2) - (monthName.Length / 2), Y + 2);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write(monthName);
+
+            Console.SetCursorPosition(X + Width - 5, Y + 2);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("[>]");
+
+            Console.SetCursorPosition(X + 2, Y + 4);
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.Write(" DOM  SEG  TER  QUA  QUI  SEX  SAB");
+
+            var firstDayOfMonth = new DateTime(_displayDate.Year, _displayDate.Month, 1);
+            var daysInMonth = DateTime.DaysInMonth(_displayDate.Year, _displayDate.Month);
+            var startDayOfWeek = (int)firstDayOfMonth.DayOfWeek;
+
+            var gridRow = Y + 5;
+            var colIndex = startDayOfWeek;
+            var now = DateTime.Now;
+
+            for (var day = 1; day <= daysInMonth; day++)
+            {
+                var posX = X + 2 + (colIndex * 5);
+                Console.SetCursorPosition(posX, gridRow);
+
+                var isToday = (now.Year == _displayDate.Year && now.Month == _displayDate.Month && now.Day == day);
+
+                if (isToday)
+                {
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.BackgroundColor = ConsoleColor.Yellow;
+                    Console.Write($"[{day,2}]");
+                    Console.ForegroundColor = WindowForeground;
+                    Console.BackgroundColor = WindowBackground;
+                }
+                else
+                {
+                    Console.ForegroundColor = (colIndex == 0 || colIndex == 6) ? ConsoleColor.DarkGray : ConsoleColor.White;
+                    Console.Write($" {day,2} ");
+                }
+
+                colIndex++;
+                if (colIndex > 6)
+                {
+                    colIndex = 0;
+                    gridRow++;
+                }
+            }
+
+            Console.SetCursorPosition(X + 2, Y + Height - 2);
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("[Setas ←→ Mês] [↑↓ Ano] [Home Hoje]");
+
+            Console.ForegroundColor = oldFg;
+            Console.BackgroundColor = oldBg;
+        }
+    }
+
+    private sealed class ClockWindow : AppWindow
+    {
+        private bool _format24H = true;
+        private bool _stopwatchActive;
+        private DateTime _stopwatchStart;
+        private TimeSpan _stopwatchElapsed;
+
+        public ClockWindow(int x, int y, int width, int height)
+            : base("CLOCK", "Relógio XWin", x, y, width, height)
+        {
+        }
+
+        public override void Tick()
+        {
+            if (_stopwatchActive)
+            {
+                _stopwatchElapsed = DateTime.Now - _stopwatchStart;
+            }
+        }
+
+        public override bool HandleKey(ConsoleKeyInfo key)
+        {
+            if (key.KeyChar is 'f' or 'F' or 't' or 'T')
+            {
+                _format24H = !_format24H;
+                return true;
+            }
+            if (key.KeyChar is 's' or 'S' or ' ')
+            {
+                ToggleStopwatch();
+                return true;
+            }
+            if (key.KeyChar is 'c' or 'C' or 'r' or 'R')
+            {
+                ResetStopwatch();
+                return true;
+            }
+
+            return false;
+        }
+
+        public override void HandleMousePress(int col, int row)
+        {
+            var btnRow = Y + Height - 3;
+            if (row == btnRow)
+            {
+                var left = X + 2;
+                if (col >= left && col < left + 10)
+                {
+                    _format24H = !_format24H;
+                    return;
+                }
+                left += 12;
+                if (col >= left && col < left + 12)
+                {
+                    ToggleStopwatch();
+                    return;
+                }
+                left += 14;
+                if (col >= left && col < left + 8)
+                {
+                    ResetStopwatch();
+                    return;
+                }
+            }
+        }
+
+        private void ToggleStopwatch()
+        {
+            if (_stopwatchActive)
+            {
+                _stopwatchActive = false;
+            }
+            else
+            {
+                _stopwatchStart = DateTime.Now - _stopwatchElapsed;
+                _stopwatchActive = true;
+            }
+        }
+
+        private void ResetStopwatch()
+        {
+            _stopwatchActive = false;
+            _stopwatchElapsed = TimeSpan.Zero;
+        }
+
+        public override void RenderBody()
+        {
+            var oldFg = Console.ForegroundColor;
+            var oldBg = Console.BackgroundColor;
+
+            var now = DateTime.Now;
+            var timeStr = _format24H ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss tt");
+
+            var boxWidth = Width - 6;
+            Console.SetCursorPosition(X + 2, Y + 2);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write("┌" + new string('─', boxWidth) + "┐");
+
+            Console.SetCursorPosition(X + 2, Y + 3);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            var centeredTime = $"  {timeStr}  ";
+            var timePos = X + 2 + (boxWidth / 2) - (centeredTime.Length / 2);
+            Console.SetCursorPosition(timePos, Y + 3);
+            Console.Write(centeredTime);
+
+            Console.SetCursorPosition(X + 2, Y + 4);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write("└" + new string('─', boxWidth) + "┘");
+
+            var culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+            var dateStr = now.ToString("dddd, dd 'de' MMMM 'de' yyyy", culture);
+            dateStr = char.ToUpperInvariant(dateStr[0]) + dateStr[1..];
+
+            Console.SetCursorPosition(X + 2, Y + 6);
+            Console.ForegroundColor = ConsoleColor.White;
+            var datePos = X + 2 + Math.Max(0, (boxWidth / 2) - (dateStr.Length / 2));
+            Console.SetCursorPosition(datePos, Y + 6);
+            Console.Write(dateStr);
+
+            var swStr = $"Cronômetro: {_stopwatchElapsed:mm\\:ss\\.ff}";
+            Console.SetCursorPosition(X + 2, Y + 8);
+            Console.ForegroundColor = _stopwatchActive ? ConsoleColor.Green : ConsoleColor.DarkGray;
+            Console.Write(swStr.PadRight(boxWidth));
+
+            Console.SetCursorPosition(X + 2, Y + Height - 3);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            var swLabel = _stopwatchActive ? "[ Pausar ]" : "[ Iniciar ]";
+            Console.Write($"[ {(_format24H ? "12h" : "24h")} ]   {swLabel}   [ Zerar ]");
+
+            Console.ForegroundColor = oldFg;
+            Console.BackgroundColor = oldBg;
         }
     }
 
@@ -1602,6 +2111,7 @@ public static class MainMenu
                 '-' => left - right,
                 '*' => left * right,
                 '/' => right == 0 ? 0 : left / right,
+                '%' => right == 0 ? 0 : left % right,
                 '^' => (decimal)Math.Pow((double)left, (double)right),
                 _ => throw new InvalidOperationException($"Operador inválido: {op}")
             });
