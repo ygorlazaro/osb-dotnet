@@ -150,6 +150,7 @@ public partial class OsbShell
         }
     }
 
+ // ... existing code ...
     private bool RunExternal(string cmd)
     {
         cmd = cmd.Trim();
@@ -158,9 +159,22 @@ public partial class OsbShell
             return false;
         }
 
+        if (!cmd.StartsWith('.'))
+        {
+            Console.WriteLine("Comando não reconhecido.");
+            Console.WriteLine("Para executar um programa externo, use . antes do comando.");
+            return false;
+        }
+
+        cmd = cmd[1..].Trim();
+        if (cmd == "")
+        {
+            Console.WriteLine("Uso: . <comando externo>");
+            return false;
+        }
+
         try
         {
-            Console.WriteLine("Executando um programa externo (fora do kernel).\n");
             var psi = new ProcessStartInfo
             {
                 FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
@@ -188,7 +202,6 @@ public partial class OsbShell
                 Console.CancelKeyPress += handler;
                 p.WaitForExit();
 
-                Console.WriteLine("Final da execução");
                 return true;
             }
             finally

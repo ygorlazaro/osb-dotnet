@@ -3,8 +3,8 @@ using System.Linq;
 namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
-{
-    private static void PrintStatusLine()
+    {
+    private static void PrintStatusLine() 
     {
         var timestamp = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
         var cwd = Directory.GetCurrentDirectory();

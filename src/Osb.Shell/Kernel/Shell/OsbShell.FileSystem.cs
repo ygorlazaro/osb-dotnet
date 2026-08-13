@@ -49,11 +49,19 @@ public partial class OsbShell
         Console.WriteLine("Exibindo o conteúdo do diretório:");
         try
         {
-            var directories = Directory.GetDirectories(dir).OrderBy(x => x).Select(Path.GetFileName).ToArray();
-            var files = Directory.GetFiles(dir).OrderBy(x => x).Select(Path.GetFileName).ToArray();
+            var directories = Directory.GetDirectories(dir)
+                .OrderBy(x => x)
+                .Select(x => new DirectoryInfo(x))
+                .ToArray();
+
+            var files = Directory.GetFiles(dir)
+                .OrderBy(x => x)
+                .Select(x => new FileInfo(x))
+                .ToArray();
+
             if (wide)
             {
-                var entries = directories.Select(d => $"<{d}>").Concat(files).ToArray();
+                var entries = directories.Select(d => $"<{d.Name}>").Concat(files.Select(f => f.Name)).ToArray();
                 var columnWidth = Math.Max(10, Math.Min(25, Console.WindowWidth / 4));
                 var columns = Math.Max(1, Console.WindowWidth / columnWidth);
                 for (var i = 0; i < entries.Length; i += columns)
@@ -64,18 +72,28 @@ public partial class OsbShell
                 return;
             }
 
+            Console.WriteLine("  Criado em          Modificado em       Tamanho       Nome");
+            Console.WriteLine("  ----------------  ----------------  ----------  ----------------");
+
             foreach (var d in directories)
-                Console.WriteLine("  <DIR>  " + d);
+            {
+                Console.WriteLine($"  {FormatDate(d.CreationTime),-16}  {FormatDate(d.LastWriteTime),-16}       <DIR>  {d.Name}");
+            }
+
             foreach (var f in files)
             {
-                var info = new FileInfo(Path.Combine(dir, f));
-                Console.WriteLine($"  {info.Length,10}  {f}");
+                Console.WriteLine($"  {FormatDate(f.CreationTime),-16}  {FormatDate(f.LastWriteTime),-16}  {f.Length,10}  {f.Name}");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine("Erro ao listar diretório: " + ex.Message);
         }
+    }
+    
+    private static string FormatDate(DateTime date)
+    {
+        return date.ToString("dd/MM/yyyy HH:mm");
     }
 
     private static void MakeDirectory(string name)

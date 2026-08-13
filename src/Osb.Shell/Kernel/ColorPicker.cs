@@ -11,8 +11,23 @@ public static class ColorPicker
             Console.WriteLine($"{i,2} - {DosColors.Names[i]}");
         Console.WriteLine();
 
-        var letra = AskColor("Entre com a cor das letras: ", env.Config.ForeColor);
-        var fundo = AskColor("Entre com a cor do fundo: ", env.Config.BackColor);
+        int letra;
+        int fundo;
+        while (true)
+        {
+            letra = AskColor("Entre com a cor das letras: ", env.Config.ForeColor);
+            fundo = AskColor("Entre com a cor do fundo: ", env.Config.BackColor);
+
+            if (letra != fundo)
+            {
+                break;
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("A cor das letras não pode ser igual à cor do fundo.");
+            Console.WriteLine("Escolha cores diferentes.");
+            Console.WriteLine();
+        }
 
         env.Config.ForeColor = letra;
         env.Config.BackColor = fundo;
