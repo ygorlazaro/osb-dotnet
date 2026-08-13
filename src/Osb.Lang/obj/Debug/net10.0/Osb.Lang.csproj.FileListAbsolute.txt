@@ -1,0 +1,12 @@
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/bin/Debug/net10.0/Osb.Lang.deps.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/bin/Debug/net10.0/Osb.Lang.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/bin/Debug/net10.0/Osb.Lang.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.GeneratedMSBuildEditorConfig.editorconfig
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.AssemblyInfoInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.AssemblyInfo.cs
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.sourcelink.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/refint/Osb.Lang.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/Osb.Lang.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Lang/obj/Debug/net10.0/ref/Osb.Lang.dll

@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Osb.Lang é a implementação de OSLANG: lexer, parser, runtime e API de extensão.
+       É uma biblioteca de classes standalone, sem dependência de Osb.Shell ou Osb.Xwin -
+       são eles que vão referenciar Osb.Lang (e não o contrário), registrando funções via
+       a Extension API (ver Extensibility/) em vez de OSLANG conhecer detalhes do OSB. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

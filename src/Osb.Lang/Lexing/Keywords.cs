@@ -1,0 +1,59 @@
+namespace Osb.Lang.Lexing;
+
+/// <summary>
+/// Palavras reservadas de OSLANG 0.1 (seção 5 da especificação), mapeadas do texto
+/// em maiúsculas para o TokenType correspondente. Usada pelo lexer para decidir se
+/// um identificador lido é, na verdade, uma palavra-chave.
+///
+/// Observação de design: ABS não está na lista de palavras reservadas da seção 5,
+/// mesmo aparecendo entre as funções matemáticas da seção 41 - por isso ABS é
+/// tratado como um identificador comum (chamada de função de biblioteca padrão),
+/// e não como uma palavra-chave da linguagem. Isso segue a especificação ao pé da
+/// letra em vez de "corrigir" a aparente inconsistência.
+/// </summary>
+public static class Keywords
+{
+    public static readonly IReadOnlyDictionary<string, TokenType> Map = new Dictionary<string, TokenType>
+    {
+        ["AND"] = TokenType.And,
+        ["BOOLEAN"] = TokenType.Boolean,
+        ["BOOL"] = TokenType.Bool,
+        ["BREAK"] = TokenType.Break,
+        ["CATCH"] = TokenType.Catch,
+        ["CEIL"] = TokenType.Ceil,
+        ["CLEAR"] = TokenType.Clear,
+        ["CONTINUE"] = TokenType.Continue,
+        ["COUNT"] = TokenType.Count,
+        ["DO"] = TokenType.Do,
+        ["ELIF"] = TokenType.Elif,
+        ["ELSE"] = TokenType.Else,
+        ["END"] = TokenType.End,
+        ["FALSE"] = TokenType.False,
+        ["FLOOR"] = TokenType.Floor,
+        ["FOR"] = TokenType.For,
+        ["FUNCTION"] = TokenType.Function,
+        ["GLOBAL"] = TokenType.Global,
+        ["IF"] = TokenType.If,
+        ["INPUT"] = TokenType.Input,
+        ["NOT"] = TokenType.Not,
+        ["NULL"] = TokenType.Null,
+        ["NUMBER"] = TokenType.Number,
+        ["OR"] = TokenType.Or,
+        ["POW"] = TokenType.Pow,
+        ["PRINT"] = TokenType.Print,
+        ["RETURN"] = TokenType.Return,
+        ["SQRT"] = TokenType.Sqrt,
+        ["STEP"] = TokenType.Step,
+        ["STRING"] = TokenType.String,
+        ["STR"] = TokenType.Str,
+        ["THEN"] = TokenType.Then,
+        ["TO"] = TokenType.To,
+        ["TRUE"] = TokenType.True,
+        ["TRY"] = TokenType.Try,
+        ["TYPEOF"] = TokenType.TypeOf,
+        ["VAR"] = TokenType.Var,
+        ["WHILE"] = TokenType.While,
+    };
+
+    public static bool TryGetKeyword(string upperText, out TokenType type) => Map.TryGetValue(upperText, out type);
+}
