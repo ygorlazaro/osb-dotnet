@@ -15,6 +15,9 @@ public partial class OsbShell
     private int _historyIndex;
     private string _lastCommand = "";
     private string _lastRaw = "";
+    // The last command that executed successfully (used by RPT)
+    private string _lastSuccessfulCommand = "";
+    private string _lastSuccessfulRaw = "";
     private bool _running = true;
     private bool _isAuthenticated;
     private string _currentUsername = string.Empty;

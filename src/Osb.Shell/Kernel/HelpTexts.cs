@@ -117,7 +117,8 @@ public static class HelpTexts
         sb.AppendLine("               (ex: DIR/? - mesma coisa que HELP DIR)");
         sb.AppendLine("  Setas ←→     editam o comando que você está digitando, antes de enviar");
         sb.AppendLine("  Setas ↑↓     navegam pelo histórico de comandos já digitados (estilo DOSKEY)");
-        sb.AppendLine("  RPT          repete o último comando exatamente como foi digitado");
+        sb.AppendLine("  RPT          repete o último comando executado com sucesso");
+        sb.AppendLine("  Use ';' para encadear múltiplos comandos na mesma linha (ex: DIR ; VER)");
         sb.AppendLine("  HISTORY      lista todo o histórico numerado e deixa escolher qual repetir");
         return sb.ToString();
     }

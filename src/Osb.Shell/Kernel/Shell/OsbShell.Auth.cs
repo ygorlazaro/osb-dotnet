@@ -2,6 +2,11 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
 {
+    /// <summary>Chamado pelo BootSequence: pede login logo na inicialização, antes de
+    /// liberar o prompt (sem isso, o OSB abria o prompt "guest@..." direto e só pedia
+    /// senha se o usuário lembrasse de digitar USER por conta própria).</summary>
+    public void RequireLogin() => PromptLogin();
+
     private void PromptLogin()
     {
         while (!_isAuthenticated)

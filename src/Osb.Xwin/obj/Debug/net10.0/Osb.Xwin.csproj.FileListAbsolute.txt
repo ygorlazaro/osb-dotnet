@@ -12,3 +12,4 @@
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.pdb
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.genruntimeconfig.cache
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/ref/Osb.Xwin.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Xwin/obj/Debug/net10.0/Osb.Xwin.sourcelink.json

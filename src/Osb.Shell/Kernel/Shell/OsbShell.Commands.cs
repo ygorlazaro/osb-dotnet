@@ -9,16 +9,38 @@ public partial class OsbShell
 {
     public void Execute(string rawInput)
     {
+        // support multiple commands separated by ';' on the same line
+        if (rawInput.Contains(';'))
+        {
+            var parts = rawInput.Split(';');
+            foreach (var part in parts)
+            {
+                var p = part.Trim();
+                if (p.Length == 0) continue;
+                Execute(p);
+            }
+            return;
+        }
+
         var raw = rawInput.Trim();
         var command = raw.ToUpperInvariant();
-        if (command == "RPT") { raw = _lastRaw; command = _lastCommand; }
+
+        // RPT must replay only the last command that executed successfully
+        if (command == "RPT")
+        {
+            if (string.IsNullOrWhiteSpace(_lastSuccessfulCommand))
+            {
+                Console.WriteLine("Nenhum comando anterior executado com sucesso para repetir.");
+                return;
+            }
+            raw = _lastSuccessfulRaw;
+            command = _lastSuccessfulCommand;
+        }
+
         if (command == "")
         {
             return;
         }
-
-        _lastCommand = command;
-        _lastRaw = raw;
 
         var spaceIndex = raw.IndexOf(' ');
         var verb = spaceIndex < 0 ? command : command[..spaceIndex];
@@ -43,63 +65,97 @@ public partial class OsbShell
 
         var args = spaceIndex < 0 ? "" : raw[(spaceIndex + 1)..].Trim();
 
+        var handled = false;
         switch (verb)
         {
-            case "ABOUT": About.Show(); break;
-            case "APLIC": RunAplic(args); break;
-            case "CAL": Calendar.Show(args); break;
-            case "CD": ChangeDirectory(args); break;
-            case "CLS": case "CLEAR": Console.Clear(); break;
-            case "COLOR": ColorPicker.Run(_env); break;
-            case "CONFIG": ConfigUtility.Run(_env); break;
-            case "COPY": CopyFile(); break;
+            case "ABOUT":
+                About.Show(); handled = true; break;
+            case "APLIC":
+                RunAplic(args); handled = true; break;
+            case "CAL":
+                Calendar.Show(args); handled = true; break;
+            case "CD":
+                ChangeDirectory(args); handled = true; break;
+            case "CLS":
+            case "CLEAR":
+                Console.Clear(); handled = true; break;
+            case "COLOR":
+                ColorPicker.Run(_env); handled = true; break;
+            case "CONFIG":
+                ConfigUtility.Run(_env); handled = true; break;
+            case "COPY":
+                CopyFile(); handled = true; break;
             case "DATE":
                 Console.WriteLine("Data atual: " + DateTime.Now.ToString("dd/MM/yyyy"));
                 Console.WriteLine("(Alterar a data do sistema não é suportado nesta versão portada.)");
-                break;
-            case "DIR": ListDirectory(args); break;
-            case "PWD": Console.WriteLine(Directory.GetCurrentDirectory()); break;
-            case "ERASE": EraseFiles(args); break;
-            case "EXIT": DoExit(); break;
-            case "GAMES": RunGames(args); break;
-            case "HELP": HelpTexts.Show(args); break;
-            case "HISTORY": RunHistory(args); break;
-            case "HOSTNAME": HandleHostname(args); break;
-            case "KISS": TextEditor.Run(args, _env); break;
-            case "MD": MakeDirectory(args); break;
-            case "PRINT": PrintFile(args); break;
-            case "RD": RemoveDirectory(args); break;
-            case "REN": RenameFile(); break;
-            case "SIZE": ShowSize(args); break;
-            case "USER": HandleUser(args); break;
+                handled = true; break;
+            case "DIR":
+                ListDirectory(args); handled = true; break;
+            case "PWD":
+                Console.WriteLine(Directory.GetCurrentDirectory()); handled = true; break;
+            case "ERASE":
+                EraseFiles(args); handled = true; break;
+            case "EXIT":
+                DoExit(); handled = true; break;
+            case "GAMES":
+                RunGames(args); handled = true; break;
+            case "HELP":
+                HelpTexts.Show(args); handled = true; break;
+            case "HISTORY":
+                RunHistory(args); handled = true; break;
+            case "HOSTNAME":
+                HandleHostname(args); handled = true; break;
+            case "KISS":
+                TextEditor.Run(args, _env); handled = true; break;
+            case "MD":
+                MakeDirectory(args); handled = true; break;
+            case "PRINT":
+                PrintFile(args); handled = true; break;
+            case "RD":
+                RemoveDirectory(args); handled = true; break;
+            case "REN":
+                RenameFile(); handled = true; break;
+            case "SIZE":
+                ShowSize(args); handled = true; break;
+            case "USER":
+                HandleUser(args); handled = true; break;
             case "TIME":
                 Console.WriteLine("Hora atual: " + DateTime.Now.ToString("HH:mm:ss"));
                 Console.WriteLine("(Alterar a hora do sistema não é suportado nesta versão portada.)");
-                break;
-            case "TREE": ShowTree(Directory.GetCurrentDirectory(), ""); break;
-            case "TYPE": TypeFile(args); break;
+                handled = true; break;
+            case "TREE":
+                ShowTree(Directory.GetCurrentDirectory(), ""); handled = true; break;
+            case "TYPE":
+                TypeFile(args); handled = true; break;
             case "VER":
                 Console.WriteLine("OSB Versão 0.2 (porte para .NET 10)");
                 Console.WriteLine("Original: http://www.osb.rg3.net");
                 Console.WriteLine();
                 Console.WriteLine("Digite ABOUT para mais informações");
-                break;
+                handled = true; break;
             case "X":
                 XwinLauncher.Launch();
-                _env.ApplyColors();
-                break;
+                _env.ApplyColors(); handled = true; break;
             default:
-                RunExternal(raw);
+                handled = RunExternal(raw);
                 break;
+        }
+
+        // If this command was handled (internal command or successful external),
+        // record it as the last successful command for RPT.
+        if (handled)
+        {
+            _lastSuccessfulCommand = command;
+            _lastSuccessfulRaw = raw;
         }
     }
 
-    private void RunExternal(string cmd)
+    private bool RunExternal(string cmd)
     {
         cmd = cmd.Trim();
         if (cmd == "")
         {
-            return;
+            return false;
         }
 
         try
@@ -111,13 +167,40 @@ public partial class OsbShell
                 Arguments = OperatingSystem.IsWindows() ? $"/c {cmd}" : $"-c \"{cmd}\"",
                 UseShellExecute = false
             };
+
+            var prevTreat = Console.TreatControlCAsInput;
+            ConsoleCancelEventHandler? handler = null;
             using var p = Process.Start(psi);
-            p?.WaitForExit();
-            Console.WriteLine("Final da execução");
+            try
+            {
+                if (p == null)
+                {
+                    Console.WriteLine("Não foi possível iniciar o processo solicitado.");
+                    return false;
+                }
+
+                Console.TreatControlCAsInput = false;
+                handler = (s, e) =>
+                {
+                    e.Cancel = true;
+                    try { if (!p.HasExited) p.Kill(); } catch { }
+                };
+                Console.CancelKeyPress += handler;
+                p.WaitForExit();
+
+                Console.WriteLine("Final da execução");
+                return true;
+            }
+            finally
+            {
+                if (handler != null) Console.CancelKeyPress -= handler;
+                Console.TreatControlCAsInput = prevTreat;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine("Não foi possível executar: " + ex.Message);
+            return false;
         }
         finally
         {

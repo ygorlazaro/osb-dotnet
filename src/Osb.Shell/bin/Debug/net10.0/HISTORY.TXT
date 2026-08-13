@@ -55,3 +55,9 @@ help
 ver
 git status
 git add ..
+git status
+git commit -m "Adjustments"
+git status
+clear
+git status
+exit

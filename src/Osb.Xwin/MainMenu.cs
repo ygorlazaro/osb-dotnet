@@ -9,6 +9,12 @@ namespace Osb.Xwin;
 
 public static class MainMenu
 {
+    // Mesma pasta que o Osb.Shell usa (~/.osb) - não a pasta de build deste executável,
+    // senão XWIN e Shell cada um enxergaria um OSB.CFG/CONF diferente e as cores/config
+    // configuradas em um não apareceriam no outro.
+    private static readonly string OsbHomeDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
+
     public static void Run()
     {
         MouseInput.Enable();
@@ -91,7 +97,7 @@ public static class MainMenu
 
         private static IReadOnlyList<ConfigEntry> LoadConfigEntries()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "CONF", "XWIN.CFG");
+            var path = Path.Combine(OsbHomeDir, "CONF", "XWIN.CFG");
             if (!File.Exists(path))
             {
                 return [];
@@ -127,7 +133,7 @@ public static class MainMenu
 
         private static (ConsoleColor Foreground, ConsoleColor Background, int ForeIndex, int BackIndex) LoadColorScheme()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
+            var path = Path.Combine(OsbHomeDir, "OSB.CFG");
             if (!File.Exists(path))
             {
                 return (ConsoleColor.Gray, ConsoleColor.Black, 15, 1);
@@ -229,7 +235,7 @@ public static class MainMenu
 
         internal static void SaveColorSettings(int foreIndex, int backIndex)
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
+            var path = Path.Combine(OsbHomeDir, "OSB.CFG");
             var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : [];
             WriteSection(lines, "[FORECOLOR]", foreIndex.ToString());
             WriteSection(lines, "[BACKCOLOR]", backIndex.ToString());
@@ -626,7 +632,7 @@ public static class MainMenu
 
         public static void SaveColorSettings(int foreIndex, int backIndex)
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "OSB.CFG");
+            var path = Path.Combine(OsbHomeDir, "OSB.CFG");
             var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : [];
             WriteSection(lines, "[FORECOLOR]", foreIndex.ToString());
             WriteSection(lines, "[BACKCOLOR]", backIndex.ToString());

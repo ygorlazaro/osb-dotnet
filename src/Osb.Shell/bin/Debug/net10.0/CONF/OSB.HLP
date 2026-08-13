@@ -117,7 +117,10 @@ Executar o jogo HANGMAN
 -ENDCOMMAND
 
 -HELP
+ -HELP
 Comandos disponíveis:
+
+Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (ex: DIR ; VER)
 
 <Comando>/? = Exibe ajuda detalhada do comando
 . = Executa um programa do MS-DOS ou OSB
@@ -197,8 +200,10 @@ Renomeia todos os arquivos *.TXT para *.DOC
 -ENDCOMMAND
 
 -RPT
-Repete o último comando dado ao OSB 2.0
+RPT = Repete o último comando executado com sucesso
 Modo simples de usar: RPT
+
+Nota: RPT repete apenas o último comando que foi executado com sucesso. Se você digitou um comando inválido, RPT continuará repetindo o último comando válido.
 
 [@] PRINT CARTA.TXT
 Imprimindo... (CARTA.TXT)

@@ -142,8 +142,13 @@ public partial class OsbShell
         var cursor = 0;
         var editedLine = string.Empty;
         _historyIndex = _history.Count;
-
-        void MoveLeft(int n)
+        // Ensure we receive Ctrl+C as input while editing so we can treat it
+        // as "cancel line". We will restore previous value when done.
+        var prevTreatControl = Console.TreatControlCAsInput;
+        Console.TreatControlCAsInput = true;
+        try
+        {
+            void MoveLeft(int n)
         {
             if (n > 0)
             {
@@ -180,7 +185,13 @@ public partial class OsbShell
         while (true)
         {
             var key = Console.ReadKey(true);
-            switch (key.Key)
+                // If user pressed Ctrl+C we cancel the current input line.
+                if (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0)
+                {
+                    Console.WriteLine("^C");
+                    return string.Empty;
+                }
+                switch (key.Key)
             {
                 case ConsoleKey.Enter:
                     Console.WriteLine();
@@ -190,7 +201,8 @@ public partial class OsbShell
                         AddToHistory(line);
                     }
                     _historyIndex = _history.Count;
-                    return line;
+                        Console.TreatControlCAsInput = prevTreatControl;
+                        return line;
                 case ConsoleKey.LeftArrow:
                     if (cursor > 0) { cursor--; MoveLeft(1); }
                     break;
@@ -255,6 +267,12 @@ public partial class OsbShell
                     }
                     break;
             }
+        }
+        }
+        finally
+        {
+            // restore TreatControlCAsInput even if we return early (Ctrl+C handled above)
+            Console.TreatControlCAsInput = prevTreatControl;
         }
     }
 }

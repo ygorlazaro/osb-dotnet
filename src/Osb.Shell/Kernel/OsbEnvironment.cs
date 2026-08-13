@@ -2,8 +2,9 @@ namespace Osb.Shell.Kernel;
 
 /// <summary>
 /// No OSB original, tudo vivia em C:\OSB (OSB.CFG na raiz do drive, Conf\ com os
-/// arquivos de configuração, etc). Aqui usamos uma pasta `CONF` dentro da build,
-/// criada automaticamente com valores padrão no primeiro boot.
+/// arquivos de configuração, etc). Aqui usamos ~/.osb (um "CONF" dentro dela),
+/// criada automaticamente com valores padrão no primeiro boot - a mesma pasta que
+/// o Osb.Xwin usa, para os dois compartilharem cores/hostname/usuários.
 /// </summary>
 public class OsbEnvironment
 {
@@ -18,7 +19,11 @@ public class OsbEnvironment
 
     public OsbEnvironment()
     {
-        HomeDir = Path.GetFullPath(AppContext.BaseDirectory);
+        // ~/.osb é compartilhado com o Osb.Xwin (que lê o mesmo OSB.CFG/CONF de lá) -
+        // por isso não pode ser a pasta de build de cada executável (AppContext.BaseDirectory),
+        // já que Shell e Xwin são processos/pastas de build diferentes; usar a pasta de build
+        // também faria o histórico/usuários serem apagados a cada "dotnet build" limpo.
+        HomeDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
         var firstBoot = EnsureInstalled();
         Config = OsbConfig.Load(ConfigFile);
         MachineName = LoadMachineName();
@@ -139,8 +144,11 @@ public class OsbEnvironment
             break;
         }
 
-        Directory.CreateDirectory(ConfDir);
-        File.WriteAllText(UserConfigFile, username + "=" + password + Environment.NewLine);
+        // Importante: passa pelo Users.Add (não escreve o arquivo direto) - o UserManager
+        // já foi construído nesse ponto com a lista carregada do disco (vazia, no primeiro
+        // boot). Escrever o arquivo por fora deixava esse cache em memória desatualizado,
+        // e o primeiro login sempre dava "senha incorreta" mesmo com a senha certa.
+        Users.Add(username, password, out _);
         Console.WriteLine($"Usuário inicial '{username}' criado com sucesso.");
         Console.WriteLine();
     }
