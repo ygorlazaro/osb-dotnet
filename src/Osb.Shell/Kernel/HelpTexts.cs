@@ -115,6 +115,7 @@ public static class HelpTexts
         sb.AppendLine("Dicas:");
         sb.AppendLine("  <comando>/?  exibe a ajuda detalhada de um comando específico");
         sb.AppendLine("               (ex: DIR/? - mesma coisa que HELP DIR)");
+        sb.AppendLine("  TAB          autocompleta comandos, subcomandos, parâmetros, arquivos e pastas (Shift+TAB cicla ao contrário)");
         sb.AppendLine("  Setas ←→     editam o comando que você está digitando, antes de enviar");
         sb.AppendLine("  Setas ↑↓     navegam pelo histórico de comandos já digitados (estilo DOSKEY)");
         sb.AppendLine("  RPT          repete o último comando executado com sucesso");

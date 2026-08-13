@@ -142,6 +142,13 @@ public partial class OsbShell
         var cursor = 0;
         var editedLine = string.Empty;
         _historyIndex = _history.Count;
+
+        var tabCompleter = new TabCompleter(_env);
+        IReadOnlyList<string>? activeCandidates = null;
+        var candidateIndex = -1;
+        var completionTokenStart = -1;
+        var isCompleting = false;
+
         // Ensure we receive Ctrl+C as input while editing so we can treat it
         // as "cancel line". We will restore previous value when done.
         var prevTreatControl = Console.TreatControlCAsInput;
@@ -149,50 +156,141 @@ public partial class OsbShell
         try
         {
             void MoveLeft(int n)
-        {
-            if (n > 0)
             {
-                Console.Write($"\u001b[{n}D");
+                if (n > 0)
+                {
+                    Console.Write($"\u001b[{n}D");
+                }
             }
-        }
 
-        void MoveRight(int n)
-        {
-            if (n > 0)
+            void MoveRight(int n)
             {
-                Console.Write($"\u001b[{n}C");
+                if (n > 0)
+                {
+                    Console.Write($"\u001b[{n}C");
+                }
             }
-        }
 
-        void RewriteTail(int extraErase)
-        {
-            var tail = new string(buffer.ToArray(), cursor, buffer.Count - cursor);
-            Console.Write(tail + new string(' ', extraErase));
-            MoveLeft(tail.Length + extraErase);
-        }
+            void RewriteTail(int extraErase)
+            {
+                var tail = new string(buffer.ToArray(), cursor, buffer.Count - cursor);
+                Console.Write(tail + new string(' ', extraErase));
+                MoveLeft(tail.Length + extraErase);
+            }
 
-        void ReplaceBuffer(string newValue)
-        {
-            MoveLeft(cursor);
-            Console.Write(new string(' ', buffer.Count));
-            MoveLeft(buffer.Count);
-            buffer.Clear();
-            buffer.AddRange(newValue);
-            cursor = buffer.Count;
-            Console.Write(new string(buffer.ToArray()));
-        }
+            void ReplaceBuffer(string newValue)
+            {
+                MoveLeft(cursor);
+                Console.Write(new string(' ', buffer.Count));
+                MoveLeft(buffer.Count);
+                buffer.Clear();
+                buffer.AddRange(newValue);
+                cursor = buffer.Count;
+                Console.Write(new string(buffer.ToArray()));
+            }
 
-        while (true)
-        {
-            var key = Console.ReadKey(true);
+            void ReplaceToken(string newToken)
+            {
+                var oldTokenLength = cursor - completionTokenStart;
+                if (oldTokenLength > 0)
+                {
+                    MoveLeft(oldTokenLength);
+                }
+
+                buffer.RemoveRange(completionTokenStart, oldTokenLength);
+                buffer.InsertRange(completionTokenStart, newToken);
+
+                var tail = new string(buffer.ToArray(), completionTokenStart, buffer.Count - completionTokenStart);
+                Console.Write(tail);
+
+                var extraErase = Math.Max(0, oldTokenLength - newToken.Length);
+                if (extraErase > 0)
+                {
+                    Console.Write(new string(' ', extraErase));
+                    MoveLeft(extraErase);
+                }
+
+                cursor = completionTokenStart + newToken.Length;
+                MoveLeft(buffer.Count - cursor);
+            }
+
+            while (true)
+            {
+                var key = Console.ReadKey(true);
+
+                if (key.Key != ConsoleKey.Tab)
+                {
+                    isCompleting = false;
+                    activeCandidates = null;
+                    candidateIndex = -1;
+                }
+
                 // If user pressed Ctrl+C we cancel the current input line.
                 if (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0)
                 {
                     Console.WriteLine("^C");
                     return string.Empty;
                 }
+
                 switch (key.Key)
-            {
+                {
+                    case ConsoleKey.Tab:
+                        var currentText = new string(buffer.ToArray());
+                        var isShift = (key.Modifiers & ConsoleModifiers.Shift) != 0;
+
+                        if (!isCompleting || activeCandidates == null || activeCandidates.Count == 0)
+                        {
+                            var context = TabCompleter.ParseContext(currentText, cursor);
+                            var candidates = tabCompleter.GetCandidates(currentText, cursor);
+
+                            if (candidates.Count == 0)
+                            {
+                                break;
+                            }
+
+                            completionTokenStart = context.TokenStart;
+                            var originalTokenLength = context.CurrentToken.Length;
+
+                            if (candidates.Count == 1)
+                            {
+                                ReplaceToken(candidates[0]);
+                                isCompleting = false;
+                            }
+                            else
+                            {
+                                var lcp = TabCompleter.GetLongestCommonPrefix(candidates);
+                                var expandedLcp = false;
+
+                                if (lcp.Length > originalTokenLength)
+                                {
+                                    ReplaceToken(lcp);
+                                    expandedLcp = true;
+                                }
+
+                                activeCandidates = candidates;
+                                isCompleting = true;
+                                candidateIndex = isShift ? activeCandidates.Count - 1 : 0;
+
+                                if (!expandedLcp)
+                                {
+                                    ReplaceToken(activeCandidates[candidateIndex]);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (isShift)
+                            {
+                                candidateIndex = (candidateIndex - 1 + activeCandidates.Count) % activeCandidates.Count;
+                            }
+                            else
+                            {
+                                candidateIndex = (candidateIndex + 1) % activeCandidates.Count;
+                            }
+
+                            ReplaceToken(activeCandidates[candidateIndex]);
+                        }
+                        break;
                 case ConsoleKey.Enter:
                     Console.WriteLine();
                     var line = new string(buffer.ToArray());
