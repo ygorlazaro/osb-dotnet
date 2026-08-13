@@ -298,6 +298,11 @@ public static class MainMenu
 
         private void DrawWindows()
         {
+            if (_draggingWindow is not null)
+            {
+                DrawGhostOutline(_draggingWindow.GhostX, _draggingWindow.GhostY, _draggingWindow.Width, _draggingWindow.Height);
+            }
+
             foreach (var window in _openWindows)
             {
                 if (!window.IsMinimized)
@@ -305,6 +310,47 @@ public static class MainMenu
                     window.Render();
                 }
             }
+        }
+
+        private void DrawGhostOutline(int x, int y, int width, int height)
+        {
+            var left = Math.Max(0, Math.Min(x, Console.WindowWidth - width));
+            var top = Math.Max(3, Math.Min(y, Console.WindowHeight - height - 2));
+
+            var prevFg = Console.ForegroundColor;
+            var prevBg = Console.BackgroundColor;
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.BackgroundColor = _desktopBackground;
+
+            try
+            {
+                Console.SetCursorPosition(left, top);
+                Console.Write("┌" + new string('┈', Math.Max(0, width - 2)) + "┐");
+
+                for (var r = 1; r < height - 1; r++)
+                {
+                    if (top + r < Console.WindowHeight - 2)
+                    {
+                        Console.SetCursorPosition(left, top + r);
+                        Console.Write("┊");
+                        Console.SetCursorPosition(Math.Min(Console.WindowWidth - 1, left + width - 1), top + r);
+                        Console.Write("┊");
+                    }
+                }
+
+                if (top + height - 1 < Console.WindowHeight - 2)
+                {
+                    Console.SetCursorPosition(left, top + height - 1);
+                    Console.Write("└" + new string('┈', Math.Max(0, width - 2)) + "┘");
+                }
+            }
+            catch
+            {
+                // Ignora posições fora dos limites do terminal
+            }
+
+            Console.ForegroundColor = prevFg;
+            Console.BackgroundColor = prevBg;
         }
 
         // Barra de tarefas estilo Windows 3.11 (Program Manager): cada janela minimizada
@@ -455,23 +501,43 @@ public static class MainMenu
                     return false;
                 }
 
-                if (click.IsPress && clickedWindow.IsOnTitleBar(click.Column, click.Row))
+                if ((click.IsPress || click.IsDrag) && clickedWindow.IsOnTitleBar(click.Column, click.Row))
                 {
-                    _draggingWindow = clickedWindow;
-                    _dragOffsetX = click.Column - clickedWindow.X;
-                    _dragOffsetY = click.Row - clickedWindow.Y;
+                    if (_draggingWindow != clickedWindow)
+                    {
+                        _draggingWindow = clickedWindow;
+                        _dragOffsetX = click.Column - clickedWindow.X;
+                        _dragOffsetY = click.Row - clickedWindow.Y;
+                        _draggingWindow.IsDragging = true;
+                        _draggingWindow.GhostX = clickedWindow.X;
+                        _draggingWindow.GhostY = clickedWindow.Y;
+                    }
+                    else
+                    {
+                        var targetX = Math.Max(0, Math.Min(click.Column - _dragOffsetX, Console.WindowWidth - _draggingWindow.Width));
+                        var targetY = Math.Max(3, Math.Min(click.Row - _dragOffsetY, Console.WindowHeight - _draggingWindow.Height - 2));
+                        if (targetX != _draggingWindow.X || targetY != _draggingWindow.Y)
+                        {
+                            _draggingWindow.GhostX = _draggingWindow.X;
+                            _draggingWindow.GhostY = _draggingWindow.Y;
+                            _draggingWindow.X = targetX;
+                            _draggingWindow.Y = targetY;
+                            return true;
+                        }
+                    }
                     return false;
                 }
 
-                if (!click.IsPress && _draggingWindow == clickedWindow)
+                if ((!click.IsPress && !click.IsDrag) && _draggingWindow == clickedWindow)
                 {
+                    _draggingWindow.IsDragging = false;
                     _draggingWindow.X = Math.Max(0, Math.Min(click.Column - _dragOffsetX, Console.WindowWidth - clickedWindow.Width));
                     _draggingWindow.Y = Math.Max(3, Math.Min(click.Row - _dragOffsetY, Console.WindowHeight - clickedWindow.Height - 2));
                     _draggingWindow = null;
                     return true;
                 }
 
-                if (!click.IsPress)
+                if (!click.IsPress && !click.IsDrag)
                 {
                     clickedWindow.HandleMousePress(click.Column, click.Row);
                     return true;
@@ -480,12 +546,28 @@ public static class MainMenu
                 return false;
             }
 
-            if (!click.IsPress && _draggingWindow is not null)
+            if (_draggingWindow is not null)
             {
-                _draggingWindow.X = Math.Max(0, Math.Min(click.Column - _dragOffsetX, Console.WindowWidth - _draggingWindow.Width));
-                _draggingWindow.Y = Math.Max(3, Math.Min(click.Row - _dragOffsetY, Console.WindowHeight - _draggingWindow.Height - 2));
-                _draggingWindow = null;
-                return true;
+                var targetX = Math.Max(0, Math.Min(click.Column - _dragOffsetX, Console.WindowWidth - _draggingWindow.Width));
+                var targetY = Math.Max(3, Math.Min(click.Row - _dragOffsetY, Console.WindowHeight - _draggingWindow.Height - 2));
+
+                if (!click.IsPress && !click.IsDrag)
+                {
+                    _draggingWindow.IsDragging = false;
+                    _draggingWindow.X = targetX;
+                    _draggingWindow.Y = targetY;
+                    _draggingWindow = null;
+                    return true;
+                }
+
+                if (targetX != _draggingWindow.X || targetY != _draggingWindow.Y)
+                {
+                    _draggingWindow.GhostX = _draggingWindow.X;
+                    _draggingWindow.GhostY = _draggingWindow.Y;
+                    _draggingWindow.X = targetX;
+                    _draggingWindow.Y = targetY;
+                    return true;
+                }
             }
 
             return false;
@@ -737,6 +819,9 @@ public static class MainMenu
         public int Width { get; }
         public int Height { get; }
         public bool IsMinimized { get; set; }
+        public bool IsDragging { get; set; }
+        public int GhostX { get; set; }
+        public int GhostY { get; set; }
 
         protected AppWindow(string name, string title, int x, int y, int width, int height)
         {
@@ -765,9 +850,40 @@ public static class MainMenu
             var oldFg = Console.ForegroundColor;
             var oldBg = Console.BackgroundColor;
 
-            Console.ForegroundColor = WindowTitleForeground;
-            Console.BackgroundColor = WindowTitleBackground;
-            DrawBox(left, top, Width, Height, Title);
+            if (IsDragging)
+            {
+                // Sombra flutuante 3D ao arrastar a janela
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.BackgroundColor = ConsoleColor.Black;
+                for (var r = 1; r <= Height; r++)
+                {
+                    var sRow = top + r;
+                    var sCol = left + Width;
+                    if (sRow < Console.WindowHeight - 2 && sCol < Console.WindowWidth)
+                    {
+                        Console.SetCursorPosition(sCol, sRow);
+                        Console.Write("░");
+                    }
+                }
+                var bRow = top + Height;
+                if (bRow < Console.WindowHeight - 2)
+                {
+                    for (var c = 1; c <= Width; c++)
+                    {
+                        var sCol = left + c;
+                        if (sCol < Console.WindowWidth)
+                        {
+                            Console.SetCursorPosition(sCol, bRow);
+                            Console.Write("░");
+                        }
+                    }
+                }
+            }
+
+            Console.ForegroundColor = IsDragging ? ConsoleColor.Yellow : WindowTitleForeground;
+            Console.BackgroundColor = IsDragging ? ConsoleColor.DarkBlue : WindowTitleBackground;
+            var displayTitle = IsDragging ? $"≡ [Arrastando] {Title} ≡" : Title;
+            DrawBox(left, top, Width, Height, displayTitle);
 
             Console.ForegroundColor = WindowForeground;
             Console.BackgroundColor = WindowBackground;
