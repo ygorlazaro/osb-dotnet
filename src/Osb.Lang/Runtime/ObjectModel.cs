@@ -10,8 +10,9 @@ namespace Osb.Lang.Runtime;
 public sealed class ClassDefinition
 {
     public string Name { get; }
-    public ClassDefinition? BaseClass { get; }
-    public IReadOnlyList<InterfaceDefinition> Interfaces { get; }
+    public ClassDefinition? BaseClass { get; internal set; }
+    public List<InterfaceDefinition> Interfaces { get; } = new();
+    public IReadOnlyList<InterfaceDefinition> InterfacesReadOnly => Interfaces;
     public IReadOnlyList<PropertyDefinition> Properties { get; }
     public IReadOnlyList<MethodDefinition> Methods { get; }
     public ConstructorDefinition? Constructor { get; }
@@ -26,7 +27,7 @@ public sealed class ClassDefinition
     {
         Name = name;
         BaseClass = baseClass;
-        Interfaces = interfaces;
+        Interfaces = new List<InterfaceDefinition>(interfaces);
         Properties = properties;
         Methods = methods;
         Constructor = constructor;

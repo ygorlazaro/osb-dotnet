@@ -62,6 +62,15 @@ public static class Keywords
         ["TYPEOF"] = TokenType.TypeOf,
         ["VAR"] = TokenType.Var,
         ["WHILE"] = TokenType.While,
+        ["SWITCH"] = TokenType.Switch,
+        ["CASE"] = TokenType.Case,
+        ["DEFAULT"] = TokenType.Default,
+        ["VIRTUAL"] = TokenType.Virtual,
+        ["OVERRIDE"] = TokenType.Override,
+        ["EVENT"] = TokenType.Event,
+        ["ON"] = TokenType.On,
+        ["RAISE"] = TokenType.Raise,
+        ["USING"] = TokenType.Using,
     };
 
     public static bool TryGetKeyword(string upperText, out TokenType type) => Map.TryGetValue(upperText, out type);

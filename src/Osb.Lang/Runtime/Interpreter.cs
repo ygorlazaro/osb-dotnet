@@ -1,6 +1,8 @@
 using Osb.Lang.Ast;
+using Osb.Lang.Compilation;
 using Osb.Lang.Diagnostics;
 using Osb.Lang.Extensibility;
+using Osb.Lang.Runtime;
 
 namespace Osb.Lang.Runtime;
 
@@ -9,7 +11,7 @@ namespace Osb.Lang.Runtime;
 /// </summary>
 internal sealed class Interpreter
 {
-    private readonly Dictionary<string, FunctionDecl> _functions = new();
+    private readonly Dictionary<string, FunctionOverloadSet> _functions = new();
     private readonly Dictionary<string, Variable> _globals = new();
     private readonly Dictionary<string, ClassDefinition> _classes = new();
     private readonly Dictionary<string, InterfaceDefinition> _interfaces = new();
@@ -21,30 +23,38 @@ internal sealed class Interpreter
     private ClassDefinition? _enclosingClass;
     private bool _inConstructor;
 
-    public Interpreter(OslangProgram program, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear)
+    public Interpreter(Osb.Lang.Compilation.Compilation compilation, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear)
     {
         _extensions = extensions;
         _output = output;
         _input = input;
         _clear = clear;
 
-        foreach (var fn in program.Functions)
+        foreach (var kvp in compilation.Symbols.Functions)
         {
-            if (!_functions.TryAdd(fn.Name, fn))
-            {
-                throw new SemanticException(fn.Location, $"Function '{fn.Name}' is already declared.");
-            }
+            _functions[kvp.Key] = kvp.Value;
         }
 
-        if (!_functions.TryGetValue("MAIN", out var main))
+        foreach (var cls in compilation.Symbols.Classes)
         {
-            throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
+            _classes[cls.Key] = cls.Value;
         }
 
-        if (main.Parameters.Count != 0)
+        foreach (var iface in compilation.Symbols.Interfaces)
         {
-            throw new SemanticException(main.Location, "FUNCTION MAIN() must not declare any parameters.");
+            _interfaces[iface.Key] = iface.Value;
         }
+    }
+
+    private FunctionOverloadSet? GetFunctionSet(string name)
+    {
+        return _functions.TryGetValue(name, out var set) ? set : null;
+    }
+
+    private FunctionDecl? GetFunction(string name)
+    {
+        var set = GetFunctionSet(name);
+        return set?.Overloads.FirstOrDefault();
     }
 
     public void RegisterClass(ClassDefinition classDef)
@@ -71,7 +81,16 @@ internal sealed class Interpreter
 
     public IReadOnlyDictionary<string, InterfaceDefinition> GetInterfaces() => _interfaces;
 
-    public OslangValue Run() => CallFunction("MAIN", [], SourceLocation.Unknown);
+    public OslangValue Run()
+    {
+        var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
+        if (main.Parameters.Count != 0)
+        {
+            throw new SemanticException(main.Location, "FUNCTION MAIN() must not declare any parameters.");
+        }
+
+        return CallFunction("MAIN", [], SourceLocation.Unknown);
+    }
 
     // ============================================================
     // Chamadas de função
@@ -79,9 +98,14 @@ internal sealed class Interpreter
 
     private OslangValue CallFunction(string name, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
     {
-        if (_functions.TryGetValue(name, out var decl))
+        var set = GetFunctionSet(name);
+        if (set is not null)
         {
-            return CallUserFunction(decl, args, callLocation);
+            var resolved = set.Resolve(args.Select(a => a.Type).ToList());
+            if (resolved is not null)
+            {
+                return CallUserFunction(resolved, args, callLocation);
+            }
         }
 
         if (StandardLibrary.FunctionNames.Contains(name))
@@ -201,6 +225,9 @@ internal sealed class Interpreter
                 break;
             case BaseCallStmt b:
                 ExecuteBaseCall(b, scope);
+                break;
+            case SwitchStmt s:
+                ExecuteSwitch(s, scope);
                 break;
             default:
                 throw new InvalidOperationException($"Unknown statement node {stmt.GetType().Name}.");
@@ -436,29 +463,50 @@ internal sealed class Interpreter
         }
     }
 
+    private void ExecuteSwitch(SwitchStmt s, Scope scope)
+    {
+        var switchValue = Eval(s.Expression, scope);
+
+        foreach (var caseClause in s.Cases)
+        {
+            var caseValue = Eval(caseClause.Value, scope);
+            if (ValuesEqual(switchValue, caseValue))
+            {
+                ExecuteBlock(caseClause.Body, scope, loopDepth: 0);
+                return;
+            }
+        }
+
+        if (s.DefaultCase is not null)
+        {
+            ExecuteBlock(s.DefaultCase.Body, scope, loopDepth: 0);
+        }
+    }
+
     // ============================================================
     // Expressões
     // ============================================================
 
-    private OslangValue Eval(Expr expr, Scope scope) => expr switch
-    {
-        NumberLiteralExpr n => new NumberValue(n.Value),
-        StringLiteralExpr s => new StringValue(s.Value),
-        BooleanLiteralExpr b => BooleanValue.Of(b.Value),
-        NullLiteralExpr => OslangValue.Null,
-        ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),
-        IdentifierExpr id => EvalIdentifier(id, scope),
-        IndexExpr ix => EvalIndex(ix, scope),
-        CallExpr call => EvalCall(call, scope),
-        MethodCallExpr call => EvalMethodCall(call, scope),
-        MemberAccessExpr ma => EvalMemberAccess(ma, scope),
-        NewExpr ne => EvalNew(ne, scope),
-        MeExpr => EvalMe(scope),
-        BaseExpr => EvalBase(scope),
-        UnaryExpr u => EvalUnary(u, scope),
-        BinaryExpr b => EvalBinary(b, scope),
-        _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
-    };
+        private OslangValue Eval(Expr expr, Scope scope) => expr switch
+        {
+            NumberLiteralExpr n => new NumberValue(n.Value),
+            StringLiteralExpr s => new StringValue(s.Value),
+            BooleanLiteralExpr b => BooleanValue.Of(b.Value),
+            NullLiteralExpr => OslangValue.Null,
+            ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),
+            IdentifierExpr id => EvalIdentifier(id, scope),
+            IndexExpr ix => EvalIndex(ix, scope),
+            CallExpr call => EvalCall(call, scope),
+            MethodCallExpr call => EvalMethodCall(call, scope),
+            MemberAccessExpr ma => EvalMemberAccess(ma, scope),
+            NewExpr ne => EvalNew(ne, scope),
+            MeExpr => EvalMe(scope),
+            BaseExpr => EvalBase(scope),
+            UnaryExpr u => EvalUnary(u, scope),
+            BinaryExpr b => EvalBinary(b, scope),
+            SwitchExpr s => EvalSwitchExpr(s, scope),
+            _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
+        };
 
     private double EvalNumber(Expr expr, Scope scope, string description)
     {
@@ -772,6 +820,29 @@ internal sealed class Interpreter
         }
 
         return BooleanValue.Of(fn(l.Value, r.Value));
+    }
+
+    private OslangValue EvalSwitchExpr(SwitchExpr expr, Scope scope)
+    {
+        var switchValue = Eval(expr.Expression, scope);
+        OslangValue? result = null;
+
+        foreach (var caseBranch in expr.Cases)
+        {
+            var caseValue = Eval(caseBranch.Value, scope);
+            if (ValuesEqual(switchValue, caseValue))
+            {
+                result = Eval(caseBranch.Result, scope);
+                break;
+            }
+        }
+
+        if (result is null && expr.DefaultCase is not null)
+        {
+            result = Eval(expr.DefaultCase.Result, scope);
+        }
+
+        return result ?? OslangValue.Null;
     }
 
     private static bool ValuesEqual(OslangValue left, OslangValue right)

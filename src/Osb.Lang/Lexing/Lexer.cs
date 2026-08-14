@@ -285,7 +285,14 @@ public sealed class Lexer
             case ',': return new Token(TokenType.Comma, ",", start);
             case ':': return new Token(TokenType.Colon, ":", start);
             case '.': return new Token(TokenType.Dot, ".", start);
-            case '=': return new Token(TokenType.Equal, "=", start);
+            case '=':
+                if (Current == '>')
+                {
+                    Advance();
+                    return new Token(TokenType.DoubleArrow, "=>", start);
+                }
+
+                return new Token(TokenType.Equal, "=", start);
             case '<':
                 if (Current == '>')
                 {

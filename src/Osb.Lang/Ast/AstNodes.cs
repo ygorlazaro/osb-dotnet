@@ -6,8 +6,13 @@ namespace Osb.Lang.Ast;
 // Programa / funções
 // ============================================================
 
-/// <summary>Um programa OSLANG completo: a lista de funções declaradas no arquivo (em qualquer ordem, seção 18).</summary>
-public sealed record OslangProgram(IReadOnlyList<FunctionDecl> Functions);
+/// <summary>Um programa OSLANG completo.</summary>
+public sealed record OslangProgram(
+    IReadOnlyList<FunctionDecl> Functions,
+    IReadOnlyList<ClassDecl> Classes,
+    IReadOnlyList<InterfaceDecl> Interfaces,
+    IReadOnlyList<UsingDecl> Usings,
+    IReadOnlyList<EventDecl> Events);
 
 /// <summary>
 /// Parâmetro de função. <see cref="TypeName"/> é "NUMBER"/"STRING"/"BOOLEAN" para
@@ -59,9 +64,73 @@ public sealed record InterfaceDecl(
 
 public sealed record ClassDecl(
     string Name,
+    IReadOnlyList<string> GenericParameters,
     IReadOnlyList<string> InheritedNames,
     IReadOnlyList<MemberDecl> Members,
     SourceLocation Location) : Stmt(Location);
+
+// ============================================================
+// OSLANG 0.3 - USING
+// ============================================================
+
+public sealed record UsingDecl(string ModuleName, SourceLocation Location) : Stmt(Location);
+
+// ============================================================
+// OSLANG 0.3 - Events
+// ============================================================
+
+public sealed record EventDecl(
+    string Name,
+    IReadOnlyList<ParameterDecl> Parameters,
+    SourceLocation Location) : MemberDecl(Location);
+
+// ============================================================
+// OSLANG 0.3 - SWITCH
+// ============================================================
+
+public sealed record CaseClause(Expr Value, IReadOnlyList<Stmt> Body, SourceLocation Location);
+
+public sealed record DefaultClause(IReadOnlyList<Stmt> Body, SourceLocation Location);
+
+public sealed record SwitchStmt(
+    Expr Expression,
+    IReadOnlyList<CaseClause> Cases,
+    DefaultClause? DefaultCase,
+    SourceLocation Location) : Stmt(Location);
+
+public sealed record CaseBranch(Expr Value, Expr Result, SourceLocation Location);
+
+public sealed record DefaultBranch(Expr Result, SourceLocation Location);
+
+public sealed record SwitchExpr(
+    Expr Expression,
+    IReadOnlyList<CaseBranch> Cases,
+    DefaultBranch? DefaultCase,
+    SourceLocation Location) : Expr(Location);
+
+// ============================================================
+// OSLANG 0.3 - Virtual / Override
+// ============================================================
+
+public sealed record VirtualMethodDecl(
+    string Name,
+    IReadOnlyList<ParameterDecl> Parameters,
+    IReadOnlyList<Stmt> Body,
+    Visibility Visibility,
+    SourceLocation Location) : MemberDecl(Location);
+
+public sealed record OverrideMethodDecl(
+    string Name,
+    IReadOnlyList<ParameterDecl> Parameters,
+    IReadOnlyList<Stmt> Body,
+    Visibility Visibility,
+    SourceLocation Location) : MemberDecl(Location);
+
+// ============================================================
+// OSLANG 0.3 - Generics
+// ============================================================
+
+public sealed record GenericParameter(string Name, SourceLocation Location);
 
 // ============================================================
 // Statements

@@ -57,6 +57,17 @@ public enum TokenType
     Var,
     While,
 
+    // OSLANG 0.3
+    Switch,
+    Case,
+    Default,
+    Virtual,
+    Override,
+    Event,
+    On,
+    Raise,
+    Using,
+
     // Operadores aritméticos
     Plus,
     Minus,
@@ -80,6 +91,7 @@ public enum TokenType
     Comma,
     Colon,
     Dot,
+    DoubleArrow,
 
     // Estrutura
     Newline,

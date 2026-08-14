@@ -75,10 +75,16 @@ public sealed class Parser
         var functions = new List<FunctionDecl>();
         var classes = new List<ClassDecl>();
         var interfaces = new List<InterfaceDecl>();
+        var usings = new List<UsingDecl>();
+        var events = new List<EventDecl>();
         SkipNewlines();
         while (!IsAtEnd)
         {
-            if (Check(TokenType.Function))
+            if (Check(TokenType.Using))
+            {
+                usings.Add(ParseUsingDecl());
+            }
+            else if (Check(TokenType.Function))
             {
                 functions.Add(ParseFunctionDecl());
             }
@@ -90,22 +96,19 @@ public sealed class Parser
             {
                 interfaces.Add(ParseInterfaceDecl());
             }
+            else if (Check(TokenType.Event))
+            {
+                events.Add(ParseEventDecl());
+            }
             else
             {
-                throw new SyntaxException(Current.Location, $"Expected FUNCTION, CLASS, or INTERFACE at top level. Found '{Current.Lexeme}'.");
+                throw new SyntaxException(Current.Location, $"Expected USING, FUNCTION, CLASS, INTERFACE, or EVENT at top level. Found '{Current.Lexeme}'.");
             }
             SkipNewlines();
         }
 
-        _parsedClasses = classes;
-        _parsedInterfaces = interfaces;
-        return new OslangProgram(functions);
+        return new OslangProgram(functions, classes, interfaces, usings, events);
     }
-
-    public IReadOnlyList<ClassDecl> ParsedClasses => _parsedClasses;
-    public IReadOnlyList<InterfaceDecl> ParsedInterfaces => _parsedInterfaces;
-    private List<ClassDecl> _parsedClasses = new();
-    private List<InterfaceDecl> _parsedInterfaces = new();
 
     private FunctionDecl ParseFunctionDecl()
     {
@@ -212,7 +215,7 @@ public sealed class Parser
             Advance(); // optional "END CLASS"
         }
 
-        return new ClassDecl(nameTok.Text, inheritedNames, members, start);
+        return new ClassDecl(nameTok.Text, [], inheritedNames, members, start);
     }
 
     private InterfaceDecl ParseInterfaceDecl()
@@ -346,6 +349,91 @@ public sealed class Parser
         return new ParameterDecl(nameTok.Text, typeName, nameTok.Location);
     }
 
+    private UsingDecl ParseUsingDecl()
+    {
+        var start = Current.Location;
+        Advance(); // consume USING
+        var moduleTok = Expect(TokenType.Identifier, "Expected module name after USING.");
+        return new UsingDecl(moduleTok.Text, start);
+    }
+
+    private EventDecl ParseEventDecl()
+    {
+        var start = Current.Location;
+        Advance(); // consume EVENT
+        var nameTok = Expect(TokenType.Identifier, "Expected event name after EVENT.");
+        Expect(TokenType.LParen, "Expected '(' after event name.");
+        var parameters = new List<ParameterDecl>();
+        if (!Check(TokenType.RParen))
+        {
+            parameters.Add(ParseParameter());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                parameters.Add(ParseParameter());
+            }
+        }
+
+        Expect(TokenType.RParen, "Expected ')' after event parameter list.");
+        return new EventDecl(nameTok.Text, parameters, start);
+    }
+
+    private Stmt ParseSwitchStatement()
+    {
+        var start = Current.Location;
+        Advance(); // consume SWITCH
+        var expression = ParseExpression();
+        var cases = new List<CaseClause>();
+        DefaultClause? defaultCase = null;
+
+        while (!IsAtEnd && !Check(TokenType.End))
+        {
+            if (Check(TokenType.Case))
+            {
+                cases.Add(ParseCaseClause());
+            }
+            else if (Check(TokenType.Default))
+            {
+                if (defaultCase is not null)
+                {
+                    throw new SyntaxException(Current.Location, "Duplicate DEFAULT clause in SWITCH.");
+                }
+
+                defaultCase = ParseDefaultClause();
+            }
+            else if (Check(TokenType.Newline))
+            {
+                Advance();
+            }
+            else
+            {
+                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in SWITCH. Expected CASE, DEFAULT, or END.");
+            }
+        }
+
+        Expect(TokenType.End, "Expected END to close SWITCH.");
+        return new SwitchStmt(expression, cases, defaultCase, start);
+    }
+
+    private CaseClause ParseCaseClause()
+    {
+        var start = Current.Location;
+        Advance(); // consume CASE
+        var value = ParseExpression();
+        SkipNewlines();
+        var body = ParseBlockUntil(TokenType.Case, TokenType.Default, TokenType.End);
+        return new CaseClause(value, body, start);
+    }
+
+    private DefaultClause ParseDefaultClause()
+    {
+        var start = Current.Location;
+        Advance(); // consume DEFAULT
+        SkipNewlines();
+        var body = ParseBlockUntil(TokenType.Case, TokenType.End);
+        return new DefaultClause(body, start);
+    }
+
     /// <summary>NUMBER, STRING ou BOOLEAN como anotação de tipo de VAR/parâmetro; null se ausente.</summary>
     private string? TryParseTypeAnnotation()
     {
@@ -408,6 +496,7 @@ public sealed class Parser
             TokenType.Input => ParseInput(),
             TokenType.Clear => new ClearStmt(Advance().Location),
             TokenType.Base => ParseBaseCall(),
+            TokenType.Switch => ParseSwitchStatement(),
             TokenType.Identifier => ParseIdentifierLedStatement(),
             TokenType.Me => ParseMeLedStatement(),
             _ => throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' at start of statement."),
@@ -762,7 +851,73 @@ public sealed class Parser
             return new UnaryExpr("-", ParseUnary(), loc);
         }
 
+        return ParseSwitchOrPostfix();
+    }
+
+    private Expr ParseSwitchOrPostfix()
+    {
+        if (Check(TokenType.Switch))
+        {
+            return ParseSwitchExpression();
+        }
+
         return ParsePostfix();
+    }
+
+    private Expr ParseSwitchExpression()
+    {
+        var start = Current.Location;
+        Advance(); // consume SWITCH
+        var expression = ParseExpression();
+        SkipNewlines();
+        var cases = new List<CaseBranch>();
+        DefaultBranch? defaultCase = null;
+
+        while (!IsAtEnd && !Check(TokenType.End) && !Check(TokenType.Elif) && !Check(TokenType.Else))
+        {
+            if (Check(TokenType.Case))
+            {
+                cases.Add(ParseCaseBranch());
+            }
+            else if (Check(TokenType.Default))
+            {
+                if (defaultCase is not null)
+                {
+                    throw new SyntaxException(Current.Location, "Duplicate DEFAULT in switch expression.");
+                }
+
+                defaultCase = ParseDefaultBranch();
+            }
+            else if (Check(TokenType.Newline))
+            {
+                Advance();
+            }
+            else
+            {
+                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in switch expression.");
+            }
+        }
+
+        return new SwitchExpr(expression, cases, defaultCase, start);
+    }
+
+    private CaseBranch ParseCaseBranch()
+    {
+        var start = Current.Location;
+        Advance(); // consume CASE
+        var value = ParseExpression();
+        Expect(TokenType.DoubleArrow, "Expected '=>' after CASE value in switch expression.");
+        var result = ParseExpression();
+        return new CaseBranch(value, result, start);
+    }
+
+    private DefaultBranch ParseDefaultBranch()
+    {
+        var start = Current.Location;
+        Advance(); // consume DEFAULT
+        Expect(TokenType.DoubleArrow, "Expected '=>' after DEFAULT in switch expression.");
+        var result = ParseExpression();
+        return new DefaultBranch(result, start);
     }
 
     private Expr ParsePostfix()
