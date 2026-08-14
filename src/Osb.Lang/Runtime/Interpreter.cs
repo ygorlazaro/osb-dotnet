@@ -5,23 +5,19 @@ using Osb.Lang.Extensibility;
 namespace Osb.Lang.Runtime;
 
 /// <summary>
-/// Interpretador tree-walking de OSLANG 0.1. Percorre a AST produzida pelo
-/// <see cref="Parsing.Parser"/> e a executa diretamente (sem bytecode
-/// intermediário - decisão de simplicidade, seção 55: "prefer simplicity").
-///
-/// RETURN, BREAK e CONTINUE são implementados com exceções internas
-/// (<see cref="Signals"/>) para desenrolar blocos aninhados de forma simples;
-/// elas nunca são <see cref="OslangException"/> e não são capturadas por
-/// TRY/CATCH de OSLANG.
+/// Interpretador tree-walking de OSLANG 0.1/0.2.
 /// </summary>
 internal sealed class Interpreter
 {
     private readonly Dictionary<string, FunctionDecl> _functions = new();
     private readonly Dictionary<string, Variable> _globals = new();
+    private readonly Dictionary<string, ClassDefinition> _classes = new();
+    private readonly Dictionary<string, InterfaceDefinition> _interfaces = new();
     private readonly ExtensionRegistry _extensions;
     private readonly TextWriter _output;
     private readonly TextReader _input;
     private readonly Action? _clear;
+    private ObjectInstance? _currentObject;
 
     public Interpreter(OslangProgram program, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear)
     {
@@ -48,6 +44,30 @@ internal sealed class Interpreter
             throw new SemanticException(main.Location, "FUNCTION MAIN() must not declare any parameters.");
         }
     }
+
+    public void RegisterClass(ClassDefinition classDef)
+    {
+        if (!_classes.TryAdd(classDef.Name, classDef))
+        {
+            throw new SemanticException(SourceLocation.Unknown, $"Class '{classDef.Name}' is already registered.");
+        }
+    }
+
+    public void RegisterInterface(InterfaceDefinition interfaceDef)
+    {
+        if (!_interfaces.TryAdd(interfaceDef.Name, interfaceDef))
+        {
+            throw new SemanticException(SourceLocation.Unknown, $"Interface '{interfaceDef.Name}' is already registered.");
+        }
+    }
+
+    public ClassDefinition? GetClass(string name) => _classes.TryGetValue(name, out var cls) ? cls : null;
+
+    public InterfaceDefinition? GetInterface(string name) => _interfaces.TryGetValue(name, out var iface) ? iface : null;
+
+    public IReadOnlyDictionary<string, ClassDefinition> GetClasses() => _classes;
+
+    public IReadOnlyDictionary<string, InterfaceDefinition> GetInterfaces() => _interfaces;
 
     public OslangValue Run() => CallFunction("MAIN", [], SourceLocation.Unknown);
 
@@ -214,9 +234,51 @@ internal sealed class Interpreter
                 var index = ResolveIndex(Eval(it.IndexExpr, scope), array, it.Location);
                 TypeSystem.AssignArrayElement(array, index, value, it.Location);
                 break;
+            case MemberTarget mt:
+                var memberValue = Eval(mt.Object, scope);
+                if (memberValue is not ObjectValue objectValue)
+                {
+                    throw new OslangRuntimeException(mt.Location, $"Cannot assign to member on type {memberValue.TypeName}.");
+                }
+                AssignToMember(objectValue.Instance, mt.MemberName, value, mt.Location);
+                break;
             default:
                 throw new InvalidOperationException($"Unknown assign target {a.Target.GetType().Name}.");
         }
+    }
+
+    private void AssignToMember(ObjectInstance instance, string memberName, OslangValue value, SourceLocation location)
+    {
+        var classDef = instance.ClassDefinition;
+        var prop = classDef.FindProperty(memberName);
+        if (prop is null)
+        {
+            throw new OslangRuntimeException(location, $"Property '{memberName}' not found in class '{classDef.Name}'.");
+        }
+
+        if (instance.PropertyValues.TryGetValue(prop.Name, out var existingValue))
+        {
+            if (existingValue.Type != RuntimeType.Null)
+            {
+                if (existingValue.Type != value.Type && value.Type != RuntimeType.Null)
+                {
+                    throw new OslangRuntimeException(location, $"Type error: cannot assign {value.TypeName} to property '{prop.Name}', which is {existingValue.TypeName}.");
+                }
+            }
+            else if (value.Type != RuntimeType.Null)
+            {
+                if (prop.TypeName is not null)
+                {
+                    var expectedType = TypeSystem.ParseTypeName(prop.TypeName);
+                    if (expectedType != value.Type)
+                    {
+                        throw new OslangRuntimeException(location, $"Type error: property '{prop.Name}' expects {expectedType}, got {value.TypeName}.");
+                    }
+                }
+            }
+        }
+
+        instance.PropertyValues[prop.Name] = value;
     }
 
     private void ExecutePrint(PrintStmt p, Scope scope)
@@ -360,6 +422,10 @@ internal sealed class Interpreter
         IdentifierExpr id => EvalIdentifier(id, scope),
         IndexExpr ix => EvalIndex(ix, scope),
         CallExpr call => EvalCall(call, scope),
+        MethodCallExpr call => EvalMethodCall(call, scope),
+        MemberAccessExpr ma => EvalMemberAccess(ma, scope),
+        NewExpr ne => EvalNew(ne, scope),
+        MeExpr => EvalMe(scope),
         UnaryExpr u => EvalUnary(u, scope),
         BinaryExpr b => EvalBinary(b, scope),
         _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
@@ -607,7 +673,213 @@ internal sealed class Interpreter
             (StringValue a, StringValue b) => a.Value == b.Value,
             (BooleanValue a, BooleanValue b) => a.Value == b.Value,
             (ArrayValue a, ArrayValue b) => ReferenceEquals(a, b),
+            (ObjectValue a, ObjectValue b) => ReferenceEquals(a.Instance, b.Instance),
             _ => false,
         };
+    }
+
+    // ============================================================
+    // OSLANG 0.2 - Orientação a objetos
+    // ============================================================
+
+    private OslangValue EvalMe(Scope scope)
+    {
+        if (_currentObject is null)
+        {
+            throw new OslangRuntimeException(SourceLocation.Unknown, "ME used outside of a class method.");
+        }
+
+        return new ObjectValue(_currentObject);
+    }
+
+    private OslangValue EvalMemberAccess(MemberAccessExpr expr, Scope scope)
+    {
+        var obj = Eval(expr.Object, scope);
+        if (obj is not ObjectValue objectValue)
+        {
+            throw new OslangRuntimeException(expr.Location, $"Cannot access member '{expr.MemberName}' on type {obj.TypeName}.");
+        }
+
+        return ResolveMemberAccess(objectValue.Instance, expr.MemberName, expr.Location, isWrite: false);
+    }
+
+    private OslangValue EvalMethodCall(MethodCallExpr expr, Scope scope)
+    {
+        var obj = Eval(expr.Object, scope);
+        if (obj is not ObjectValue objectValue)
+        {
+            throw new OslangRuntimeException(expr.Location, $"Cannot call method '{expr.MethodName}' on type {obj.TypeName}.");
+        }
+
+        var method = objectValue.Instance.ClassDefinition.FindMethod(expr.MethodName);
+        if (method is null)
+        {
+            throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{objectValue.Instance.ClassName}'.");
+        }
+
+        var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+        return CallMethod(objectValue.Instance, method, args, expr.Location);
+    }
+
+    private OslangValue EvalNew(NewExpr expr, Scope scope)
+    {
+        if (!_classes.TryGetValue(expr.ClassName, out var classDef))
+        {
+            throw new OslangRuntimeException(expr.Location, $"Unknown class '{expr.ClassName}'.");
+        }
+
+        var instance = new ObjectInstance(classDef);
+        
+        var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+        
+        var previousObject = _currentObject;
+        _currentObject = instance;
+        
+        try
+        {
+            if (classDef.BaseClass is not null)
+            {
+                ExecuteBaseConstructor(instance, classDef.BaseClass, [], expr.Location);
+            }
+            
+            var constructor = classDef.Constructor;
+            if (constructor is not null)
+            {
+                ExecuteConstructor(instance, constructor, args, expr.Location);
+            }
+        }
+        finally
+        {
+            _currentObject = previousObject;
+        }
+
+        return new ObjectValue(instance);
+    }
+
+    private void ExecuteBaseConstructor(ObjectInstance instance, ClassDefinition baseClass, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
+    {
+        if (baseClass.BaseClass is not null)
+        {
+            ExecuteBaseConstructor(instance, baseClass.BaseClass, args, callLocation);
+        }
+
+        var constructor = baseClass.Constructor;
+        if (constructor is not null)
+        {
+            ExecuteConstructor(instance, constructor, args, callLocation);
+        }
+    }
+
+    private void ExecuteConstructor(ObjectInstance instance, ConstructorDefinition constructor, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
+    {
+        if (args.Count != constructor.Parameters.Count)
+        {
+            throw new OslangRuntimeException(callLocation, $"Constructor expects {constructor.Parameters.Count} argument(s), got {args.Count}.");
+        }
+
+        var previousObject = _currentObject;
+        _currentObject = instance;
+
+        var scope = new Scope(_globals);
+        for (var i = 0; i < constructor.Parameters.Count; i++)
+        {
+            var param = constructor.Parameters[i];
+            var variable = scope.DeclareLocal(param.Name);
+            if (param.TypeName is not null)
+            {
+                variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
+            }
+            TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+        }
+
+        try
+        {
+            ExecuteBlock(constructor.Body, scope, loopDepth: 0);
+        }
+        catch (ReturnSignal)
+        {
+            // constructors don't return values, ignore
+        }
+        finally
+        {
+            _currentObject = previousObject;
+        }
+    }
+
+    private OslangValue CallMethod(ObjectInstance instance, MethodDefinition method, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
+    {
+        if (args.Count != method.Parameters.Count)
+        {
+            throw new OslangRuntimeException(callLocation, $"Method '{method.Name}' expects {method.Parameters.Count} argument(s), got {args.Count}.");
+        }
+
+        var previousObject = _currentObject;
+        _currentObject = instance;
+
+        var scope = new Scope(_globals);
+        for (var i = 0; i < method.Parameters.Count; i++)
+        {
+            var param = method.Parameters[i];
+            var variable = scope.DeclareLocal(param.Name);
+            if (param.TypeName is not null)
+            {
+                variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
+            }
+            TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+        }
+
+        try
+        {
+            ExecuteBlock(method.Body, scope, loopDepth: 0);
+        }
+        catch (ReturnSignal ret)
+        {
+            return ret.Value;
+        }
+        finally
+        {
+            _currentObject = previousObject;
+        }
+
+        return OslangValue.Null;
+    }
+
+    private OslangValue ResolveMemberAccess(ObjectInstance instance, string memberName, SourceLocation location, bool isWrite)
+    {
+        var classDef = instance.ClassDefinition;
+        var prop = classDef.FindProperty(memberName);
+        if (prop is not null)
+        {
+            if (isWrite)
+            {
+                instance.PropertyValues[prop.Name] = OslangValue.Null; // placeholder, actual assignment handled elsewhere
+            }
+            if (instance.PropertyValues.TryGetValue(prop.Name, out var value))
+            {
+                return value;
+            }
+            return OslangValue.Null;
+        }
+
+        var method = classDef.FindMethod(memberName);
+        if (method is not null)
+        {
+            // Return a callable wrapper - for now, just return Null since method calls use MethodCallExpr
+            return OslangValue.Null;
+        }
+
+        throw new OslangRuntimeException(location, $"Member '{memberName}' not found in class '{classDef.Name}'.");
+    }
+
+    private OslangValue ResolveMemberForAssignment(ObjectInstance instance, string memberName, SourceLocation location)
+    {
+        var classDef = instance.ClassDefinition;
+        var prop = classDef.FindProperty(memberName);
+        if (prop is null)
+        {
+            throw new OslangRuntimeException(location, $"Property '{memberName}' not found in class '{classDef.Name}'.");
+        }
+
+        return instance.PropertyValues.GetValueOrDefault(prop.Name, OslangValue.Null);
     }
 }

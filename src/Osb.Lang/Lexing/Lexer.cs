@@ -283,6 +283,8 @@ public sealed class Lexer
             case '[': return new Token(TokenType.LBracket, "[", start);
             case ']': return new Token(TokenType.RBracket, "]", start);
             case ',': return new Token(TokenType.Comma, ",", start);
+            case ':': return new Token(TokenType.Colon, ":", start);
+            case '.': return new Token(TokenType.Dot, ".", start);
             case '=': return new Token(TokenType.Equal, "=", start);
             case '<':
                 if (Current == '>')

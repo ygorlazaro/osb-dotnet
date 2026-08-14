@@ -13,6 +13,7 @@ public static class Conversions
         NumberValue n => n.Value != 0,
         StringValue s => s.Value.Length > 0,
         ArrayValue => true, // "any ARRAY" é truthy, mesmo vazio (seção 19)
+        ObjectValue => true, // object references are truthy
         _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 
@@ -55,6 +56,7 @@ public static class Conversions
         NumberValue n => NumberToString(n.Value),
         BooleanValue b => b.Value ? "TRUE" : "FALSE",
         ArrayValue => throw new OslangRuntimeException(location, "Cannot convert an ARRAY to STRING."),
+        ObjectValue obj => obj.ClassName,
         _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 }

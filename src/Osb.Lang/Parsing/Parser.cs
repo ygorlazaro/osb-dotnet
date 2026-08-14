@@ -73,15 +73,39 @@ public sealed class Parser
     public OslangProgram Parse()
     {
         var functions = new List<FunctionDecl>();
+        var classes = new List<ClassDecl>();
+        var interfaces = new List<InterfaceDecl>();
         SkipNewlines();
         while (!IsAtEnd)
         {
-            functions.Add(ParseFunctionDecl());
+            if (Check(TokenType.Function))
+            {
+                functions.Add(ParseFunctionDecl());
+            }
+            else if (Check(TokenType.Class))
+            {
+                classes.Add(ParseClassDecl());
+            }
+            else if (Check(TokenType.Interface))
+            {
+                interfaces.Add(ParseInterfaceDecl());
+            }
+            else
+            {
+                throw new SyntaxException(Current.Location, $"Expected FUNCTION, CLASS, or INTERFACE at top level. Found '{Current.Lexeme}'.");
+            }
             SkipNewlines();
         }
 
+        _parsedClasses = classes;
+        _parsedInterfaces = interfaces;
         return new OslangProgram(functions);
     }
+
+    public IReadOnlyList<ClassDecl> ParsedClasses => _parsedClasses;
+    public IReadOnlyList<InterfaceDecl> ParsedInterfaces => _parsedInterfaces;
+    private List<ClassDecl> _parsedClasses = new();
+    private List<InterfaceDecl> _parsedInterfaces = new();
 
     private FunctionDecl ParseFunctionDecl()
     {
@@ -107,10 +131,212 @@ public sealed class Parser
         Expect(TokenType.End, "Expected END to close function body.");
         if (Check(TokenType.Function))
         {
-            Advance(); // "END FUNCTION" - a palavra FUNCTION final é opcional (decisão 1 acima)
+            Advance(); // "END FUNCTION" - a palavra FUNCTION final é opcional
         }
 
         return new FunctionDecl(nameTok.Text, parameters, body, start);
+    }
+
+    private Visibility ParseVisibility()
+    {
+        if (Check(TokenType.Public))
+        {
+            Advance();
+            return Visibility.Public;
+        }
+
+        if (Check(TokenType.Protected))
+        {
+            Advance();
+            return Visibility.Protected;
+        }
+
+        if (Check(TokenType.Private))
+        {
+            Advance();
+            return Visibility.Private;
+        }
+
+        return Visibility.Public;
+    }
+
+    private ClassDecl ParseClassDecl()
+    {
+        var start = Current.Location;
+        Expect(TokenType.Class, "Expected CLASS keyword.");
+        var nameTok = Expect(TokenType.Identifier, "Expected class name.");
+
+        var inheritedNames = new List<string>();
+
+        if (Check(TokenType.Colon))
+        {
+            Advance(); // consume ':'
+            inheritedNames.Add(Expect(TokenType.Identifier, "Expected base class or interface name after ':'.").Text);
+
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                inheritedNames.Add(Expect(TokenType.Identifier, "Expected interface name after ','.").Text);
+            }
+        }
+
+        var members = new List<MemberDecl>();
+        while (!Check(TokenType.End) && !IsAtEnd)
+        {
+            var visibility = ParseVisibility();
+            if (Check(TokenType.Var))
+            {
+                members.Add(ParsePropertyDecl(visibility));
+            }
+            else if (Check(TokenType.Constructor))
+            {
+                members.Add(ParseConstructorDecl(visibility));
+            }
+            else if (Check(TokenType.Identifier))
+            {
+                members.Add(ParseMethodDecl(visibility));
+            }
+            else if (Check(TokenType.Newline))
+            {
+                Advance();
+            }
+            else
+            {
+                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in class body. Expected VAR, CONSTRUCTOR, method name, or END.");
+            }
+        }
+
+        Expect(TokenType.End, "Expected END to close class.");
+        if (Check(TokenType.Class))
+        {
+            Advance(); // optional "END CLASS"
+        }
+
+        return new ClassDecl(nameTok.Text, inheritedNames, members, start);
+    }
+
+    private InterfaceDecl ParseInterfaceDecl()
+    {
+        var start = Current.Location;
+        Expect(TokenType.Interface, "Expected INTERFACE keyword.");
+        var nameTok = Expect(TokenType.Identifier, "Expected interface name.");
+
+        var members = new List<MemberDecl>();
+        while (!Check(TokenType.End) && !IsAtEnd)
+        {
+            if (Check(TokenType.Newline))
+            {
+                Advance();
+                continue;
+            }
+
+            // Interface members don't have visibility (implicitly PUBLIC)
+            if (Check(TokenType.Var))
+            {
+                members.Add(ParsePropertyDecl(Visibility.Public));
+            }
+            else if (Check(TokenType.Identifier))
+            {
+                members.Add(ParseInterfaceMethodDecl());
+            }
+            else
+            {
+                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in interface body.");
+            }
+        }
+
+        Expect(TokenType.End, "Expected END to close interface.");
+        if (Check(TokenType.Interface))
+        {
+            Advance(); // optional "END INTERFACE"
+        }
+
+        return new InterfaceDecl(nameTok.Text, members, start);
+    }
+
+    private MethodDecl ParseInterfaceMethodDecl()
+    {
+        var start = Current.Location;
+        var nameTok = Expect(TokenType.Identifier, "Expected method name.");
+
+        Expect(TokenType.LParen, "Expected '(' after method name.");
+        var parameters = new List<ParameterDecl>();
+        if (!Check(TokenType.RParen))
+        {
+            parameters.Add(ParseParameter());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                parameters.Add(ParseParameter());
+            }
+        }
+
+        Expect(TokenType.RParen, "Expected ')' after parameter list.");
+
+        return new MethodDecl(nameTok.Text, parameters, [], Visibility.Public, start);
+    }
+
+    private PropertyDecl ParsePropertyDecl(Visibility visibility)
+    {
+        var start = Current.Location;
+        Advance(); // VAR
+        var nameTok = Expect(TokenType.Identifier, "Expected property name after VAR.");
+        var typeName = TryParseTypeAnnotation();
+        return new PropertyDecl(nameTok.Text, typeName, visibility, start);
+    }
+
+    private MethodDecl ParseMethodDecl(Visibility visibility)
+    {
+        var start = Current.Location;
+        var nameTok = Expect(TokenType.Identifier, "Expected method name.");
+
+        Expect(TokenType.LParen, "Expected '(' after method name.");
+        var parameters = new List<ParameterDecl>();
+        if (!Check(TokenType.RParen))
+        {
+            parameters.Add(ParseParameter());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                parameters.Add(ParseParameter());
+            }
+        }
+
+        Expect(TokenType.RParen, "Expected ')' after parameter list.");
+
+        var body = ParseBlockUntil(TokenType.End);
+        Expect(TokenType.End, "Expected END to close method.");
+        if (Check(TokenType.Function))
+        {
+            Advance(); // optional "END FUNCTION"
+        }
+
+        return new MethodDecl(nameTok.Text, parameters, body, visibility, start);
+    }
+
+    private ConstructorDecl ParseConstructorDecl(Visibility visibility)
+    {
+        var start = Current.Location;
+        Advance(); // CONSTRUCTOR
+
+        Expect(TokenType.LParen, "Expected '(' after CONSTRUCTOR.");
+        var parameters = new List<ParameterDecl>();
+        if (!Check(TokenType.RParen))
+        {
+            parameters.Add(ParseParameter());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                parameters.Add(ParseParameter());
+            }
+        }
+
+        Expect(TokenType.RParen, "Expected ')' after constructor parameter list.");
+
+        var body = ParseBlockUntil(TokenType.End);
+        Expect(TokenType.End, "Expected END to close constructor.");
+
+        return new ConstructorDecl(parameters, body, start);
     }
 
     private ParameterDecl ParseParameter()
@@ -182,8 +408,66 @@ public sealed class Parser
             TokenType.Input => ParseInput(),
             TokenType.Clear => new ClearStmt(Advance().Location),
             TokenType.Identifier => ParseIdentifierLedStatement(),
+            TokenType.Me => ParseMeLedStatement(),
             _ => throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' at start of statement."),
         };
+    }
+
+    private Stmt ParseMeLedStatement()
+    {
+        var start = Current.Location;
+        Advance(); // consume ME
+        
+        var expr = ParsePostfixStarting(new MeExpr(start));
+
+        if (Check(TokenType.Equal))
+        {
+            Advance();
+            var value = ParseExpression();
+            var target = ToAssignTarget(expr);
+            return new AssignStmt(target, value, start);
+        }
+
+        return new ExpressionStmt(expr, start);
+    }
+
+    private Expr ParsePostfixStarting(Expr initial)
+    {
+        var expr = initial;
+        while (true)
+        {
+            if (Check(TokenType.LBracket))
+            {
+                var loc = Current.Location;
+                Advance();
+                var index = ParseExpression();
+                Expect(TokenType.RBracket, "Expected ']' after array index.");
+                expr = new IndexExpr(expr, index, loc);
+            }
+            else if (Check(TokenType.Dot))
+            {
+                var loc = Current.Location;
+                Advance(); // consume '.'
+                var memberTok = Expect(TokenType.Identifier, "Expected member name after '.'.");
+                
+                if (Check(TokenType.LParen))
+                {
+                    Advance(); // consume '('
+                    var args = ParseArgList();
+                    expr = new MethodCallExpr(expr, memberTok.Text, args, loc);
+                }
+                else
+                {
+                    expr = new MemberAccessExpr(expr, memberTok.Text, loc);
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return expr;
     }
 
     private Stmt ParseVarDecl()
@@ -225,6 +509,7 @@ public sealed class Parser
     {
         IdentifierExpr id => new VariableTarget(id.Name, id.Location),
         IndexExpr ix => new IndexTarget(ix.Array, ix.Index, ix.Location),
+        MemberAccessExpr ma => new MemberTarget(ma.Object, ma.MemberName, ma.Location),
         _ => throw new SyntaxException(expr.Location, "Invalid assignment target."),
     };
 
@@ -463,13 +748,37 @@ public sealed class Parser
     private Expr ParsePostfix()
     {
         var expr = ParsePrimary();
-        while (Check(TokenType.LBracket))
+        while (true)
         {
-            var loc = Current.Location;
-            Advance();
-            var index = ParseExpression();
-            Expect(TokenType.RBracket, "Expected ']' after array index.");
-            expr = new IndexExpr(expr, index, loc);
+            if (Check(TokenType.LBracket))
+            {
+                var loc = Current.Location;
+                Advance();
+                var index = ParseExpression();
+                Expect(TokenType.RBracket, "Expected ']' after array index.");
+                expr = new IndexExpr(expr, index, loc);
+            }
+            else if (Check(TokenType.Dot))
+            {
+                var loc = Current.Location;
+                Advance(); // consume '.'
+                var memberTok = Expect(TokenType.Identifier, "Expected member name after '.'.");
+                
+                if (Check(TokenType.LParen))
+                {
+                    Advance(); // consume '('
+                    var args = ParseArgList();
+                    expr = new MethodCallExpr(expr, memberTok.Text, args, loc);
+                }
+                else
+                {
+                    expr = new MemberAccessExpr(expr, memberTok.Text, loc);
+                }
+            }
+            else
+            {
+                break;
+            }
         }
 
         return expr;
@@ -512,6 +821,11 @@ public sealed class Parser
 
             case TokenType.LBracket:
                 return ParseArrayLiteral();
+            case TokenType.Me:
+                Advance();
+                return new MeExpr(tok.Location);
+            case TokenType.New:
+                return ParseNewExpression();
             case TokenType.Identifier:
                 return ParseIdentifierOrCall();
         }
@@ -525,6 +839,16 @@ public sealed class Parser
         }
 
         throw new SyntaxException(tok.Location, $"Unexpected token '{tok.Lexeme}' in expression.");
+    }
+
+    private Expr ParseNewExpression()
+    {
+        var start = Current.Location;
+        Advance(); // consume NEW
+        var classNameTok = Expect(TokenType.Identifier, "Expected class name after NEW.");
+        Expect(TokenType.LParen, "Expected '(' after class name in NEW expression.");
+        var args = ParseArgList();
+        return new NewExpr(classNameTok.Text, args, start);
     }
 
     private Expr ParseIdentifierOrCall()

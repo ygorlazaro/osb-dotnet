@@ -22,6 +22,48 @@ public sealed record FunctionDecl(
     SourceLocation Location);
 
 // ============================================================
+// OSLANG 0.2 - Object Orientation
+// ============================================================
+
+public enum Visibility
+{
+    Public,
+    Protected,
+    Private,
+}
+
+public abstract record MemberDecl(SourceLocation Location);
+
+public sealed record PropertyDecl(
+    string Name,
+    string? TypeName,
+    Visibility Visibility,
+    SourceLocation Location) : MemberDecl(Location);
+
+public sealed record MethodDecl(
+    string Name,
+    IReadOnlyList<ParameterDecl> Parameters,
+    IReadOnlyList<Stmt> Body,
+    Visibility Visibility,
+    SourceLocation Location) : MemberDecl(Location);
+
+public sealed record ConstructorDecl(
+    IReadOnlyList<ParameterDecl> Parameters,
+    IReadOnlyList<Stmt> Body,
+    SourceLocation Location) : MemberDecl(Location);
+
+public sealed record InterfaceDecl(
+    string Name,
+    IReadOnlyList<MemberDecl> Members,
+    SourceLocation Location) : Stmt(Location);
+
+public sealed record ClassDecl(
+    string Name,
+    IReadOnlyList<string> InheritedNames,
+    IReadOnlyList<MemberDecl> Members,
+    SourceLocation Location) : Stmt(Location);
+
+// ============================================================
 // Statements
 // ============================================================
 
@@ -101,6 +143,8 @@ public sealed record VariableTarget(string Name, SourceLocation Location) : Assi
 
 public sealed record IndexTarget(Expr ArrayExpr, Expr IndexExpr, SourceLocation Location) : AssignTarget(Location);
 
+public sealed record MemberTarget(Expr Object, string MemberName, SourceLocation Location) : AssignTarget(Location);
+
 // ============================================================
 // Expressões
 // ============================================================
@@ -121,16 +165,30 @@ public sealed record IdentifierExpr(string Name, SourceLocation Location) : Expr
 
 public sealed record IndexExpr(Expr Array, Expr Index, SourceLocation Location) : Expr(Location);
 
-/// <summary>
-/// Chamada de função: tanto para funções definidas pelo usuário quanto para
-/// funções de biblioteca padrão (STR, NUMBER, BOOL, SQRT, POW, FLOOR, CEIL,
-/// COUNT, TYPEOF, ABS) e funções registradas por extensões do host (seção 45).
-/// <see cref="Name"/> já vem normalizado para maiúsculas.
-/// </summary>
+/// <summary>Chamada de função: tanto para funções definidas pelo usuário quanto para
+/// funções de biblioteca padrão (STR, NUMBER, BOOL, SQRT, ABS, POW, FLOOR, CEIL,
+/// COUNT, TYPEOF) e funções registradas por extensões do host (seção 45).
+/// <see cref="Name"/> já vem normalizado para maiúsculas.</summary>
 public sealed record CallExpr(string Name, IReadOnlyList<Expr> Args, SourceLocation Location) : Expr(Location);
+
+/// <summary>Chamada de método em um objeto: <see cref="Object"/>.<see cref="MethodName"/>(<see cref="Args"/>)</summary>
+public sealed record MethodCallExpr(Expr Object, string MethodName, IReadOnlyList<Expr> Args, SourceLocation Location) : Expr(Location);
 
 /// <summary>Operador unário: "NOT" ou "-" (menos unário).</summary>
 public sealed record UnaryExpr(string Op, Expr Operand, SourceLocation Location) : Expr(Location);
 
 /// <summary>Operador binário: "+", "-", "*", "/", "%", "=", "&lt;&gt;", "&lt;", "&gt;", "&lt;=", "&gt;=", "AND", "OR".</summary>
 public sealed record BinaryExpr(string Op, Expr Left, Expr Right, SourceLocation Location) : Expr(Location);
+
+// ============================================================
+// OSLANG 0.2 - Expressões de orientação a objetos
+// ============================================================
+
+/// <summary>Acesso a membro: <see cref="Object"/>.<see cref="MemberName"/></summary>
+public sealed record MemberAccessExpr(Expr Object, string MemberName, SourceLocation Location) : Expr(Location);
+
+/// <summary>Criação de objeto: NEW <see cref="ClassName"/>(<see cref="Args"/>)</summary>
+public sealed record NewExpr(string ClassName, IReadOnlyList<Expr> Args, SourceLocation Location) : Expr(Location);
+
+/// <summary>Referência ao objeto atual dentro de métodos (ME)</summary>
+public sealed record MeExpr(SourceLocation Location) : Expr(Location);

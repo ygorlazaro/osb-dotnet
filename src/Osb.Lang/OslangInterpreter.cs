@@ -1,3 +1,5 @@
+using Osb.Lang.Ast;
+using Osb.Lang.Diagnostics;
 using Osb.Lang.Extensibility;
 using Osb.Lang.Lexing;
 using Osb.Lang.Parsing;
@@ -48,8 +50,80 @@ public sealed class OslangInterpreter
     public OslangValue Execute(string source, TextWriter? output = null, TextReader? input = null, Action? clear = null)
     {
         var tokens = new Lexer(source).Tokenize();
-        var program = new Parser(tokens).Parse();
+        var parser = new Parser(tokens);
+        var program = parser.Parse();
+        
         var interpreter = new Interpreter(program, _extensions, output ?? Console.Out, input ?? Console.In, clear);
+        
+        foreach (var iface in parser.ParsedInterfaces)
+        {
+            var interfaceDef = new InterfaceDefinition(iface.Name, iface.Members);
+            interpreter.RegisterInterface(interfaceDef);
+        }
+        
+        foreach (var cls in parser.ParsedClasses)
+        {
+            var classDef = BuildClassDefinition(cls, interpreter);
+            interpreter.RegisterClass(classDef);
+        }
+        
+        SemanticAnalyzer.Validate(program, interpreter.GetClasses(), interpreter.GetInterfaces());
+        
         return interpreter.Run();
+    }
+
+    private ClassDefinition BuildClassDefinition(ClassDecl decl, Interpreter interpreter)
+    {
+        ClassDefinition? baseClass = null;
+        var interfaces = new List<InterfaceDefinition>();
+        var remainingNames = new List<string>(decl.InheritedNames);
+
+        if (remainingNames.Count > 0)
+        {
+            var first = remainingNames[0];
+            if (interpreter.GetClass(first) is ClassDefinition potentialBase)
+            {
+                baseClass = potentialBase;
+                remainingNames.RemoveAt(0);
+            }
+        }
+
+        foreach (var name in remainingNames)
+        {
+            if (interpreter.GetClass(name) is not null)
+            {
+                throw new SemanticException(decl.Location, $"Class '{decl.Name}' cannot inherit from multiple classes. '{name}' is a class.");
+            }
+            if (interpreter.GetInterface(name) is InterfaceDefinition iface)
+            {
+                interfaces.Add(iface);
+            }
+            else
+            {
+                throw new SemanticException(decl.Location, $"Unknown interface '{name}' in class '{decl.Name}'.");
+            }
+        }
+
+        var properties = new List<PropertyDefinition>();
+        var methods = new List<MethodDefinition>();
+        ConstructorDefinition? constructor = null;
+
+        foreach (var member in decl.Members)
+        {
+            switch (member)
+            {
+                case PropertyDecl p:
+                    properties.Add(new PropertyDefinition(p.Name, p.TypeName, p.Visibility));
+                    break;
+                case MethodDecl m:
+                    methods.Add(new MethodDefinition(m.Name, m.Parameters, m.Body, m.Visibility, m.Location));
+                    break;
+                case ConstructorDecl c:
+                    constructor = new ConstructorDefinition(c.Parameters, c.Body, c.Location);
+                    break;
+            }
+        }
+
+        return new ClassDefinition(decl.Name, baseClass, interfaces, properties, methods, constructor);
     }
 }

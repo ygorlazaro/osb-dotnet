@@ -12,7 +12,7 @@ public abstract class OslangValue
     public abstract RuntimeType Type { get; }
 
     /// <summary>String retornada por TYPEOF() para este valor (seção 43) - coincide com o nome do RuntimeType.</summary>
-    public string TypeName => Type.ToString().ToUpperInvariant();
+    public virtual string TypeName => Type.ToString().ToUpperInvariant();
 
     public static readonly NullValue Null = NullValue.Instance;
 }
