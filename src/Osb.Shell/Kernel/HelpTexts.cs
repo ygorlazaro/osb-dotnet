@@ -86,9 +86,9 @@ public static class HelpTexts
 
     private static readonly (string Titulo, string[] Comandos)[] Categorias =
     [
-        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "ERASE", "REN", "TYPE", "SIZE", "TREE", "PWD", "PRINT"
+        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "TYPE", "SIZE", "PWD", "PRINT"
         ]),
-        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "RPT", "HISTORY", "HOSTNAME", "USER"
+        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER"
         ]),
         ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "X"]),
         ("Programas externos", ["."])
@@ -118,7 +118,6 @@ public static class HelpTexts
         sb.AppendLine("  TAB          autocompleta comandos, subcomandos, parâmetros, arquivos e pastas (Shift+TAB cicla ao contrário)");
         sb.AppendLine("  Setas ←→     editam o comando que você está digitando, antes de enviar");
         sb.AppendLine("  Setas ↑↓     navegam pelo histórico de comandos já digitados (estilo DOSKEY)");
-        sb.AppendLine("  RPT          repete o último comando executado com sucesso");
         sb.AppendLine("  Use ';' para encadear múltiplos comandos na mesma linha (ex: DIR ; VER)");
         sb.AppendLine("  HISTORY      lista todo o histórico numerado e deixa escolher qual repetir");
         return sb.ToString();

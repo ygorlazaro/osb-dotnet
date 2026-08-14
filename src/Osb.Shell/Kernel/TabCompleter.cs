@@ -13,9 +13,9 @@ public class TabCompleter
     public static readonly string[] CommandVerbs =
     [
         "ABOUT", "APLIC", "CAL", "CD", "CLEAR", "CLS", "COLOR", "CONFIG", "COPY",
-        "DATE", "DIR", "ERASE", "EXIT", "GAMES", "HELP", "HISTORY", "HOSTNAME",
-        "KISS", "MD", "PRINT", "PWD", "RD", "REN", "RPT", "SIZE", "TIME",
-        "TREE", "TYPE", "USER", "VER", "X"
+        "DATE", "DIR", "DEL", "EXIT", "GAMES", "HELP", "HISTORY", "HOSTNAME",
+        "KISS", "MD", "PRINT", "PWD", "RD", "REN", "SIZE", "TIME",
+        "TYPE", "USER", "VER", "X"
     ];
 
     private static readonly string[] UserSubcommands = ["ADD", "CHANGE", "DEL", "LIST"];
@@ -173,7 +173,6 @@ public class TabCompleter
                 case "CD":
                 case "RD":
                 case "MD":
-                case "TREE":
                     candidates.AddRange(GetFileSystemCandidates(cleanToken, isQuoted, directoriesOnly: true));
                     break;
 
@@ -195,7 +194,7 @@ public class TabCompleter
                 case "PRINT":
                 case "SIZE":
                 case "KISS":
-                case "ERASE":
+                case "DEL":
                 case "COPY":
                 case "REN":
                 default:

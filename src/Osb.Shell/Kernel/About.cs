@@ -6,7 +6,7 @@ public static class About
     [
         "****************************************",
         "******                            ******",
-        "******       OSB 3.0       ******",
+        "******       OSB 3.0 Lince       ******",
         "******   Operating System Basic   ******",
         "****** Sistema Operacional Básico ******",
         "******                            ******",

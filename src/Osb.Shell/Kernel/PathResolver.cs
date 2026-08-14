@@ -4,7 +4,7 @@ namespace Osb.Shell.Kernel;
 /// O DOS original era case-insensitive (CD pasta1 e CD PASTA1 são a mesma coisa).
 /// Linux/macOS não são. Este helper resolve um caminho digitado pelo usuário contra
 /// o que realmente existe em disco, ignorando maiúsculas/minúsculas segmento por
-/// segmento - assim comandos como CD, TYPE, ERASE etc. se comportam do jeito que
+/// segmento - assim comandos como CD, TYPE, DEL etc. se comportam do jeito que
 /// alguém acostumado com DOS/Windows espera, mesmo num filesystem case-sensitive.
 /// Se não achar uma correspondência (ex: caminho não existe ainda, como em MD),
 /// devolve o caminho original sem mexer.

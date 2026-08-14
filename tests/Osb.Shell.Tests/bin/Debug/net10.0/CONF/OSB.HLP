@@ -58,7 +58,7 @@ Limpa a tela como CLS
 -ENDCOMMAND
 
 -COLOR
-Escolhe as cores de fundo e de letra do OSB 3.0.
+Escolhe as cores de fundo e de letra do OSB 3.0 Lince.
 Modo simples de usar: COLOR
 -ENDCOMMAND
 
@@ -100,14 +100,14 @@ Lista apenas arquivos .TXT
 Lista em formato wide apenas arquivos .COM
 -ENDCOMMAND
 
--ERASE
+-DEL
 Exclui arquivos do disco.
-Modo simples de usar: ERASE
+Modo simples de usar: DEL
 
-[@] ERASE ARQUIVO.ARQ
+[@] DEL ARQUIVO.ARQ
 Exclui um arquivo
 
-[@] ERASE *.TMP
+[@] DEL *.TMP
 Exclui todos os arquivos .TMP
 -ENDCOMMAND
 
@@ -135,8 +135,8 @@ Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (e
 
 <Comando>/? = Exibe ajuda detalhada do comando
 . = Executa um programa do MS-DOS ou OSB
-ABOUT = Sobre o OSB 3.0
-APLIC = Mostra os aplicativos inclusos com OSB 3.0
+ABOUT = Sobre o OSB 3.0 Lince
+APLIC = Mostra os aplicativos inclusos com OSB 3.0 Lince
 CAL = Calendário simples
 CD = Entrar em um diretório (aceita espaços)
 CLS = Limpar a tela
@@ -145,19 +145,17 @@ CONFIG = Configurações do sistema operacional e do PC
 COPY = Copia arquivos com suporte a curingas
 DATE = Exibir a data
 DIR = Mostra os arquivos de um diretório (com filtros)
-ERASE = Apaga arquivos
+DEL = Apaga arquivos
 EXIT = Desliga, reinicia ou entra no MS-DOS©
-GAMES = Mostra os jogos inclusos com OSB 3.0
+GAMES = Mostra os jogos inclusos com OSB 3.0 Lince
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
 MD = Cria um diretório (aceita espaços)
 PRINT = Imprime um arquivo
 RD = Remove um diretório vazio
-RPT = Repete o último comando
 REN = Renomeia um arquivo
 SIZE = Exibe o tamanho de um arquivo
 TIME = Exibir a hora
-TREE = Lista todos os diretórios de uma unidade em árvore.
 TYPE = Mostra o conteúdo de um arquivo
 VER = Exibe a versão do sistema
 X = Exibe as interfaces do sistema
@@ -214,19 +212,6 @@ Entre com o nome novo: *.DOC
 Renomeia todos os arquivos .TXT para .DOC
 -ENDCOMMAND
 
--RPT
-RPT = Repete o último comando executado com sucesso
-Modo simples de usar: RPT
-
-Nota: RPT repete apenas o último comando que foi executado com sucesso. Se você digitou um comando inválido, RPT continuará repetindo o último comando válido.
-
-[@] PRINT CARTA.TXT
-Imprimindo... (CARTA.TXT)
-
-[@] RPT
-Imprimindo... (CARTA.TXT)
--ENDCOMMAND
-
 -SIZE
 Retorna o tamanho de um arquivo (em Kbytes).
 Modo simples de usar: SIZE <Nome do arquivo>
@@ -238,11 +223,6 @@ Modo simples de usar: SIZE <Nome do arquivo>
 -TIME
 Exibe a hora do sistema.
 Modo simples de usar: TIME
--ENDCOMMAND
-
--TREE
-Lista todos os diretórios de uma unidade em uma árvore.
-Modo simples de usar: TREE
 -ENDCOMMAND
 
 -TYPE

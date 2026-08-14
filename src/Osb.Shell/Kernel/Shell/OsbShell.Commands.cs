@@ -25,18 +25,6 @@ public partial class OsbShell
         var raw = rawInput.Trim();
         var command = raw.ToUpperInvariant();
 
-        // RPT must replay only the last command that executed successfully
-        if (command == "RPT")
-        {
-            if (string.IsNullOrWhiteSpace(_lastSuccessfulCommand))
-            {
-                Console.WriteLine("Nenhum comando anterior executado com sucesso para repetir.");
-                return;
-            }
-            raw = _lastSuccessfulRaw;
-            command = _lastSuccessfulCommand;
-        }
-
         if (command == "")
         {
             return;
@@ -93,8 +81,8 @@ public partial class OsbShell
                 ListDirectory(args); handled = true; break;
             case "PWD":
                 Console.WriteLine(Directory.GetCurrentDirectory()); handled = true; break;
-            case "ERASE":
-                EraseFiles(args); handled = true; break;
+            case "DEL":
+                DeleteFiles(args); handled = true; break;
             case "EXIT":
                 DoExit(); handled = true; break;
             case "GAMES":
@@ -125,12 +113,10 @@ public partial class OsbShell
                 Console.WriteLine("Hora atual: " + DateTime.Now.ToString("HH:mm:ss"));
                 Console.WriteLine("(Alterar a hora do sistema não é suportado nesta versão portada.)");
                 handled = true; break;
-            case "TREE":
-                ShowTree(Directory.GetCurrentDirectory(), ""); handled = true; break;
             case "TYPE":
                 TypeFile(args); handled = true; break;
             case "VER":
-                Console.WriteLine("OSB 3.0 (porte para .NET 10)");
+                Console.WriteLine("OSB 3.0 Lince (porte para .NET 10)");
                 Console.WriteLine("Original: http://www.osb.rg3.net");
                 Console.WriteLine();
                 Console.WriteLine("Digite ABOUT para mais informações");
@@ -141,14 +127,6 @@ public partial class OsbShell
             default:
                 handled = RunExternal(raw);
                 break;
-        }
-
-        // If this command was handled (internal command or successful external),
-        // record it as the last successful command for RPT.
-        if (handled)
-        {
-            _lastSuccessfulCommand = command;
-            _lastSuccessfulRaw = raw;
         }
     }
 

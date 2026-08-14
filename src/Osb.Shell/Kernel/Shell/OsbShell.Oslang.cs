@@ -101,7 +101,7 @@ public partial class OsbShell
         extensions.Register("DEL", (args, location) =>
         {
             var pattern = RequireStringArg(args, 0, "DEL", location);
-            EraseFiles(pattern);
+            DeleteFiles(pattern);
             return OslangValue.Null;
         });
 

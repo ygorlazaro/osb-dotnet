@@ -143,9 +143,9 @@ public partial class OsbShell
         catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
     }
 
-    private static void EraseFiles(string pattern)
+    private static void DeleteFiles(string pattern)
     {
-        if (pattern == "") { HelpTexts.Show("ERASE"); return; }
+        if (pattern == "") { HelpTexts.Show("DEL"); return; }
         Console.Write("Você tem certeza que deseja apagar o(s) arquivo(s)? (S/N) ");
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
         if (answer != "S")
@@ -325,20 +325,6 @@ public partial class OsbShell
         catch (Exception ex)
         {
             Console.WriteLine("Erro: " + ex.Message);
-        }
-    }
-
-    private static void ShowTree(string dir, string indent)
-    {
-        try
-        {
-            Console.WriteLine(indent + Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar)));
-            foreach (var sub in Directory.GetDirectories(dir).OrderBy(x => x))
-                ShowTree(sub, indent + "   ");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(indent + "Erro: " + ex.Message);
         }
     }
 }
