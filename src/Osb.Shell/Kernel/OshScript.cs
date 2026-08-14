@@ -62,11 +62,12 @@ public class OshScript
                     continue;
                 }
 
-                if (TryParseSet(line, out var varName, out var varValue))
-                {
-                    _env.Variables.Set(_env.CurrentUsername, varName, varValue);
-                    continue;
-                }
+            if (TryParseSet(line, out var varName, out var varValue))
+            {
+                var expandedValue = ExpandVariables(varValue);
+                _env.Variables.Set(_env.CurrentUsername, varName, expandedValue);
+                continue;
+            }
 
                 var expanded = ExpandVariables(line);
                 try

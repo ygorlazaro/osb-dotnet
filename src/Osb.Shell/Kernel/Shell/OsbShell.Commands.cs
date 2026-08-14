@@ -28,7 +28,9 @@ public partial class OsbShell
 
         if (requireAuth && !_isAuthenticated && verb != "USER" && verb != "HOSTNAME")
         {
-            if (!raw.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) || !File.Exists(raw))
+            var cmdPart = raw.Contains(' ') ? raw[..raw.IndexOf(' ')] : raw;
+            var isOsh = cmdPart.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) && File.Exists(cmdPart);
+            if (!isOsh)
             {
                 Console.WriteLine("Você deve entrar com login. Use USER para autenticar.");
                 return;
@@ -158,12 +160,16 @@ public partial class OsbShell
                 var firstSpace = raw.IndexOf(' ');
                 var cmdPart = firstSpace < 0 ? raw : raw[..firstSpace];
 
-                if (cmdPart.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) && File.Exists(cmdPart))
+                if (cmdPart.EndsWith(".osh", StringComparison.OrdinalIgnoreCase))
                 {
-                    var oshArgs = firstSpace < 0 ? [] : ParseOshArgs(raw[(firstSpace + 1)..].Trim()).Args;
-                    RunOshFile(cmdPart, oshArgs);
-                    handled = true;
-                    break;
+                    var resolved = PathResolver.Resolve(cmdPart);
+                    if (File.Exists(resolved))
+                    {
+                        var oshArgs = firstSpace < 0 ? [] : ParseArgList(raw[(firstSpace + 1)..].Trim());
+                        RunOshFile(resolved, oshArgs);
+                        handled = true;
+                        break;
+                    }
                 }
 
                 handled = RunExternal(raw);
@@ -288,5 +294,45 @@ public partial class OsbShell
         var path = tokens[0];
         var oshArgs = tokens.Skip(1).ToArray();
         return (path, oshArgs);
+    }
+
+    private static string[] ParseArgList(string args)
+    {
+        var trimmed = args.Trim();
+        if (trimmed.Length == 0)
+        {
+            return [];
+        }
+
+        var tokens = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        foreach (var ch in trimmed)
+        {
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (char.IsWhiteSpace(ch) && !inQuotes)
+            {
+                if (current.Length > 0)
+                {
+                    tokens.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(ch);
+            }
+        }
+
+        if (current.Length > 0)
+        {
+            tokens.Add(current.ToString());
+        }
+
+        return tokens.ToArray();
     }
 }

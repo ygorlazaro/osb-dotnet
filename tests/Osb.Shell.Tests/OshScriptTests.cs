@@ -5,8 +5,11 @@ using Xunit;
 
 namespace Osb.Shell.Tests;
 
+[Collection("OsbShellTests")]
 public class OshScriptTests
 {
+    private readonly string _uniqueUser = "testuser-" + Guid.NewGuid().ToString("N");
+    private string UniqueUser => _uniqueUser;
     [Fact]
     public void RunFile_ExecutesSetAndCommands()
     {
@@ -25,7 +28,7 @@ public class OshScriptTests
             }, Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -47,7 +50,7 @@ public class OshScriptTests
     public void RunFile_ReportsMissingFile()
     {
         var env = new OsbEnvironment();
-        env.SetCurrentUsername("testuser");
+        env.SetCurrentUsername(UniqueUser);
         var shell = new OsbShell(env);
         var script = new OshScript(env, shell);
 
@@ -73,7 +76,7 @@ public class OshScriptTests
             }, Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -84,6 +87,38 @@ public class OshScriptTests
 
             var result = output.ToString();
             Assert.Contains("HelloWorld", result);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void RunFile_ExpandsPositionalParametersInSet()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllLines(tempFile, new[]
+            {
+                "SET MSG=%1%",
+                "PRINT %MSG%"
+            }, Encoding.UTF8);
+
+            var env = new OsbEnvironment();
+            env.SetCurrentUsername(UniqueUser);
+            var shell = new OsbShell(env);
+            var script = new OshScript(env, shell);
+
+            var output = new StringWriter();
+            Console.SetOut(output);
+
+            script.RunFile(tempFile, new[] { "hello" });
+
+            var result = output.ToString();
+            Assert.Contains("hello", result);
+            Assert.DoesNotContain("%1%", result);
         }
         finally
         {
@@ -110,7 +145,7 @@ public class OshScriptTests
             }, Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -144,7 +179,7 @@ public class OshScriptTests
             }, Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -175,8 +210,8 @@ public class OshScriptTests
             }, Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
-            env.Variables.Set("testuser", "1", "preset");
+            env.SetCurrentUsername(UniqueUser);
+            env.Variables.Set(UniqueUser, "1", "preset");
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -188,7 +223,7 @@ public class OshScriptTests
             var result = output.ToString();
             Assert.Contains("runtime", result);
 
-            var after = env.Variables.GetForUser("testuser");
+            var after = env.Variables.GetForUser(UniqueUser);
             Assert.Equal("preset", after["1"]);
         }
         finally
@@ -207,7 +242,7 @@ public class OshScriptTests
             File.WriteAllText(tempFile, $". touch {marker}\n", Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
             var script = new OshScript(env, shell);
 
@@ -236,7 +271,7 @@ public class OshScriptTests
             File.WriteAllText(tempFile, "SET INLINE=yes\nPRINT %INLINE%\n", Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
 
             var output = new StringWriter();
@@ -265,7 +300,7 @@ public class OshScriptTests
             File.WriteAllText(tempFile, "SET INLINE=bare\nPRINT %INLINE%\n", Encoding.UTF8);
 
             var env = new OsbEnvironment();
-            env.SetCurrentUsername("testuser");
+            env.SetCurrentUsername(UniqueUser);
             var shell = new OsbShell(env);
 
             var output = new StringWriter();
@@ -284,6 +319,44 @@ public class OshScriptTests
 
             var result = output.ToString();
             Assert.Contains("bare", result);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+            Directory.Delete(tempDir);
+        }
+    }
+
+    [Fact]
+    public void Execute_RecognizesOshWithArgs_AndExpandsPositional()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, "script.osh");
+        try
+        {
+            File.WriteAllText(tempFile, "SET MSG=%1%\nPRINT %MSG%\n", Encoding.UTF8);
+
+            var env = new OsbEnvironment();
+            env.SetCurrentUsername(UniqueUser);
+            var shell = new OsbShell(env);
+
+            var output = new StringWriter();
+            Console.SetOut(output);
+
+            var originalDir = Directory.GetCurrentDirectory();
+            try
+            {
+                Directory.SetCurrentDirectory(tempDir);
+                shell.Execute("script.osh \"hello world\"");
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(originalDir);
+            }
+
+            var result = output.ToString();
+            Assert.Contains("hello world", result);
         }
         finally
         {
