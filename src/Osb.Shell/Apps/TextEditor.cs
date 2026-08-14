@@ -351,17 +351,20 @@ public static class TextEditor
     {
         Console.SetCursorPosition(0, 0);
         var width = Math.Max(20, Console.WindowWidth);
+        var lineNumberWidth = Math.Max(4, lines.Count.ToString().Length + 1);
+        var textWidth = width - lineNumberWidth;
 
         for (var i = 0; i < visibleRows; i++)
         {
             var lineIndex = scrollTop + i;
             var text = lineIndex < lines.Count ? lines[lineIndex] : "~";
-            if (text.Length > width)
+            if (text.Length > textWidth)
             {
-                text = text[..width];
+                text = text[..textWidth];
             }
 
-            Console.Write(text.PadRight(width));
+            var lineNumber = lineIndex < lines.Count ? (lineIndex + 1).ToString() : "~";
+            Console.Write(lineNumber.PadLeft(lineNumberWidth - 1) + " " + text.PadRight(textWidth));
             if (i < visibleRows - 1)
             {
                 Console.WriteLine();
@@ -387,6 +390,6 @@ public static class TextEditor
         Console.Write(help.PadRight(width));
 
         var screenRow = row - scrollTop;
-        Console.SetCursorPosition(Math.Min(col, width - 1), Math.Clamp(screenRow, 0, visibleRows - 1));
+        Console.SetCursorPosition(lineNumberWidth + Math.Min(col, textWidth - 1), Math.Clamp(screenRow, 0, visibleRows - 1));
     }
 }

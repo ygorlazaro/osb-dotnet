@@ -10,7 +10,7 @@ public class OsbConfig
     public int ForeColor { get; set; } = 15;
     public int BackColor { get; set; } = 1;
     public string SystemDir { get; set; } = "";
-    public string Message { get; set; } = "Seja bem-vindo ao OSB 2.0 (portado para .NET)";
+    public string Message { get; set; } = "Seja bem-vindo ao OSB 3.0 (portado para .NET)";
 
     public static OsbConfig Load(string path)
     {

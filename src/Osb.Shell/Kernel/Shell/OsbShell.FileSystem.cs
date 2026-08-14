@@ -28,33 +28,57 @@ public partial class OsbShell
         }
     }
 
-    private static void ListDirectory(string target)
+    private static void ListDirectory(string args)
     {
-        var tokens = target.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var pathTokens = new List<string>();
-        var wide = false;
-        foreach (var token in tokens)
+        var upperArgs = args.ToUpperInvariant();
+        var wide = upperArgs.Contains("/W") || upperArgs.Contains("-W");
+
+        var pathPart = args;
+        foreach (var flag in new[] { "/W", "-W" })
         {
-            if (token.Equals("/W", StringComparison.OrdinalIgnoreCase) || token.Equals("-W", StringComparison.OrdinalIgnoreCase))
+            var idx = upperArgs.IndexOf(flag, StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
             {
-                wide = true;
-            }
-            else
-            {
-                pathTokens.Add(token);
+                pathPart = pathPart.Remove(idx, flag.Length);
+                upperArgs = upperArgs.Remove(idx, flag.Length);
             }
         }
 
-        var dir = pathTokens.Count == 0 ? Directory.GetCurrentDirectory() : PathResolver.Resolve(string.Join(' ', pathTokens));
+        var dirPart = pathPart.Trim();
+        var searchPattern = "*";
+        var searchDir = string.IsNullOrEmpty(dirPart) ? Directory.GetCurrentDirectory() : PathResolver.Resolve(dirPart);
+
+        if (!dirPart.Contains('\\') && !dirPart.Contains('/'))
+        {
+            var lastSep = searchDir.LastIndexOf(Path.DirectorySeparatorChar);
+            if (lastSep >= 0)
+            {
+                var potentialPattern = searchDir[(lastSep + 1)..];
+                var potentialDir = searchDir[..(lastSep + 1)];
+                if (potentialPattern.Contains("*") || potentialPattern.Contains("?"))
+                {
+                    searchPattern = potentialPattern;
+                    searchDir = potentialDir;
+                }
+            }
+        }
+
+        if (!Directory.Exists(searchDir))
+        {
+            Console.WriteLine("Erro ao listar diretório: Diretório não encontrado.");
+            return;
+        }
+
         Console.WriteLine("Exibindo o conteúdo do diretório:");
         try
         {
-            var directories = Directory.GetDirectories(dir)
+            var directories = Directory.GetDirectories(searchDir)
+                .Where(d => MatchesPattern(Path.GetFileName(d), searchPattern))
                 .OrderBy(x => x)
                 .Select(x => new DirectoryInfo(x))
                 .ToArray();
 
-            var files = Directory.GetFiles(dir)
+            var files = Directory.GetFiles(searchDir, searchPattern)
                 .OrderBy(x => x)
                 .Select(x => new FileInfo(x))
                 .ToArray();
@@ -89,6 +113,15 @@ public partial class OsbShell
         {
             Console.WriteLine("Erro ao listar diretório: " + ex.Message);
         }
+    }
+
+    private static bool MatchesPattern(string name, string pattern)
+    {
+        if (pattern == "*") return true;
+        var regex = "^" + System.Text.RegularExpressions.Regex.Escape(pattern)
+            .Replace("\\*", ".*")
+            .Replace("\\?", ".") + "$";
+        return System.Text.RegularExpressions.Regex.IsMatch(name, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
     
     private static string FormatDate(DateTime date)
@@ -155,17 +188,57 @@ public partial class OsbShell
         catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
     }
 
-    private static void CopyFile()
+    private static void CopyFile(string args)
     {
-        Console.Write("Entre com o arquivo de origem: ");
-        var source = Console.ReadLine() ?? "";
-        Console.Write("Entre com o arquivo de destino: ");
-        var dest = Console.ReadLine() ?? "";
+        if (string.IsNullOrWhiteSpace(args)) { HelpTexts.Show("COPY"); return; }
+
+        var trimmed = args.Trim();
+        var lastSpace = trimmed.LastIndexOf(' ');
+        if (lastSpace < 0)
+        {
+            Console.WriteLine("Uso: COPY <origem> <destino>");
+            return;
+        }
+
+        var source = trimmed[..lastSpace].Trim();
+        var dest = trimmed[(lastSpace + 1)..].Trim();
+
         try
         {
-            var lines = File.ReadAllLines(PathResolver.Resolve(source));
-            File.WriteAllLines(dest, lines);
-            Console.WriteLine($"{lines.Length} linhas copiadas.");
+            var sourceDir = Path.GetDirectoryName(source) ?? ".";
+            var sourcePattern = Path.GetFileName(source);
+            var resolvedDest = PathResolver.Resolve(dest);
+
+            if (sourcePattern.Contains("*") || sourcePattern.Contains("?"))
+            {
+                var files = Directory.GetFiles(sourceDir, sourcePattern);
+                if (files.Length == 0)
+                {
+                    Console.WriteLine("Nenhum arquivo encontrado.");
+                    return;
+                }
+
+                var targetIsDir = Directory.Exists(resolvedDest);
+                foreach (var file in files)
+                {
+                    var fileName = Path.GetFileName(file);
+                    var targetPath = targetIsDir ? Path.Combine(resolvedDest, fileName) : resolvedDest;
+                    File.Copy(file, targetPath, overwrite: true);
+                    Console.WriteLine($"Copiado: {fileName}");
+                }
+                Console.WriteLine($"{files.Length} arquivo(s) copiado(s).");
+            }
+            else
+            {
+                var resolvedSource = PathResolver.Resolve(source);
+                if (Directory.Exists(resolvedDest))
+                {
+                    var fileName = Path.GetFileName(resolvedSource);
+                    resolvedDest = Path.Combine(resolvedDest, fileName);
+                }
+                File.Copy(resolvedSource, resolvedDest, overwrite: true);
+                Console.WriteLine($"Copiado: {resolvedSource} -> {resolvedDest}");
+            }
         }
         catch (Exception ex)
         {
@@ -187,8 +260,36 @@ public partial class OsbShell
         }
     }
 
-    private static void TypeFile(string file)
+    private static void TypeFile(string args)
     {
+        if (string.IsNullOrWhiteSpace(args)) { HelpTexts.Show("TYPE"); return; }
+
+        var upperArgs = args.ToUpperInvariant();
+        var pause = false;
+        var pauseInterval = 20;
+        var file = args;
+
+        var pIndex = upperArgs.IndexOf("/P");
+        if (pIndex >= 0)
+        {
+            pause = true;
+            var afterP = upperArgs[(pIndex + 2)..];
+            var charsToRemove = 2;
+
+            if (afterP.Length > 0 && afterP[0] == ':')
+            {
+                var numStr = afterP[1..].TakeWhile(char.IsDigit).ToArray();
+                if (numStr.Length > 0 && int.TryParse(new string(numStr), out var num) && num > 0)
+                {
+                    pauseInterval = num;
+                }
+                charsToRemove = 2 + 1 + numStr.Length;
+            }
+
+            file = args.Remove(pIndex, charsToRemove);
+        }
+        file = file.Trim();
+
         if (file == "") { HelpTexts.Show("TYPE"); return; }
         try
         {
@@ -198,7 +299,7 @@ public partial class OsbShell
             {
                 Console.WriteLine(line);
                 count++;
-                if (count % 20 == 0)
+                if (pause && count % pauseInterval == 0)
                 {
                     Console.Write("-----Pressione ENTER para continuar----");
                     Console.ReadLine();

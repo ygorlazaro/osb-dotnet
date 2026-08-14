@@ -84,7 +84,7 @@ public partial class OsbShell
             case "CONFIG":
                 ConfigUtility.Run(_env); handled = true; break;
             case "COPY":
-                CopyFile(); handled = true; break;
+                CopyFile(args); handled = true; break;
             case "DATE":
                 Console.WriteLine("Data atual: " + DateTime.Now.ToString("dd/MM/yyyy"));
                 Console.WriteLine("(Alterar a data do sistema não é suportado nesta versão portada.)");
@@ -130,7 +130,7 @@ public partial class OsbShell
             case "TYPE":
                 TypeFile(args); handled = true; break;
             case "VER":
-                Console.WriteLine("OSB Versão 0.2 (porte para .NET 10)");
+                Console.WriteLine("OSB 3.0 (porte para .NET 10)");
                 Console.WriteLine("Original: http://www.osb.rg3.net");
                 Console.WriteLine();
                 Console.WriteLine("Digite ABOUT para mais informações");

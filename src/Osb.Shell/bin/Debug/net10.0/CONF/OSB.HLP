@@ -28,11 +28,14 @@ Modo simples de usar: CAL
 -ENDCOMMAND
 
 -CD
-Entra em um diretório.
+Entra em um diretório. Aceita caminhos com espaços.
 Modo simples de usar: CD <Nome do diretório>
 
 [@] CD TEMP
 Entra no diretório TEMP
+
+[@] CD "Meus Documentos"
+Entra no diretório com espaço no nome
 
 [@] CD..
 Sai de um diretório
@@ -55,7 +58,7 @@ Limpa a tela como CLS
 -ENDCOMMAND
 
 -COLOR
-Escolhe as cores de fundo e de letra do OSB 2.0.
+Escolhe as cores de fundo e de letra do OSB 3.0.
 Modo simples de usar: COLOR
 -ENDCOMMAND
 
@@ -65,12 +68,14 @@ Modo simples de usar: CONFIG
 -ENDCOMMAND
 
 -COPY
-Copia um arquivo de texto simples.
-Modo simples de usar: COPY
+Copia arquivos, com suporte a curingas.
+Modo simples de usar: COPY <origem> <destino>
 
-[@] COPY
-Entre com o arquivo de origem: C:\ORIGEM.TXT
-Entre com o arquivo de destino: C:\DESTINO.TXT
+[@] COPY ARQUIVO.TXT BACKUP.TXT
+Copia ARQUIVO.TXT para BACKUP.TXT
+
+[@] COPY *.TXT C:\BACKUP
+Copia todos os arquivos .TXT para o diretório C:\BACKUP
 -ENDCOMMAND
 
 -DATE
@@ -79,25 +84,31 @@ Modo simples de usar: DATE
 -ENDCOMMAND
 
 -DIR
-Exibe os arquivos e diretórios.
-Modo simples de usar: DIR
+Exibe os arquivos e diretórios, com suporte a filtros e caminhos com espaços.
+Modo simples de usar: DIR [caminho] [/W] [filtro]
 
-Para exibir somente arquivos .com, digite:
-[@] DIR *.COM
+[@] DIR
+Lista o diretório atual
 
-Para exibir todos os arquivos do disquete:
-[@] DIR A:\
+[@] DIR C:\MEUS ARQUIVOS
+Lista o diretório com espaço no nome
+
+[@] DIR *.TXT
+Lista apenas arquivos .TXT
+
+[@] DIR /W *.COM
+Lista em formato wide apenas arquivos .COM
 -ENDCOMMAND
 
 -ERASE
 Exclui arquivos do disco.
 Modo simples de usar: ERASE
 
-Para excluir um arquivo:
 [@] ERASE ARQUIVO.ARQ
+Exclui um arquivo
 
-Para excluir todos os arquivos de extensão .TMP:
 [@] ERASE *.TMP
+Exclui todos os arquivos .TMP
 -ENDCOMMAND
 
 -EXIT
@@ -124,22 +135,22 @@ Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (e
 
 <Comando>/? = Exibe ajuda detalhada do comando
 . = Executa um programa do MS-DOS ou OSB
-ABOUT = Sobre o OSB 2.0
-APLIC = Mostra os aplicativos inclusos com OSB 2.0
+ABOUT = Sobre o OSB 3.0
+APLIC = Mostra os aplicativos inclusos com OSB 3.0
 CAL = Calendário simples
-CD = Entrar em um diretório
+CD = Entrar em um diretório (aceita espaços)
 CLS = Limpar a tela
 COLOR = Trocar a cor da tela
 CONFIG = Configurações do sistema operacional e do PC
-COPY = Copia um arquivo simples
+COPY = Copia arquivos com suporte a curingas
 DATE = Exibir a data
-DIR = Mostra os arquivos de um diretório
+DIR = Mostra os arquivos de um diretório (com filtros)
 ERASE = Apaga arquivos
 EXIT = Desliga, reinicia ou entra no MS-DOS©
-GAMES = Mostra os jogos inclusos com OSB 2.0
+GAMES = Mostra os jogos inclusos com OSB 3.0
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
-MD = Cria um diretório
+MD = Cria um diretório (aceita espaços)
 PRINT = Imprime um arquivo
 RD = Remove um diretório vazio
 RPT = Repete o último comando
@@ -156,18 +167,22 @@ Exemplo: Para pedir uma ajuda mais detalhada do comando DIR
 -ENDCOMMAND
 
 -KISS
-Edita um arquivo de texto
+Edita um arquivo de texto com numeração de linhas
 Modo simples de usar: KISS <Nome do arquivo>
 
 [@] KISS C:\Carta.txt
-Abre o arquivo C:\Carta.txt
+Abre o arquivo C:\Carta.txt com números de linha à esquerda
 -ENDCOMMAND
 
 -MD
-Cria um diretório.
+Cria um diretório. Aceita nomes com espaços.
 Modo simples de usar: MD <Nome do diretório>
 
 [@] MD TEMP
+-ENDCOMMAND
+
+[@] MD "MEUS ARQUIVOS"
+Cria um diretório com espaço no nome
 -ENDCOMMAND
 
 -PRINT
@@ -196,7 +211,7 @@ Renomeia o arquivo TEXTO.TXT para CARTA.TXT
 [@] REN
 Entre com o nome antigo: *.TXT
 Entre com o nome novo: *.DOC
-Renomeia todos os arquivos *.TXT para *.DOC
+Renomeia todos os arquivos .TXT para .DOC
 -ENDCOMMAND
 
 -RPT
@@ -232,10 +247,16 @@ Modo simples de usar: TREE
 
 -TYPE
 Exibe o conteúdo de um arquivo.
-Modo simples de usar: TYPE <Nome do arquivo>
+Modo simples de usar: TYPE <Nome do arquivo> [/P] [/P:N]
 
 [@] TYPE ARQUIVO.TXT
 Este é o conteúdo de ARQUIVO.TXT
+
+[@] TYPE ARQUIVO.TXT /P
+Exibe o conteúdo com pausa a cada 20 linhas
+
+[@] TYPE ARQUIVO.TXT /P:10
+Exibe o conteúdo com pausa a cada 10 linhas
 -ENDCOMMAND
 
 -VER
