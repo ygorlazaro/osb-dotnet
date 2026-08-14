@@ -53,7 +53,14 @@ public partial class OsbShell
 
         if (command.EndsWith("/?"))
         {
-            HelpTexts.Show(raw[..^2].TrimEnd());
+            if (verb == "OSL")
+            {
+                RunOslHelp();
+            }
+            else
+            {
+                HelpTexts.Show(raw[..^2].TrimEnd());
+            }
             return;
         }
 
@@ -95,7 +102,15 @@ public partial class OsbShell
             case "GAMES":
                 RunGames(args); handled = true; break;
             case "HELP":
-                HelpTexts.Show(args); handled = true; break;
+                if (args.Equals("OSL", StringComparison.OrdinalIgnoreCase))
+                {
+                    RunOslHelp();
+                }
+                else
+                {
+                    HelpTexts.Show(args);
+                }
+                handled = true; break;
             case "HISTORY":
                 RunHistory(args); handled = true; break;
             case "HOSTNAME":

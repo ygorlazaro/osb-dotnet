@@ -2,6 +2,7 @@ using Osb.Lang;
 using Osb.Lang.Diagnostics;
 using Osb.Lang.Extensibility;
 using Osb.Lang.Runtime;
+using Osb.Shell.Apps;
 
 namespace Osb.Shell.Kernel;
 
@@ -55,6 +56,28 @@ public partial class OsbShell
         {
             Console.WriteLine("Erro inesperado ao executar o script: " + ex.Message);
         }
+    }
+
+    private void RunOslHelp()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "src", "Osb.Lang", "OSLANG-0.2-SPEC.md"),
+            Path.Combine(Directory.GetParent(AppContext.BaseDirectory).Parent.Parent.FullName, "src", "Osb.Lang", "OSLANG-0.2-SPEC.md"),
+            Path.Combine(Directory.GetParent(AppContext.BaseDirectory).Parent.Parent.Parent.FullName, "src", "Osb.Lang", "OSLANG-0.2-SPEC.md"),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+            {
+                TextEditor.Run(candidate, _env);
+                return;
+            }
+        }
+
+        Console.WriteLine("Arquivo de especificação OSLANG 0.2 não encontrado.");
+        Console.WriteLine("Use HELP OSL para ver a referência rápida.");
     }
 
     /// <summary>
