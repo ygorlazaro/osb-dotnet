@@ -24,7 +24,7 @@
       "    $0",
       "END"
     ],
-    "description": "Create a new interface"
+    "description": "Create an interface"
   },
   "Constructor": {
     "prefix": "constructor",
@@ -148,5 +148,75 @@
       "RETURN ${1:value}"
     ],
     "description": "Return from function/method"
+  },
+  "USING Statement": {
+    "prefix": "using",
+    "body": [
+      "USING ${1:ModuleName}"
+    ],
+    "description": "Import a module"
+  },
+  "SWITCH Statement": {
+    "prefix": "switch",
+    "body": [
+      "SWITCH ${1:Value}",
+      "    CASE ${2:1}",
+      "        $0",
+      "    END",
+      "END"
+    ],
+    "description": "Create a switch statement"
+  },
+  "SWITCH Expression": {
+    "prefix": "switchexpr",
+    "body": [
+      "Result = SWITCH ${1:Value}",
+      "    CASE ${2:1} => ${3:\"One\"}",
+      "    DEFAULT => ${4:\"Other\"}",
+      "PRINT Result"
+    ],
+    "description": "Create a switch expression"
+  },
+  "EVENT Declaration": {
+    "prefix": "event",
+    "body": [
+      "EVENT ${1:Clicked}"
+    ],
+    "description": "Declare an event"
+  },
+  "ON Handler": {
+    "prefix": "on",
+    "body": [
+      "ON ${1:obj}.${2:EVENT}",
+      "    $0",
+      "END ON"
+    ],
+    "description": "Create an event handler"
+  },
+  "RAISE Event": {
+    "prefix": "raise",
+    "body": [
+      "RAISE ${1:EVENT}(${2:args})"
+    ],
+    "description": "Raise an event"
+  },
+  "Virtual Method": {
+    "prefix": "virtual",
+    "body": [
+      "VIRTUAL ${1:FUNCTION} ${2:MethodName}(${3:parameters})",
+      "    $0",
+      "END FUNCTION"
+    ],
+    "description": "Declare a virtual method"
+  },
+  "Override Method": {
+    "prefix": "override",
+    "body": [
+      "OVERRIDE ${1:FUNCTION} ${2:MethodName}(${3:parameters})",
+      "    $0",
+      "END FUNCTION"
+    ],
+    "description": "Override an inherited method"
   }
+}
 }

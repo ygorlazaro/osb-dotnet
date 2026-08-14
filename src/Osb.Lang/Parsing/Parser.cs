@@ -195,6 +195,11 @@ public sealed class Parser
             {
                 members.Add(ParseConstructorDecl(visibility));
             }
+            else if (Check(TokenType.Function))
+            {
+                Advance(); // consume FUNCTION keyword for class method
+                members.Add(ParseMethodDecl(visibility));
+            }
             else if (Check(TokenType.Identifier))
             {
                 members.Add(ParseMethodDecl(visibility));
@@ -205,7 +210,7 @@ public sealed class Parser
             }
             else
             {
-                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in class body. Expected VAR, CONSTRUCTOR, method name, or END.");
+                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in class body. Expected VAR, CONSTRUCTOR, FUNCTION, method name, or END.");
             }
         }
 
@@ -338,6 +343,10 @@ public sealed class Parser
 
         var body = ParseBlockUntil(TokenType.End);
         Expect(TokenType.End, "Expected END to close constructor.");
+        if (Check(TokenType.Constructor))
+        {
+            Advance(); // optional "END CONSTRUCTOR"
+        }
 
         return new ConstructorDecl(parameters, body, start);
     }
@@ -676,6 +685,10 @@ public sealed class Parser
         }
 
         Expect(TokenType.End, "Expected END to close IF.");
+        if (Check(TokenType.If))
+        {
+            Advance(); // optional "END IF"
+        }
         return new IfStmt(condition, thenBody, elifBranches, elseBody, start);
     }
 
@@ -869,12 +882,26 @@ public sealed class Parser
         var start = Current.Location;
         Advance(); // consume SWITCH
         var expression = ParseExpression();
-        SkipNewlines();
+        
         var cases = new List<CaseBranch>();
         DefaultBranch? defaultCase = null;
 
         while (!IsAtEnd && !Check(TokenType.End) && !Check(TokenType.Elif) && !Check(TokenType.Else))
         {
+            if (Check(TokenType.Newline))
+            {
+                var savedPos = _pos;
+                SkipNewlines();
+                
+                if (Check(TokenType.Case) || Check(TokenType.Default))
+                {
+                    continue;
+                }
+                
+                _pos = savedPos;
+                break;
+            }
+            
             if (Check(TokenType.Case))
             {
                 cases.Add(ParseCaseBranch());
@@ -888,13 +915,9 @@ public sealed class Parser
 
                 defaultCase = ParseDefaultBranch();
             }
-            else if (Check(TokenType.Newline))
-            {
-                Advance();
-            }
             else
             {
-                throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' in switch expression.");
+                break;
             }
         }
 

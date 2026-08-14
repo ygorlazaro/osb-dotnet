@@ -1,0 +1,22 @@
+' OSLANG 0.3 - Math module
+' Exports: SQUARE function
+
+FUNCTION SQUARE(X NUMBER)
+
+    RETURN X * X
+
+END FUNCTION
+
+
+FUNCTION ADD(A NUMBER, B NUMBER)
+
+    RETURN A + B
+
+END FUNCTION
+
+
+FUNCTION GREET(Name STRING)
+
+    RETURN "Hello, " + Name
+
+END FUNCTION

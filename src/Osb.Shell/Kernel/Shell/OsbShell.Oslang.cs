@@ -46,7 +46,8 @@ public partial class OsbShell
 
         try
         {
-            interpreter.Execute(source, Console.Out, Console.In, Console.Clear);
+            var basePath = Path.GetDirectoryName(path) ?? string.Empty;
+            interpreter.Execute(source, Console.Out, Console.In, Console.Clear, basePath);
         }
         catch (OslangException ex)
         {

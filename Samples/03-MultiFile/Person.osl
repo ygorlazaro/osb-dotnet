@@ -1,0 +1,36 @@
+' OSLANG 0.3 - Person module
+' Exports: PERSON class
+
+CLASS PERSON
+
+    VAR Name STRING
+    VAR Age NUMBER
+
+    CONSTRUCTOR(Name STRING, Age NUMBER)
+
+        ME.Name = Name
+        ME.Age = Age
+
+    END CONSTRUCTOR
+
+    PUBLIC FUNCTION GREET()
+
+        PRINT "Hello, " + ME.Name
+
+    END FUNCTION
+
+    PUBLIC FUNCTION GET_AGE_GROUP()
+
+        IF ME.Age < 18 THEN
+            RETURN "Child"
+        END IF
+
+        IF ME.Age < 60 THEN
+            RETURN "Adult"
+        END IF
+
+        RETURN "Senior"
+
+    END FUNCTION
+
+END CLASS

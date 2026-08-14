@@ -5,7 +5,9 @@ const KEYWORDS = [
   'CONTINUE', 'COUNT', 'DO', 'ELIF', 'ELSE', 'END', 'FALSE', 'FLOOR', 'FOR',
   'FUNCTION', 'GLOBAL', 'IF', 'INPUT', 'INTERFACE', 'ME', 'NEW', 'NOT', 'NULL',
   'NUMBER', 'OR', 'PRINT', 'PRIVATE', 'PROTECTED', 'PUBLIC', 'RETURN', 'SQRT',
-  'STEP', 'STR', 'STRING', 'THEN', 'TO', 'TRUE', 'TRY', 'TYPEOF', 'VAR', 'WHILE'
+  'STEP', 'STR', 'STRING', 'SWITCH', 'CASE', 'DEFAULT', 'THEN', 'TO', 'TRUE',
+  'TRY', 'TYPEOF', 'USING', 'VAR', 'VIRTUAL', 'OVERRIDE', 'EVENT', 'ON', 'RAISE',
+  'WHILE', 'OBJECT'
 ];
 
 const BUILTINS = [

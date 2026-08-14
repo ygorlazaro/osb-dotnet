@@ -1,0 +1,20 @@
+FUNCTION MAIN()
+
+    P = NEW PERSON("Ygor")
+
+    PRINT "Test passed"
+
+END FUNCTION
+
+
+CLASS PERSON
+
+    VAR Name STRING
+
+    CONSTRUCTOR(Name STRING)
+
+        ME.Name = Name
+
+    END CONSTRUCTOR
+
+END CLASS

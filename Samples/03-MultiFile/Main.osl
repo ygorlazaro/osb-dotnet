@@ -1,0 +1,22 @@
+' OSLANG 0.3 - Multi-file sample using USING
+' Run from OSB Shell: OSL Main.osl
+
+USING Person
+USING Math
+
+FUNCTION MAIN()
+
+    P = NEW PERSON("Ygor", 40)
+
+    PRINT SQUARE(5)
+    PRINT P.GREET()
+
+    Result = SWITCH P.GET_AGE_GROUP()
+
+        CASE "Child" => "Young"
+        CASE "Adult" => "Mature"
+        DEFAULT => "Unknown"
+
+    PRINT Result
+
+END FUNCTION

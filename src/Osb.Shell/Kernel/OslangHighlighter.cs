@@ -17,12 +17,13 @@ public static class OslangHighlighter
         "AND", "BASE", "BOOL", "BREAK", "CATCH", "CEIL", "CLASS", "CLEAR", "CONSTRUCTOR",
         "CONTINUE", "COUNT", "DO", "ELIF", "ELSE", "END", "FALSE", "FLOOR", "FOR", "FUNCTION",
         "GLOBAL", "IF", "INPUT", "INTERFACE", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
-        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "WHILE"
+        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "WHILE",
+        "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)
     {
-        "NUMBER", "STRING", "BOOLEAN", "ARRAY", "NULL"
+        "NUMBER", "STRING", "BOOLEAN", "ARRAY", "NULL", "OBJECT"
     };
 
     public static string Highlight(string line, int maxVisibleWidth)

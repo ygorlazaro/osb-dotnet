@@ -20,15 +20,39 @@ public sealed class FilesystemModuleResolver : IModuleResolver
     public async Task<Module?> ResolveAsync(string moduleName, CancellationToken cancellationToken = default)
     {
         var fileName = $"{moduleName}.osl";
-        var fullPath = Path.Combine(_rootDirectory, fileName);
+        var fullPath = FindFileIgnoreCase(_rootDirectory, fileName);
 
-        if (!File.Exists(fullPath))
+        if (fullPath is null)
         {
             return null;
         }
 
         var source = await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
         return LoadModule(moduleName, fullPath, source);
+    }
+
+    private static string? FindFileIgnoreCase(string directory, string fileName)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        try
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var entryName = Path.GetFileName(entry);
+                if (string.Equals(entryName, fileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry;
+                }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return null;
     }
 
     private Module LoadModule(string name, string path, string source)

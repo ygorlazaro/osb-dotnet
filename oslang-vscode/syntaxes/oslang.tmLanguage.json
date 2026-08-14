@@ -1,6 +1,6 @@
 {
   "scopeName": "source.oslang",
-  "name": "OSLANG 0.2",
+  "name": "OSLANG 0.3",
   "patterns": [
     {
       "include": "#comments"
@@ -61,19 +61,19 @@
       "patterns": [
         {
           "name": "keyword.control.oslang",
-          "match": "(?i)\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH)\\b"
+          "match": "(?i)\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH|SWITCH|CASE|DEFAULT|ON|RAISE)\\b"
         },
         {
           "name": "keyword.declaration.oslang",
-          "match": "(?i)\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL)\\b"
+          "match": "(?i)\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL|USING|EVENT)\\b"
         },
         {
           "name": "keyword.other.oslang",
-          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS)\\b"
+          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE)\\b"
         },
         {
           "name": "storage.modifier.oslang",
-          "match": "(?i)\\b(PUBLIC|PRIVATE|PROTECTED)\\b"
+          "match": "(?i)\\b(PUBLIC|PRIVATE|PROTECTED|STATIC)\\b"
         },
         {
           "name": "constant.language.oslang",
@@ -85,7 +85,7 @@
       "patterns": [
         {
           "name": "storage.type.oslang",
-          "match": "(?i)\\b(NUMBER|STRING|BOOLEAN|ARRAY|VOID)\\b"
+          "match": "(?i)\\b(NUMBER|STRING|BOOLEAN|ARRAY|OBJECT|VOID)\\b"
         }
       ]
     },

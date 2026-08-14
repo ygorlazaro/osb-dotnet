@@ -10,10 +10,10 @@ namespace Osb.Lang.Tests;
 
 public class Oslang02RuntimeTests
 {
-    private OslangValue Execute(string source, StringWriter? output = null)
+    private OslangValue Execute(string source, StringWriter? output = null, string? basePath = null)
     {
         var interpreter = new OslangInterpreter();
-        return interpreter.Execute(source, output ?? new StringWriter());
+        return interpreter.Execute(source, output ?? new StringWriter(), basePath: basePath);
     }
 
     [Fact]
@@ -481,6 +481,105 @@ END FUNCTION";
         var output = new StringWriter();
         Execute(source, output);
         Assert.Equal("Base", output.ToString().Trim());
+    }
+
+    [Fact]
+    public void MultiFile_Using_LoadsClassFromAnotherModule()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "oslang-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var personSource = "CLASS PERSON\r\n\tVAR Name STRING\r\n\tCONSTRUCTOR(Name STRING)\r\n\t\tME.Name = Name\r\n\tEND CONSTRUCTOR\r\n\tPUBLIC GREET()\r\n\t\tRETURN \"Hello, \" + ME.Name\r\n\tEND\r\nEND CLASS";
+            File.WriteAllText(Path.Combine(tempDir, "Person.osl"), personSource);
+
+            var mainSource = "USING Person\r\n\r\nFUNCTION MAIN()\r\n\tP = NEW PERSON(\"World\")\r\n\tPRINT P.GREET()\r\nEND FUNCTION";
+            File.WriteAllText(Path.Combine(tempDir, "Main.osl"), mainSource);
+
+            var interpreter = new OslangInterpreter();
+            var output = new StringWriter();
+            var programSource = File.ReadAllText(Path.Combine(tempDir, "Main.osl"));
+            interpreter.Execute(programSource, output, basePath: tempDir);
+
+            Assert.Contains("Hello, World", output.ToString());
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void SwitchExpression_ParsesAndEvaluatesCorrectly()
+    {
+        var source = @"FUNCTION MAIN()
+    Result = SWITCH ""Adult""
+        CASE ""Child"" => ""Young""
+        CASE ""Adult"" => ""Mature""
+        DEFAULT => ""Unknown""
+    PRINT Result
+END FUNCTION";
+
+        var interpreter = new OslangInterpreter();
+        var output = new StringWriter();
+        interpreter.Execute(source, output);
+        Assert.Contains("Mature", output.ToString());
+    }
+
+    [Fact]
+    public void MultiFileSample_ParsesSuccessfully()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "oslang-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var personSource = @"CLASS PERSON
+    VAR Name STRING
+    CONSTRUCTOR(Name STRING)
+        ME.Name = Name
+    END CONSTRUCTOR
+    PUBLIC FUNCTION GREET()
+        RETURN ""Hello, "" + ME.Name
+    END FUNCTION
+    PUBLIC FUNCTION GET_AGE_GROUP()
+        RETURN ""Adult""
+    END FUNCTION
+END CLASS";
+            File.WriteAllText(Path.Combine(tempDir, "Person.osl"), personSource);
+
+            var mathSource = @"FUNCTION SQUARE(X NUMBER)
+    RETURN X * X
+END FUNCTION";
+            File.WriteAllText(Path.Combine(tempDir, "Math.osl"), mathSource);
+
+            var mainSource = @"USING Person
+USING Math
+
+FUNCTION MAIN()
+    P = NEW PERSON(""Ygor"")
+    PRINT SQUARE(5)
+    PRINT P.GREET()
+    Result = SWITCH P.GET_AGE_GROUP()
+        CASE ""Child"" => ""Young""
+        CASE ""Adult"" => ""Mature""
+        DEFAULT => ""Unknown""
+    PRINT Result
+END FUNCTION";
+            File.WriteAllText(Path.Combine(tempDir, "Main.osl"), mainSource);
+
+            var interpreter = new OslangInterpreter();
+            var output = new StringWriter();
+            interpreter.Execute(mainSource, output, basePath: tempDir);
+            Assert.Contains("25", output.ToString());
+            Assert.Contains("Hello, Ygor", output.ToString());
+            Assert.Contains("Mature", output.ToString());
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
     }
 }
 
