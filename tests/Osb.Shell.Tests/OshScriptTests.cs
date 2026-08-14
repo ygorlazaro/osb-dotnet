@@ -198,6 +198,34 @@ public class OshScriptTests
     }
 
     [Fact]
+    public void RunFile_ExecutesDotExternalCommands()
+    {
+        var tempFile = Path.GetTempFileName();
+        var marker = Path.Combine(Path.GetTempPath(), "osb-osh-dot-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            File.WriteAllText(tempFile, $". touch {marker}\n", Encoding.UTF8);
+
+            var env = new OsbEnvironment();
+            env.SetCurrentUsername("testuser");
+            var shell = new OsbShell(env);
+            var script = new OshScript(env, shell);
+
+            script.RunFile(tempFile);
+
+            Assert.True(File.Exists(marker), "External dot command did not create expected marker file.");
+        }
+        finally
+        {
+            File.Delete(tempFile);
+            if (File.Exists(marker))
+            {
+                File.Delete(marker);
+            }
+        }
+    }
+
+    [Fact]
     public void Execute_RecognizesOshFileAndRunsIt()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -218,6 +246,44 @@ public class OshScriptTests
 
             var result = output.ToString();
             Assert.Contains("yes", result);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+            Directory.Delete(tempDir);
+        }
+    }
+
+    [Fact]
+    public void Execute_RecognizesBareOshFilenameAndRunsIt()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, "script.osh");
+        try
+        {
+            File.WriteAllText(tempFile, "SET INLINE=bare\nPRINT %INLINE%\n", Encoding.UTF8);
+
+            var env = new OsbEnvironment();
+            env.SetCurrentUsername("testuser");
+            var shell = new OsbShell(env);
+
+            var output = new StringWriter();
+            Console.SetOut(output);
+
+            var originalDir = Directory.GetCurrentDirectory();
+            try
+            {
+                Directory.SetCurrentDirectory(tempDir);
+                shell.Execute("script.osh");
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(originalDir);
+            }
+
+            var result = output.ToString();
+            Assert.Contains("bare", result);
         }
         finally
         {

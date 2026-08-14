@@ -13,8 +13,6 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; };
 var env = new OsbEnvironment();
 var shell = new OsbShell(env);
 
-BootSequence.Run(env, shell);
-
 var argsList = Environment.GetCommandLineArgs().Skip(1).ToArray();
 if (argsList.Length > 0)
 {
@@ -28,4 +26,5 @@ if (argsList.Length > 0)
     }
 }
 
+BootSequence.Run(env, shell);
 shell.Run();
