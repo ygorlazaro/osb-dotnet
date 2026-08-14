@@ -4,13 +4,6 @@
 
 SET MSG=%1%
 
-IF "%MSG%" == ""
-
-    PRINT Uso: git.osh "mensagem do commit"
-    EXIT
-
-END
-
 . git add ../..
 
 . git commit -m "%MSG%"
