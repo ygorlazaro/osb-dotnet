@@ -52,6 +52,7 @@ public partial class OsbShell
             case "CAL": Calendar.Show(""); break;
             case "KISS": TextEditor.Run("", _env); break;
             case "PROG": Console.WriteLine("PROG (teste de digitação) ainda não foi portado para .NET."); break;
+            case "TOUR": Tour.Show(_currentUsername); break;
             default: Console.WriteLine("Aplicativo não portado para .NET: " + entry.Name); break;
         }
     }

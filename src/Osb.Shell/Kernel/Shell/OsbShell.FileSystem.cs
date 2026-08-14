@@ -390,6 +390,7 @@ public partial class OsbShell
         var upperArgs = args.ToUpperInvariant();
         var pause = false;
         var pauseInterval = 20;
+        var showLineNumbers = false;
         var file = args;
 
         var pIndex = upperArgs.IndexOf("/P");
@@ -411,6 +412,26 @@ public partial class OsbShell
 
             file = args.Remove(pIndex, charsToRemove);
         }
+
+        var nIndex = upperArgs.IndexOf("/N");
+        if (nIndex >= 0)
+        {
+            showLineNumbers = true;
+            var afterN = upperArgs[(nIndex + 2)..];
+            var charsToRemove = 2;
+
+            if (afterN.Length > 0 && afterN[0] == ':')
+            {
+                var numStr = afterN[1..].TakeWhile(char.IsDigit).ToArray();
+                if (numStr.Length > 0)
+                {
+                    charsToRemove = 2 + 1 + numStr.Length;
+                }
+            }
+
+            file = args.Remove(nIndex, charsToRemove);
+        }
+
         file = file.Trim();
 
         if (file == "") { HelpTexts.Show("TYPE"); return; }
@@ -418,6 +439,7 @@ public partial class OsbShell
         {
             var lines = File.ReadAllLines(PathResolver.Resolve(file));
             var width = Math.Max(20, Console.WindowWidth);
+            var numberWidth = showLineNumbers ? lines.Length.ToString().Length : 0;
             var count = 0;
             foreach (var line in lines)
             {
@@ -430,7 +452,17 @@ public partial class OsbShell
                 {
                     text = line;
                 }
-                Console.WriteLine(text);
+
+                if (showLineNumbers)
+                {
+                    var lineNumber = (count + 1).ToString().PadLeft(numberWidth);
+                    Console.WriteLine($"{lineNumber}: {text}");
+                }
+                else
+                {
+                    Console.WriteLine(text);
+                }
+
                 count++;
                 if (pause && count % pauseInterval == 0)
                 {

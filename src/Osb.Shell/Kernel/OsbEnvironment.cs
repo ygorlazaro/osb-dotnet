@@ -53,13 +53,27 @@ public class OsbEnvironment
 
         WriteIfMissing(Path.Combine(ConfDir, "START.CFG"), "VER\n");
         WriteIfMissing(Path.Combine(ConfDir, "SYSTEM.CFG"), "[CLOCK]\nTRUE\n\n[MOUSE]\nFALSE\n");
-        WriteIfMissing(Path.Combine(ConfDir, "APLIC.CFG"),
-            "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nPROG\nTeste de digitação\nXWINTEXT\nEditor de texto do XWin\nMJB\nAplicativo MJB\n");
         WriteIfMissing(Path.Combine(ConfDir, "GAMES.CFG"),
             "HANGMAN\nJogo da forca\n");
         WriteIfMissing(Path.Combine(ConfDir, "XWIN.CFG"),
             "XWIN_TEXT\nXWinText - Editor de texto paralelo\nMJB\nMJB - Aplicativo paralelo do XWin\n");
         WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
+
+        var aplicPath = Path.Combine(ConfDir, "APLIC.CFG");
+        if (!File.Exists(aplicPath))
+        {
+            File.WriteAllText(aplicPath,
+                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nPROG\nTeste de digitação\nTOUR\nTour passo a passo do OSB\nXWINTEXT\nEditor de texto do XWin\nMJB\nAplicativo MJB\n");
+        }
+        else
+        {
+            var content = File.ReadAllText(aplicPath);
+            if (!content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Any(line => line.Equals("TOUR", StringComparison.OrdinalIgnoreCase)))
+            {
+                File.AppendAllText(aplicPath, "TOUR\nTour passo a passo do OSB\n");
+            }
+        }
 
         var hostnameMissing = !File.Exists(HostnameFile) || string.IsNullOrWhiteSpace(File.ReadAllText(HostnameFile));
         var userConfigMissing = !File.Exists(UserConfigFile) || string.IsNullOrWhiteSpace(File.ReadAllText(UserConfigFile));

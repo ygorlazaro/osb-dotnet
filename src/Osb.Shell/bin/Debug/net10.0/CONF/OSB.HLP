@@ -323,10 +323,13 @@ Modo simples de usar: TIME
 
 -TYPE
 Exibe o conteúdo de um arquivo.
-Modo simples de usar: TYPE <Nome do arquivo> [/P] [/P:N]
+Modo simples de usar: TYPE <Nome do arquivo> [/P] [/P:N] [/N]
 
 [@] TYPE ARQUIVO.TXT
 Este é o conteúdo de ARQUIVO.TXT
+
+[@] TYPE ARQUIVO.TXT /N
+Exibe o conteúdo com números de linha
 
 [@] TYPE ARQUIVO.TXT /P
 Exibe o conteúdo com pausa a cada 20 linhas
