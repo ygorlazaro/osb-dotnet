@@ -294,10 +294,20 @@ public partial class OsbShell
         try
         {
             var lines = File.ReadAllLines(PathResolver.Resolve(file));
+            var width = Math.Max(20, Console.WindowWidth);
             var count = 0;
             foreach (var line in lines)
             {
-                Console.WriteLine(line);
+                string text;
+                if (file.EndsWith(".osl", StringComparison.OrdinalIgnoreCase))
+                {
+                    text = OslangHighlighter.Highlight(line, width);
+                }
+                else
+                {
+                    text = line;
+                }
+                Console.WriteLine(text);
                 count++;
                 if (pause && count % pauseInterval == 0)
                 {

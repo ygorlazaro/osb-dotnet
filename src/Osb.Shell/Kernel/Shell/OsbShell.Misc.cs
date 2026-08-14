@@ -156,7 +156,7 @@ public partial class OsbShell
             : "guest";
         Console.WriteLine();
         Console.WriteLine(Directory.GetCurrentDirectory());
-        Console.Write($"{promptUser}@{_env.MachineName} [@] ");
+        Console.Write(ExpandPrompt(_env.Prompt.Layout, promptUser, _env.MachineName));
 
         var buffer = new List<char>();
         var cursor = 0;
@@ -392,5 +392,17 @@ public partial class OsbShell
             // restore TreatControlCAsInput even if we return early (Ctrl+C handled above)
             Console.TreatControlCAsInput = prevTreatControl;
         }
+    }
+
+    private static string ExpandPrompt(string layout, string user, string hostname)
+    {
+        var result = layout;
+        result = result.Replace("%user", user);
+        result = result.Replace("%hostname", hostname);
+        result = result.Replace("%pwd", Directory.GetCurrentDirectory());
+        result = result.Replace("%d", DateTime.Now.ToString("dd/MM/yyyy"));
+        result = result.Replace("%t", DateTime.Now.ToString("HH:mm:ss"));
+        result = result.Replace("%br", Environment.NewLine);
+        return result;
     }
 }

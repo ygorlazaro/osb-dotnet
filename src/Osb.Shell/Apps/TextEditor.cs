@@ -12,25 +12,12 @@ public static class TextEditor
 {
     private readonly record struct MouseEvent(int Col, int Row, int Button, bool IsPress, bool IsScrollUp, bool IsScrollDown);
 
-    private const string AnsiReset = "\u001b[0m";
-    private const string AnsiKeyword = "\u001b[96m";
-    private const string AnsiType = "\u001b[93m";
-    private const string AnsiString = "\u001b[91m";
-    private const string AnsiNumber = "\u001b[95m";
-    private const string AnsiComment = "\u001b[90m";
-
-    private static readonly HashSet<string> Keywords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "AND", "BOOL", "BREAK", "CATCH", "CEIL", "CLEAR", "CONTINUE", "COUNT",
-        "DO", "ELIF", "ELSE", "END", "FALSE", "FLOOR", "FOR", "FUNCTION",
-        "GLOBAL", "IF", "INPUT", "NOT", "OR", "POW", "PRINT", "RETURN",
-        "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "WHILE"
-    };
-
-    private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "NUMBER", "STRING", "BOOLEAN", "ARRAY", "NULL"
-    };
+    private const string AnsiReset = OslangHighlighter.AnsiReset;
+    private const string AnsiKeyword = OslangHighlighter.AnsiKeyword;
+    private const string AnsiType = OslangHighlighter.AnsiType;
+    private const string AnsiString = OslangHighlighter.AnsiString;
+    private const string AnsiNumber = OslangHighlighter.AnsiNumber;
+    private const string AnsiComment = OslangHighlighter.AnsiComment;
 
     public static void Run(string filenameArg, OsbEnvironment env)
     {
@@ -367,119 +354,6 @@ public static class TextEditor
         return answer == "S";
     }
 
-    private static string HighlightOslang(string line, int maxVisibleWidth)
-    {
-        if (line.Length == 0) return new string(' ', maxVisibleWidth);
-        
-        var segments = Tokenize(line);
-        var result = new StringBuilder();
-        var visibleLength = 0;
-        string? currentColor = null;
-        
-        foreach (var (text, color) in segments)
-        {
-            if (visibleLength >= maxVisibleWidth) break;
-            
-            if (!string.Equals(color, currentColor, StringComparison.Ordinal))
-            {
-                if (currentColor != null)
-                {
-                    result.Append(AnsiReset);
-                }
-                result.Append(color);
-                currentColor = color;
-            }
-            
-            var available = maxVisibleWidth - visibleLength;
-            if (text.Length > available)
-            {
-                result.Append(text[..available]);
-                visibleLength += available;
-            }
-            else
-            {
-                result.Append(text);
-                visibleLength += text.Length;
-            }
-        }
-        
-        if (currentColor != null)
-        {
-            result.Append(AnsiReset);
-        }
-        
-        if (visibleLength < maxVisibleWidth)
-        {
-            result.Append(new string(' ', maxVisibleWidth - visibleLength));
-        }
-        
-        return result.ToString();
-    }
-
-    private static IEnumerable<(string Text, string Color)> Tokenize(string line)
-    {
-        var i = 0;
-        while (i < line.Length)
-        {
-            if (line[i] == '\'' || (i + 3 <= line.Length && line.Substring(i, 3).Equals("REM", StringComparison.OrdinalIgnoreCase)))
-            {
-                yield return (line[i..], AnsiComment);
-                yield break;
-            }
-            
-            if (line[i] == '"')
-            {
-                var start = i;
-                i++;
-                while (i < line.Length && line[i] != '"')
-                {
-                    i++;
-                }
-                if (i < line.Length) i++;
-                yield return (line[start..i], AnsiString);
-                continue;
-            }
-            
-            if (char.IsDigit(line[i]) || (line[i] == '-' && i + 1 < line.Length && char.IsDigit(line[i + 1])))
-            {
-                var start = i;
-                i++;
-                while (i < line.Length && (char.IsDigit(line[i]) || line[i] == '.'))
-                {
-                    i++;
-                }
-                yield return (line[start..i], AnsiNumber);
-                continue;
-            }
-            
-            if (char.IsLetter(line[i]) || line[i] == '_')
-            {
-                var start = i;
-                while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_'))
-                {
-                    i++;
-                }
-                var word = line[start..i];
-                
-                string color = AnsiReset;
-                if (Keywords.Contains(word))
-                {
-                    color = AnsiKeyword;
-                }
-                else if (Types.Contains(word))
-                {
-                    color = AnsiType;
-                }
-                
-                yield return (word, color);
-                continue;
-            }
-            
-            yield return (line[i..(i + 1)], AnsiReset);
-            i++;
-        }
-    }
-
     private static void Render(List<string> lines, int row, int col, int scrollTop, int visibleRows,
         string filename, bool modified, string? status)
     {
@@ -495,7 +369,7 @@ public static class TextEditor
             string text;
             if (lineIndex < lines.Count && filename.EndsWith(".osl", StringComparison.OrdinalIgnoreCase))
             {
-                text = HighlightOslang(rawText, textWidth);
+                text = OslangHighlighter.Highlight(rawText, textWidth);
             }
             else
             {

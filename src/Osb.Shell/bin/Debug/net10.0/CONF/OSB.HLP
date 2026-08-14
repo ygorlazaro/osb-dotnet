@@ -65,6 +65,11 @@ Modo simples de usar: COLOR
 -CONFIG
 Faz as alterações para as configurações básicas do PC.
 Modo simples de usar: CONFIG
+
+[@] CONFIG
+1 - Mensagem de boot
+2 - Layout do prompt
+0 - Sair
 -ENDCOMMAND
 
 -COPY
@@ -191,6 +196,21 @@ Modo simples de usar: PRINT <Nome do Arquivo>
 Imprimindo... (CARTA.TXT)
 -ENDCOMMAND
 
+-PROMPT
+Personaliza o layout do prompt do OSB.
+Marcadores disponíveis:
+  %user      - Nome do usuário autenticado (ou guest)
+  %hostname  - Nome da máquina
+  %pwd       - Diretório atual
+  %d         - Data atual (dd/MM/yyyy)
+  %t         - Hora atual (HH:mm:ss)
+  %br        - Quebra de linha
+
+[@] CONFIG
+2 - Layout do prompt
+Digite o novo layout, por exemplo: %user@%hostname [@] %pwd
+-ENDCOMMAND
+
 -RD
 Exclui um diretório vazio.
 Modo simples de usar: RD <Nome do diretório>
@@ -237,6 +257,9 @@ Exibe o conteúdo com pausa a cada 20 linhas
 
 [@] TYPE ARQUIVO.TXT /P:10
 Exibe o conteúdo com pausa a cada 10 linhas
+
+[@] TYPE SCRIPT.OSL
+Exibe o conteúdo com realce de sintaxe OSLANG
 -ENDCOMMAND
 
 -VER

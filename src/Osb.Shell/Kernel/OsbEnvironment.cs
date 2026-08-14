@@ -14,6 +14,7 @@ public class OsbEnvironment
     public string HostnameFile => Path.Combine(ConfDir, "HOSTNAME.CFG");
     public string UserConfigFile => Path.Combine(ConfDir, "USER.CFG");
     public OsbConfig Config { get; private set; } = null!;
+    public PromptConfig Prompt { get; private set; } = null!;
     public string MachineName { get; private set; } = "OSB";
     public UserManager Users { get; private set; } = null!;
 
@@ -26,6 +27,7 @@ public class OsbEnvironment
         HomeDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
         var firstBoot = EnsureInstalled();
         Config = OsbConfig.Load(ConfigFile);
+        Prompt = PromptConfig.Load(HomeDir);
         MachineName = LoadMachineName();
         Users = new UserManager(UserConfigFile);
 
@@ -54,6 +56,7 @@ public class OsbEnvironment
             "HANGMAN\nJogo da forca\n");
         WriteIfMissing(Path.Combine(ConfDir, "XWIN.CFG"),
             "XWIN_TEXT\nXWinText - Editor de texto paralelo\nMJB\nMJB - Aplicativo paralelo do XWin\n");
+        WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
 
         var hostnameMissing = !File.Exists(HostnameFile) || string.IsNullOrWhiteSpace(File.ReadAllText(HostnameFile));
         var userConfigMissing = !File.Exists(UserConfigFile) || string.IsNullOrWhiteSpace(File.ReadAllText(UserConfigFile));
