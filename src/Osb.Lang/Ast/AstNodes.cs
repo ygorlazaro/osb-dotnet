@@ -133,6 +133,9 @@ public sealed record TryCatchStmt(
     IReadOnlyList<Stmt> CatchBody,
     SourceLocation Location) : Stmt(Location);
 
+/// <summary>BASE(args) - explicit parent constructor call in derived class (OSLANG 0.2).</summary>
+public sealed record BaseCallStmt(IReadOnlyList<Expr> Args, SourceLocation Location) : Stmt(Location);
+
 // ============================================================
 // Alvos de atribuição
 // ============================================================

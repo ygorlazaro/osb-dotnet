@@ -10,6 +10,7 @@ public enum TokenType
     // Palavras reservadas (seção 5 da especificação) - uma entrada por palavra-chave,
     // já normalizada para maiúsculas pelo lexer (OSLANG é case-insensitive, seção 2).
     And,
+    Base,
     Boolean,
     Bool,
     Break,

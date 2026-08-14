@@ -407,10 +407,30 @@ public sealed class Parser
             TokenType.Print => ParsePrint(),
             TokenType.Input => ParseInput(),
             TokenType.Clear => new ClearStmt(Advance().Location),
+            TokenType.Base => ParseBaseCall(),
             TokenType.Identifier => ParseIdentifierLedStatement(),
             TokenType.Me => ParseMeLedStatement(),
             _ => throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' at start of statement."),
         };
+    }
+
+    private Stmt ParseBaseCall()
+    {
+        var start = Current.Location;
+        Advance(); // consume BASE
+        Expect(TokenType.LParen, "Expected '(' after BASE.");
+        var args = new List<Expr>();
+        if (!Check(TokenType.RParen))
+        {
+            args.Add(ParseExpression());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                args.Add(ParseExpression());
+            }
+        }
+        Expect(TokenType.RParen, "Expected ')' to close BASE argument list.");
+        return new BaseCallStmt(args, start);
     }
 
     private Stmt ParseMeLedStatement()

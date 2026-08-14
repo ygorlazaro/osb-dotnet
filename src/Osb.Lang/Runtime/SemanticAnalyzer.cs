@@ -89,6 +89,21 @@ public static class SemanticAnalyzer
         {
             return false;
         }
+
+        for (var i = 0; i < interfaceMethod.Parameters.Count; i++)
+        {
+            var interfaceParam = interfaceMethod.Parameters[i];
+            var classParam = classMethod.Parameters[i];
+
+            if (!string.Equals(interfaceParam.TypeName, classParam.TypeName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (interfaceParam.TypeName is not null && classParam.TypeName is not null)
+                {
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 }

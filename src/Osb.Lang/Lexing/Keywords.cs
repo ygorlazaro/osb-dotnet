@@ -16,6 +16,7 @@ public static class Keywords
     public static readonly IReadOnlyDictionary<string, TokenType> Map = new Dictionary<string, TokenType>
     {
         ["AND"] = TokenType.And,
+        ["BASE"] = TokenType.Base,
         ["BOOLEAN"] = TokenType.Boolean,
         ["BOOL"] = TokenType.Bool,
         ["BREAK"] = TokenType.Break,

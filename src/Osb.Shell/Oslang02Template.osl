@@ -1,0 +1,88 @@
+' OSLANG 0.2 Template: Classes, Inheritance, Interfaces, ME, NEW
+' Save as: Oslang02Template.osl
+
+INTERFACE IShape
+
+    GET_AREA()
+
+    GET_NAME()
+
+END
+
+
+CLASS Shape: IShape
+
+    VAR Name String
+
+    CONSTRUCTOR(Name String)
+
+        ME.Name = Name
+
+    END
+
+    PUBLIC GET_NAME()
+
+        RETURN ME.Name
+
+    END
+
+    PUBLIC GET_AREA()
+
+        RETURN 0
+
+    END
+
+END
+
+
+CLASS Circle: Shape
+
+    VAR Radius Number
+
+    CONSTRUCTOR(Radius Number)
+
+        BASE("Circle")
+        ME.Radius = Radius
+
+    END
+
+    PUBLIC GET_AREA()
+
+        RETURN 3.14159 * ME.Radius * ME.Radius
+
+    END
+
+END
+
+
+CLASS Rectangle: Shape
+
+    VAR Width Number
+    VAR Height Number
+
+    CONSTRUCTOR(Width Number, Height Number)
+
+        BASE("Rectangle")
+        ME.Width = Width
+        ME.Height = Height
+
+    END
+
+    PUBLIC GET_AREA()
+
+        RETURN ME.Width * ME.Height
+
+    END
+
+END
+
+
+FUNCTION MAIN()
+
+    Circle = NEW Circle(10)
+    Rectangle = NEW Rectangle(5, 4)
+
+    PRINT Circle.GET_NAME() + " area: " + Circle.GET_AREA()
+    PRINT Rectangle.GET_NAME() + " area: " + Rectangle.GET_AREA()
+
+END FUNCTION

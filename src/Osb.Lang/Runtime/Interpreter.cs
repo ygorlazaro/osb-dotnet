@@ -18,6 +18,8 @@ internal sealed class Interpreter
     private readonly TextReader _input;
     private readonly Action? _clear;
     private ObjectInstance? _currentObject;
+    private ClassDefinition? _enclosingClass;
+    private bool _inConstructor;
 
     public Interpreter(OslangProgram program, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear)
     {
@@ -197,9 +199,35 @@ internal sealed class Interpreter
             case TryCatchStmt t:
                 ExecuteTryCatch(t, scope, loopDepth);
                 break;
+            case BaseCallStmt b:
+                ExecuteBaseCall(b, scope);
+                break;
             default:
                 throw new InvalidOperationException($"Unknown statement node {stmt.GetType().Name}.");
         }
+    }
+
+    private void ExecuteBaseCall(BaseCallStmt baseCall, Scope scope)
+    {
+        if (!_inConstructor)
+        {
+            throw new OslangRuntimeException(baseCall.Location, "BASE can only be used inside a constructor.");
+        }
+
+        var classDef = _enclosingClass ?? _currentObject!.ClassDefinition;
+        if (classDef.BaseClass is null)
+        {
+            throw new OslangRuntimeException(baseCall.Location, "BASE can only be used in a derived class.");
+        }
+
+        var baseClass = classDef.BaseClass;
+        if (baseClass.Constructor is null)
+        {
+            throw new OslangRuntimeException(baseCall.Location, $"Base class '{baseClass.Name}' has no constructor.");
+        }
+
+        var args = baseCall.Args.Select(a => Eval(a, scope)).ToList();
+        ExecuteConstructor(_currentObject!, baseClass.Constructor, args, baseClass, baseCall.Location);
     }
 
     private void ExecuteVarDecl(VarDeclStmt v, Scope scope)
@@ -445,12 +473,103 @@ internal sealed class Interpreter
     private OslangValue EvalIdentifier(IdentifierExpr id, Scope scope)
     {
         var variable = scope.TryResolve(id.Name);
-        if (variable is null)
+        if (variable is not null)
         {
-            throw new OslangRuntimeException(id.Location, $"Undefined variable '{id.Name}'.");
+            return variable.Value;
         }
 
-        return variable.Value;
+        if (_currentObject is not null)
+        {
+            var prop = _currentObject.ClassDefinition.FindProperty(id.Name);
+            if (prop is not null)
+            {
+                CheckMemberVisibility(prop.Visibility, prop.Name, id.Location);
+                if (_currentObject.PropertyValues.TryGetValue(prop.Name, out var value))
+                {
+                    return value;
+                }
+                return OslangValue.Null;
+            }
+
+            var method = _currentObject.ClassDefinition.FindMethod(id.Name);
+            if (method is not null)
+            {
+                CheckMemberVisibility(method.Visibility, method.Name, id.Location);
+                return OslangValue.Null; // method reference - not callable as value in 0.2
+            }
+        }
+
+        throw new OslangRuntimeException(id.Location, $"Undefined variable '{id.Name}'.");
+    }
+
+    private void CheckMemberVisibility(Visibility memberVisibility, string memberName, SourceLocation location)
+    {
+        if (memberVisibility == Visibility.Public)
+        {
+            return;
+        }
+
+        var accessingClass = _enclosingClass;
+        if (accessingClass is null && _currentObject is not null)
+        {
+            accessingClass = _currentObject.ClassDefinition;
+        }
+
+        var declaringClass = FindDeclaringClass(memberName);
+
+        if (memberVisibility == Visibility.Private)
+        {
+            if (declaringClass is null || !ReferenceEquals(accessingClass, declaringClass))
+            {
+                throw new OslangRuntimeException(location, $"Property '{memberName}' is PRIVATE in class '{declaringClass?.Name ?? "unknown"}'.");
+            }
+        }
+        else if (memberVisibility == Visibility.Protected)
+        {
+            if (declaringClass is null || !IsDerivedFrom(accessingClass, declaringClass))
+            {
+                throw new OslangRuntimeException(location, $"Property '{memberName}' is PROTECTED in class '{declaringClass?.Name ?? "unknown"}'.");
+            }
+        }
+    }
+
+    private ClassDefinition? FindDeclaringClass(string memberName)
+    {
+        if (_currentObject is null)
+        {
+            return null;
+        }
+
+        var current = _currentObject.ClassDefinition;
+        while (current != null)
+        {
+            if (current.Properties.Any(p => p.Name.Equals(memberName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return current;
+            }
+            if (current.Methods.Any(m => m.Name.Equals(memberName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return current;
+            }
+            current = current.BaseClass;
+        }
+
+        return null;
+    }
+
+    private static bool IsDerivedFrom(ClassDefinition? derived, ClassDefinition? baseClass)
+    {
+        var current = derived;
+        while (current != null)
+        {
+            if (ReferenceEquals(current, baseClass))
+            {
+                return true;
+            }
+            current = current.BaseClass;
+        }
+
+        return false;
     }
 
     private ArrayValue EvalArray(Expr expr, Scope scope)
@@ -700,7 +819,19 @@ internal sealed class Interpreter
             throw new OslangRuntimeException(expr.Location, $"Cannot access member '{expr.MemberName}' on type {obj.TypeName}.");
         }
 
-        return ResolveMemberAccess(objectValue.Instance, expr.MemberName, expr.Location, isWrite: false);
+        var prop = objectValue.Instance.ClassDefinition.FindProperty(expr.MemberName);
+        if (prop is null)
+        {
+            throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found in class '{objectValue.Instance.ClassName}'.");
+        }
+
+        CheckMemberAccessVisibility(objectValue.Instance, prop.Visibility, prop.Name, expr.Location);
+        
+        if (objectValue.Instance.PropertyValues.TryGetValue(prop.Name, out var value))
+        {
+            return value;
+        }
+        return OslangValue.Null;
     }
 
     private OslangValue EvalMethodCall(MethodCallExpr expr, Scope scope)
@@ -717,8 +848,55 @@ internal sealed class Interpreter
             throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{objectValue.Instance.ClassName}'.");
         }
 
+        var declaringClass = FindMethodDeclaringClass(objectValue.Instance.ClassDefinition, expr.MethodName);
+        
         var args = expr.Args.Select(a => Eval(a, scope)).ToList();
-        return CallMethod(objectValue.Instance, method, args, expr.Location);
+        return CallMethod(objectValue.Instance, method, declaringClass, args, expr.Location);
+    }
+
+    private ClassDefinition? FindMethodDeclaringClass(ClassDefinition classDef, string methodName)
+    {
+        var current = classDef;
+        while (current != null)
+        {
+            if (current.Methods.Any(m => m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return current;
+            }
+            current = current.BaseClass;
+        }
+        return null;
+    }
+
+    private void CheckMemberAccessVisibility(ObjectInstance instance, Visibility memberVisibility, string memberName, SourceLocation location)
+    {
+        if (memberVisibility == Visibility.Public)
+        {
+            return;
+        }
+
+        var accessingClass = _enclosingClass;
+        if (accessingClass is null && _currentObject is not null)
+        {
+            accessingClass = _currentObject.ClassDefinition;
+        }
+
+        var declaringClass = FindDeclaringClass(memberName);
+
+        if (memberVisibility == Visibility.Private)
+        {
+            if (declaringClass is null || !ReferenceEquals(accessingClass, declaringClass))
+            {
+                throw new OslangRuntimeException(location, $"Property '{memberName}' is PRIVATE in class '{declaringClass?.Name ?? "unknown"}'.");
+            }
+        }
+        else if (memberVisibility == Visibility.Protected)
+        {
+            if (declaringClass is null || !IsDerivedFrom(accessingClass, declaringClass))
+            {
+                throw new OslangRuntimeException(location, $"Property '{memberName}' is PROTECTED in class '{declaringClass?.Name ?? "unknown"}'.");
+            }
+        }
     }
 
     private OslangValue EvalNew(NewExpr expr, Scope scope)
@@ -730,30 +908,52 @@ internal sealed class Interpreter
 
         var instance = new ObjectInstance(classDef);
         
+        InitializeProperties(instance, classDef);
+        
         var args = expr.Args.Select(a => Eval(a, scope)).ToList();
         
         var previousObject = _currentObject;
+        var previousEnclosing = _enclosingClass;
         _currentObject = instance;
+        _enclosingClass = classDef;
         
         try
         {
-            if (classDef.BaseClass is not null)
-            {
-                ExecuteBaseConstructor(instance, classDef.BaseClass, [], expr.Location);
-            }
-            
             var constructor = classDef.Constructor;
             if (constructor is not null)
             {
-                ExecuteConstructor(instance, constructor, args, expr.Location);
+                ExecuteConstructor(instance, constructor, args, classDef, expr.Location);
+            }
+            else if (classDef.BaseClass is not null && classDef.BaseClass.Constructor is not null)
+            {
+                ExecuteBaseConstructor(instance, classDef.BaseClass, [], expr.Location);
             }
         }
         finally
         {
             _currentObject = previousObject;
+            _enclosingClass = previousEnclosing;
         }
 
         return new ObjectValue(instance);
+    }
+
+    private void InitializeProperties(ObjectInstance instance, ClassDefinition classDef)
+    {
+        var current = classDef;
+        while (current != null)
+        {
+            foreach (var prop in current.Properties)
+            {
+                if (!instance.PropertyValues.ContainsKey(prop.Name))
+                {
+                    instance.PropertyValues[prop.Name] = prop.TypeName is not null 
+                        ? TypeSystem.DefaultValueFor(TypeSystem.ParseTypeName(prop.TypeName)) 
+                        : OslangValue.Null;
+                }
+            }
+            current = current.BaseClass;
+        }
     }
 
     private void ExecuteBaseConstructor(ObjectInstance instance, ClassDefinition baseClass, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
@@ -766,11 +966,11 @@ internal sealed class Interpreter
         var constructor = baseClass.Constructor;
         if (constructor is not null)
         {
-            ExecuteConstructor(instance, constructor, args, callLocation);
+            ExecuteConstructor(instance, constructor, args, baseClass, callLocation);
         }
     }
 
-    private void ExecuteConstructor(ObjectInstance instance, ConstructorDefinition constructor, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
+    private void ExecuteConstructor(ObjectInstance instance, ConstructorDefinition constructor, IReadOnlyList<OslangValue> args, ClassDefinition enclosingClass, SourceLocation callLocation)
     {
         if (args.Count != constructor.Parameters.Count)
         {
@@ -778,7 +978,11 @@ internal sealed class Interpreter
         }
 
         var previousObject = _currentObject;
+        var previousEnclosing = _enclosingClass;
+        var previousInConstructor = _inConstructor;
         _currentObject = instance;
+        _enclosingClass = enclosingClass;
+        _inConstructor = true;
 
         var scope = new Scope(_globals);
         for (var i = 0; i < constructor.Parameters.Count; i++)
@@ -794,7 +998,28 @@ internal sealed class Interpreter
 
         try
         {
-            ExecuteBlock(constructor.Body, scope, loopDepth: 0);
+            var body = constructor.Body;
+            var remainingBody = body;
+            
+            if (body.Count > 0 && body[0] is BaseCallStmt baseCall)
+            {
+                var baseArgs = baseCall.Args.Select(a => Eval(a, scope)).ToList();
+                if (enclosingClass.BaseClass is not null && enclosingClass.BaseClass.Constructor is not null)
+                {
+                    ExecuteConstructor(instance, enclosingClass.BaseClass.Constructor, baseArgs, enclosingClass.BaseClass, baseCall.Location);
+                }
+                else
+                {
+                    throw new OslangRuntimeException(baseCall.Location, "BASE can only be used in a derived class with a base class constructor.");
+                }
+                remainingBody = body.Skip(1).ToList();
+            }
+            else if (enclosingClass.BaseClass is not null && enclosingClass.BaseClass.Constructor is not null)
+            {
+                ExecuteBaseConstructor(instance, enclosingClass.BaseClass, [], callLocation);
+            }
+            
+            ExecuteBlock(remainingBody, scope, loopDepth: 0);
         }
         catch (ReturnSignal)
         {
@@ -803,10 +1028,12 @@ internal sealed class Interpreter
         finally
         {
             _currentObject = previousObject;
+            _enclosingClass = previousEnclosing;
+            _inConstructor = previousInConstructor;
         }
     }
 
-    private OslangValue CallMethod(ObjectInstance instance, MethodDefinition method, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
+    private OslangValue CallMethod(ObjectInstance instance, MethodDefinition method, ClassDefinition? declaringClass, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
     {
         if (args.Count != method.Parameters.Count)
         {
@@ -814,7 +1041,9 @@ internal sealed class Interpreter
         }
 
         var previousObject = _currentObject;
+        var previousEnclosing = _enclosingClass;
         _currentObject = instance;
+        _enclosingClass = declaringClass ?? instance.ClassDefinition;
 
         var scope = new Scope(_globals);
         for (var i = 0; i < method.Parameters.Count; i++)
@@ -839,6 +1068,7 @@ internal sealed class Interpreter
         finally
         {
             _currentObject = previousObject;
+            _enclosingClass = previousEnclosing;
         }
 
         return OslangValue.Null;
