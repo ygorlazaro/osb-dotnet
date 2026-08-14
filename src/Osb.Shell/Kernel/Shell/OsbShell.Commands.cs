@@ -52,6 +52,7 @@ public partial class OsbShell
         }
 
         var args = spaceIndex < 0 ? "" : raw[(spaceIndex + 1)..].Trim();
+        args = ExpandVariables(args);
 
         var handled = false;
         switch (verb)

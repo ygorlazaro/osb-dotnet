@@ -449,15 +449,27 @@ public partial class OsbShell
     private static void PrintFile(string file)
     {
         if (file == "") { HelpTexts.Show("PRINT"); return; }
+        
         try
         {
-            Console.WriteLine("Imprimindo " + file);
-            Console.WriteLine("(Nenhuma impressora configurada - exibindo o conteúdo)");
-            foreach (var line in File.ReadAllLines(PathResolver.Resolve(file))) Console.WriteLine(line);
+            var resolved = PathResolver.Resolve(file);
+            if (File.Exists(resolved))
+            {
+                Console.WriteLine("Imprimindo " + file);
+                Console.WriteLine("(Nenhuma impressora configurada - exibindo o conteúdo)");
+                foreach (var line in File.ReadAllLines(resolved)) Console.WriteLine(line);
+                return;
+            }
         }
-        catch (Exception ex)
+        catch { }
+        
+        if (TryEvaluateMath(file, out var result))
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(result);
+        }
+        else
+        {
+            Console.WriteLine(file);
         }
     }
 

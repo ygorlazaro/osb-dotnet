@@ -201,11 +201,20 @@ Cria o diretório C:\A\B\C e todos os pais necessários
 -ENDCOMMAND
 
 -PRINT
-Envia um arquivo para a impressora.
-Modo simples de usar: PRINT <Nome do Arquivo>
+Imprime o conteúdo de um arquivo ou avalia uma expressão matemática.
+Modo simples de usar: PRINT <arquivo> | <expressao>
 
 [@] PRINT CARTA.TXT
-Imprimindo... (CARTA.TXT)
+Imprime o conteúdo do arquivo CARTA.TXT
+
+[@] PRINT 2+2
+Exibe: 4
+
+[@] PRINT 10*5+3
+Exibe: 53
+
+[@] PRINT %VARIAVEL%
+Exibe o valor da variável
 -ENDCOMMAND
 
 -PROMPT
