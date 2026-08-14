@@ -628,9 +628,17 @@ public partial class OsbShell
     {
         if (string.IsNullOrWhiteSpace(args))
         {
-            Console.WriteLine("Uso: SET <nome>=<valor>");
-            Console.WriteLine("  SET NOME    → mostra o valor");
-            Console.WriteLine("  SET NOME=   → remove a variável");
+            var vars = _env.Variables.GetForUser(_env.CurrentUsername);
+            if (vars.Count == 0)
+            {
+                Console.WriteLine("Nenhuma variável definida.");
+                return;
+            }
+
+            foreach (var (name, value) in vars)
+            {
+                Console.WriteLine($"{name}={value}");
+            }
             return;
         }
         

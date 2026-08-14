@@ -26,17 +26,36 @@ public partial class OsbShell
                 return;
             }
 
-            var lines = File.ReadAllLines(HistoryFile).Where(l => l.Length > 0).ToList();
-            if (lines.Count > MaxHistoryEntries)
+            foreach (var line in File.ReadAllLines(HistoryFile))
             {
-                lines = lines.Skip(lines.Count - MaxHistoryEntries).ToList();
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                
+                var parts = line.Split('|', 3);
+                if (parts.Length >= 3 && DateTime.TryParse(parts[0], out var timestamp))
+                {
+                    _history.Add(new HistoryEntry
+                    {
+                        Timestamp = timestamp,
+                        Command = parts[2]
+                    });
+                }
+                else if (parts.Length == 2)
+                {
+                    _history.Add(new HistoryEntry
+                    {
+                        Timestamp = DateTime.MinValue,
+                        Command = parts[1]
+                    });
+                }
             }
 
-            _history.AddRange(lines);
+            if (_history.Count > MaxHistoryEntries)
+            {
+                _history.RemoveRange(0, _history.Count - MaxHistoryEntries);
+            }
         }
         catch
         {
-            // histórico é conveniência, não motivo pra travar o boot do OSB.
         }
     }
 
@@ -44,20 +63,24 @@ public partial class OsbShell
     {
         try
         {
-            Directory.CreateDirectory(_env.HomeDir);
-            File.WriteAllLines(HistoryFile, _history);
+            Directory.CreateDirectory(Path.GetDirectoryName(HistoryFile)!);
+            var lines = _history.Select(h => $"{h.Timestamp:yyyy-MM-dd HH:mm:ss}|{h.Command}");
+            File.WriteAllLines(HistoryFile, lines);
         }
         catch
         {
-            // idem: se não der pra salvar (disco cheio, permissão etc.), segue o jogo.
         }
     }
 
     private void AddToHistory(string line)
     {
-        if (_history.Count == 0 || _history[^1] != line)
+        if (_history.Count == 0 || _history[^1].Command != line)
         {
-            _history.Add(line);
+            _history.Add(new HistoryEntry
+            {
+                Timestamp = DateTime.Now,
+                Command = line
+            });
         }
 
         if (_history.Count > MaxHistoryEntries)
@@ -77,7 +100,7 @@ public partial class OsbShell
         }
 
         var trimmedArgs = args.Trim();
-        List<string> itemsToDisplay;
+        List<HistoryEntry> itemsToDisplay;
 
         if (string.IsNullOrWhiteSpace(trimmedArgs))
         {
@@ -94,7 +117,7 @@ public partial class OsbShell
         else
         {
             itemsToDisplay = _history
-                .Where(h => h.Trim().StartsWith(trimmedArgs, StringComparison.OrdinalIgnoreCase))
+                .Where(h => h.Command.Trim().StartsWith(trimmedArgs, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (itemsToDisplay.Count == 0)
@@ -107,7 +130,11 @@ public partial class OsbShell
         const int pageSize = 20;
         for (var i = 0; i < itemsToDisplay.Count; i++)
         {
-            Console.WriteLine($"{i + 1,4}  {itemsToDisplay[i]}");
+            var entry = itemsToDisplay[i];
+            var timestamp = entry.Timestamp == DateTime.MinValue 
+                ? "----/--/-- --:--:--" 
+                : entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss");
+            Console.WriteLine($"{i + 1,4}  {timestamp}  {entry.Command}");
             if ((i + 1) % pageSize == 0 && i + 1 < itemsToDisplay.Count)
             {
                 Console.Write("-----Pressione ENTER para continuar----");
@@ -124,7 +151,7 @@ public partial class OsbShell
 
         if (int.TryParse(input, out var n) && n >= 1 && n <= itemsToDisplay.Count)
         {
-            var cmd = itemsToDisplay[n - 1];
+            var cmd = itemsToDisplay[n - 1].Command;
             Console.WriteLine(cmd);
             Execute(cmd);
         }
@@ -147,6 +174,116 @@ public partial class OsbShell
         Console.WriteLine("Finalizando o kernel.");
         Console.WriteLine("OSB 3.0 Lince encerrado.");
         _running = false;
+    }
+
+    private void ExecutePipeline(string rawInput)
+    {
+        var segments = rawInput.Split(';')
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToArray();
+
+        if (segments.Length == 0) return;
+
+        List<string>? inputLines = null;
+
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            var isLast = i == segments.Length - 1;
+
+            if (isLast)
+            {
+                if (inputLines != null)
+                {
+                    ExecuteWithPipedInput(segment, inputLines);
+                }
+                else
+                {
+                    Execute(segment);
+                }
+            }
+            else
+            {
+                inputLines = CaptureCommandOutput(segment, inputLines);
+            }
+        }
+    }
+
+    private List<string> CaptureCommandOutput(string command, List<string>? inputLines)
+    {
+        var output = new List<string>();
+        var sw = new StringWriter();
+        var originalOut = Console.Out;
+
+        try
+        {
+            Console.SetOut(sw);
+
+            if (inputLines != null)
+            {
+                ExecuteWithPipedInput(command, inputLines);
+            }
+            else
+            {
+                Execute(command);
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var text = sw.ToString();
+        if (!string.IsNullOrEmpty(text))
+        {
+            output.AddRange(text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
+        }
+
+        return output;
+    }
+
+    private void ExecuteWithPipedInput(string command, List<string> inputLines)
+    {
+        var trimmed = command.Trim();
+        var spaceIndex = trimmed.IndexOf(' ');
+        var verb = spaceIndex < 0 ? trimmed.ToUpperInvariant() : trimmed[..spaceIndex].ToUpperInvariant();
+        var args = spaceIndex < 0 ? "" : trimmed[(spaceIndex + 1)..].Trim();
+
+        switch (verb)
+        {
+            case "GREP":
+                ExecuteGrep(args, inputLines);
+                break;
+            default:
+                Execute(command);
+                break;
+        }
+    }
+
+    private void ExecuteGrep(string args, List<string>? inputLines = null)
+    {
+        if (inputLines == null || inputLines.Count == 0)
+        {
+            Console.WriteLine("Uso: GREP <padrao>");
+            Console.WriteLine("Use em pipe: COMANDO ; GREP <padrao>");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(args))
+        {
+            Console.WriteLine("Uso: GREP <padrao>");
+            return;
+        }
+
+        var pattern = args.Trim();
+        foreach (var line in inputLines)
+        {
+            if (line.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Console.WriteLine(line);
+            }
+        }
     }
 
     private string ReadCommandLine()
@@ -347,7 +484,7 @@ public partial class OsbShell
                     }
 
                     _historyIndex = Math.Max(0, _historyIndex - 1);
-                    ReplaceBuffer(_history[_historyIndex]);
+                    ReplaceBuffer(_history[_historyIndex].Command);
                     break;
                 case ConsoleKey.DownArrow:
                     if (_history.Count == 0)
@@ -356,7 +493,7 @@ public partial class OsbShell
                     }
 
                     _historyIndex = Math.Min(_history.Count, _historyIndex + 1);
-                    ReplaceBuffer(_historyIndex < _history.Count ? _history[_historyIndex] : editedLine);
+                    ReplaceBuffer(_historyIndex < _history.Count ? _history[_historyIndex].Command : editedLine);
                     break;
                 case ConsoleKey.Backspace:
                     if (cursor > 0)

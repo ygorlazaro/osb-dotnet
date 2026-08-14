@@ -259,17 +259,20 @@ Lista todos os arquivos .txt, recursivamente
 -ENDCOMMAND
 
 -SET
-Gerencia variáveis de ambiente do usuário.
-Modo simples de usar: SET <nome>=<valor>
+Gerencia variáveis de ambiente.
+Modo simples de usar: SET [nome=valor]
 
 [@] SET NOME=Ygor
-Define a variável NOME
+Define a variável NOME como Ygor
 
 [@] SET NOME
-Mostra o valor de NOME
+Mostra o valor da variável NOME
 
 [@] SET NOME=
 Remove a variável NOME
+
+[@] SET
+Lista todas as variáveis definidas
 -ENDCOMMAND
 
 -PROMPT
@@ -377,18 +380,32 @@ Remove um usuário existente.
 -ENDCOMMAND
 
 -HISTORY
-Lista o histórico de comandos, numerado, e pergunta se você quer repetir algum.
+Lista o histórico de comandos, numerado, com data e hora, e pergunta se você quer repetir algum.
 Modo simples de usar: HISTORY [número]
 
 [@] HISTORY
-   1  CD TEMP
-   2  DIR /W
-   3  VER
+    1  2026-08-14 02:37:00  CD TEMP
+    2  2026-08-14 02:38:00  DIR /W
+    3  2026-08-14 02:39:00  VER
 Repetir qual número (ENTER para nenhum)? 2
 DIR /W
 
-O histórico fica salvo em HISTORY.TXT na pasta do OSB e é carregado de novo toda vez
-e o OSB inicia (guarda os 1000 comandos mais recentes).
+O histórico fica salvo por usuário em CONF\HISTORY\<usuario>.txt e é carregado de novo toda vez
+que o OSB inicia (guarda os 1000 comandos mais recentes).
+-ENDCOMMAND
+
+-GREP
+Filtra linhas de texto por um padrão (case-insensitive).
+Modo simples de usar: COMANDO ; GREP <padrao>
+
+[@] DIR ; GREP git
+Lista apenas arquivos/pastas que contém "git"
+
+[@] HISTORY ; GREP DIR
+Lista apenas comandos do histórico que contém "DIR"
+
+[@] TYPE ARQ.TXT ; GREP erro
+Exibe apenas linhas do arquivo que contém "erro"
 -ENDCOMMAND
 
 -ENDOFFILE

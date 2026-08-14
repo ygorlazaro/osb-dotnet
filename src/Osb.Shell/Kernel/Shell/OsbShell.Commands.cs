@@ -9,6 +9,12 @@ public partial class OsbShell
 {
     public void Execute(string rawInput)
     {
+        if (rawInput.Contains(';'))
+        {
+            ExecutePipeline(rawInput);
+            return;
+        }
+
         // support multiple commands separated by ';' on the same line
         if (rawInput.Contains(';'))
         {
@@ -116,6 +122,8 @@ public partial class OsbShell
                 ShowSize(args); handled = true; break;
             case "FIND":
                 FindFiles(args); handled = true; break;
+            case "GREP":
+                ExecuteGrep(args); handled = true; break;
             case "USER":
                 HandleUser(args); handled = true; break;
             case "TIME":

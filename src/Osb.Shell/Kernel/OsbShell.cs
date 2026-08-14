@@ -3,6 +3,12 @@ using Osb.Shell.Games;
 
 namespace Osb.Shell.Kernel;
 
+public class HistoryEntry
+{
+    public DateTime Timestamp { get; set; }
+    public string Command { get; set; } = string.Empty;
+}
+
 /// <summary>
 /// Porte da SUB Command(Comando$) do OSB.BAS original: o loop principal do
 /// interpretador de comandos do OSB. Cada bloco IF do BASIC virou um "case"
@@ -11,14 +17,14 @@ namespace Osb.Shell.Kernel;
 public partial class OsbShell
 {
     private readonly OsbEnvironment _env;
-    private readonly List<string> _history = [];
+    private readonly List<HistoryEntry> _history = [];
     private int _historyIndex;
     private bool _running = true;
     private bool _isAuthenticated;
     private string _currentUsername = string.Empty;
 
     private const int MaxHistoryEntries = 1000;
-    private string HistoryFile => Path.Combine(_env.HomeDir, "HISTORY.TXT");
+    private string HistoryFile => Path.Combine(_env.HomeDir, "CONF", "HISTORY", $"{_currentUsername}.txt");
 
     public OsbShell(OsbEnvironment env) => _env = env;
 
