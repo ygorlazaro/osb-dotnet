@@ -61,23 +61,23 @@
       "patterns": [
         {
           "name": "keyword.control.oslang",
-          "match": "\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH)\\b"
+          "match": "(?i)\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH)\\b"
         },
         {
           "name": "keyword.declaration.oslang",
-          "match": "\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL)\\b"
+          "match": "(?i)\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL)\\b"
         },
         {
           "name": "keyword.other.oslang",
-          "match": "\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS)\\b"
+          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS)\\b"
         },
         {
           "name": "storage.modifier.oslang",
-          "match": "\\b(PUBLIC|PRIVATE|PROTECTED)\\b"
+          "match": "(?i)\\b(PUBLIC|PRIVATE|PROTECTED)\\b"
         },
         {
           "name": "constant.language.oslang",
-          "match": "\\b(TRUE|FALSE|NULL)\\b"
+          "match": "(?i)\\b(TRUE|FALSE|NULL)\\b"
         }
       ]
     },
@@ -85,7 +85,7 @@
       "patterns": [
         {
           "name": "storage.type.oslang",
-          "match": "\\b(NUMBER|STRING|BOOLEAN|ARRAY|VOID)\\b"
+          "match": "(?i)\\b(NUMBER|STRING|BOOLEAN|ARRAY|VOID)\\b"
         }
       ]
     },

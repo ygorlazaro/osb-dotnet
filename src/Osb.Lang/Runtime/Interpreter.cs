@@ -209,12 +209,12 @@ internal sealed class Interpreter
 
     private void ExecuteBaseCall(BaseCallStmt baseCall, Scope scope)
     {
-        if (!_inConstructor)
+        if (_currentObject is null)
         {
-            throw new OslangRuntimeException(baseCall.Location, "BASE can only be used inside a constructor.");
+            throw new OslangRuntimeException(baseCall.Location, "BASE can only be used inside a class method.");
         }
 
-        var classDef = _enclosingClass ?? _currentObject!.ClassDefinition;
+        var classDef = _enclosingClass ?? _currentObject.ClassDefinition;
         if (classDef.BaseClass is null)
         {
             throw new OslangRuntimeException(baseCall.Location, "BASE can only be used in a derived class.");
@@ -227,7 +227,7 @@ internal sealed class Interpreter
         }
 
         var args = baseCall.Args.Select(a => Eval(a, scope)).ToList();
-        ExecuteConstructor(_currentObject!, baseClass.Constructor, args, baseClass, baseCall.Location);
+        ExecuteConstructor(_currentObject, baseClass.Constructor, args, baseClass, baseCall.Location);
     }
 
     private void ExecuteVarDecl(VarDeclStmt v, Scope scope)
@@ -454,6 +454,7 @@ internal sealed class Interpreter
         MemberAccessExpr ma => EvalMemberAccess(ma, scope),
         NewExpr ne => EvalNew(ne, scope),
         MeExpr => EvalMe(scope),
+        BaseExpr => EvalBase(scope),
         UnaryExpr u => EvalUnary(u, scope),
         BinaryExpr b => EvalBinary(b, scope),
         _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
@@ -811,6 +812,22 @@ internal sealed class Interpreter
         return new ObjectValue(_currentObject);
     }
 
+    private OslangValue EvalBase(Scope scope)
+    {
+        if (_currentObject is null)
+        {
+            throw new OslangRuntimeException(SourceLocation.Unknown, "BASE used outside of a class method.");
+        }
+
+        var baseClass = _currentObject.ClassDefinition.BaseClass;
+        if (baseClass is null)
+        {
+            throw new OslangRuntimeException(SourceLocation.Unknown, "BASE can only be used in a derived class.");
+        }
+
+        return new ObjectValue(_currentObject);
+    }
+
     private OslangValue EvalMemberAccess(MemberAccessExpr expr, Scope scope)
     {
         var obj = Eval(expr.Object, scope);
@@ -819,10 +836,14 @@ internal sealed class Interpreter
             throw new OslangRuntimeException(expr.Location, $"Cannot access member '{expr.MemberName}' on type {obj.TypeName}.");
         }
 
-        var prop = objectValue.Instance.ClassDefinition.FindProperty(expr.MemberName);
+        var classDef = expr.Object is BaseExpr && objectValue.Instance.ClassDefinition.BaseClass is not null
+            ? objectValue.Instance.ClassDefinition.BaseClass
+            : objectValue.Instance.ClassDefinition;
+
+        var prop = classDef.FindProperty(expr.MemberName);
         if (prop is null)
         {
-            throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found in class '{objectValue.Instance.ClassName}'.");
+            throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found in class '{classDef.Name}'.");
         }
 
         CheckMemberAccessVisibility(objectValue.Instance, prop.Visibility, prop.Name, expr.Location);
@@ -842,13 +863,17 @@ internal sealed class Interpreter
             throw new OslangRuntimeException(expr.Location, $"Cannot call method '{expr.MethodName}' on type {obj.TypeName}.");
         }
 
-        var method = objectValue.Instance.ClassDefinition.FindMethod(expr.MethodName);
+        var classDef = expr.Object is BaseExpr && objectValue.Instance.ClassDefinition.BaseClass is not null
+            ? objectValue.Instance.ClassDefinition.BaseClass
+            : objectValue.Instance.ClassDefinition;
+
+        var method = classDef.FindMethod(expr.MethodName);
         if (method is null)
         {
-            throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{objectValue.Instance.ClassName}'.");
+            throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{classDef.Name}'.");
         }
 
-        var declaringClass = FindMethodDeclaringClass(objectValue.Instance.ClassDefinition, expr.MethodName);
+        var declaringClass = FindMethodDeclaringClass(classDef, expr.MethodName);
         
         var args = expr.Args.Select(a => Eval(a, scope)).ToList();
         return CallMethod(objectValue.Instance, method, declaringClass, args, expr.Location);

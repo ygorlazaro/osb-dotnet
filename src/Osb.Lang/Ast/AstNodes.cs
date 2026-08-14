@@ -195,3 +195,6 @@ public sealed record NewExpr(string ClassName, IReadOnlyList<Expr> Args, SourceL
 
 /// <summary>Referência ao objeto atual dentro de métodos (ME)</summary>
 public sealed record MeExpr(SourceLocation Location) : Expr(Location);
+
+/// <summary>Referência à instância da classe base dentro de métodos (BASE)</summary>
+public sealed record BaseExpr(SourceLocation Location) : Expr(Location);

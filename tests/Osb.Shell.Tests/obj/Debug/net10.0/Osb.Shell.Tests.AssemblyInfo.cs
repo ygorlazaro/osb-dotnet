@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Osb.Shell.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+775158fdd691e694a838db20d27caf3c95fb3026")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+610cdd71b38b41f40c868b386fb9591f2691c9fa")]
 [assembly: System.Reflection.AssemblyProductAttribute("Osb.Shell.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Osb.Shell.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

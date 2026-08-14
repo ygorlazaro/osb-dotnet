@@ -431,10 +431,24 @@ END FUNCTION";
     }
 
     [Fact]
-    public void BaseCall_OutsideConstructor_ThrowsRuntimeError()
+    public void BaseCall_OutsideConstructor_Works()
     {
         var source = @"
 CLASS BaseClass
+
+    VAR BaseValue String
+
+    CONSTRUCTOR()
+
+        ME.BaseValue = ""Base""
+
+    END
+
+    PUBLIC GET_BASE_VALUE()
+
+        RETURN ME.BaseValue
+
+    END
 
 END
 
@@ -447,6 +461,12 @@ CLASS Derived: BaseClass
 
     END
 
+    PUBLIC GET_TEST_VALUE()
+
+        RETURN BASE.GET_BASE_VALUE()
+
+    END
+
 END
 
 
@@ -454,11 +474,13 @@ FUNCTION MAIN()
 
     D = NEW Derived()
     D.TEST()
+    PRINT D.GET_TEST_VALUE()
 
 END FUNCTION";
 
-        var ex = Assert.Throws<OslangRuntimeException>(() => Execute(source));
-        Assert.Contains("BASE can only be used inside a constructor", ex.Message);
+        var output = new StringWriter();
+        Execute(source, output);
+        Assert.Equal("Base", output.ToString().Trim());
     }
 }
 

@@ -844,6 +844,9 @@ public sealed class Parser
             case TokenType.Me:
                 Advance();
                 return new MeExpr(tok.Location);
+            case TokenType.Base:
+                Advance();
+                return new BaseExpr(tok.Location);
             case TokenType.New:
                 return ParseNewExpression();
             case TokenType.Identifier:
