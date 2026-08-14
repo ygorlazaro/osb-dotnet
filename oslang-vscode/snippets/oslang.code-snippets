@@ -1,0 +1,152 @@
+{
+  "Function Declaration": {
+    "prefix": "function",
+    "body": [
+      "FUNCTION ${1:Name}(${2:parameters})",
+      "    $0",
+      "END FUNCTION"
+    ],
+    "description": "Create a new function"
+  },
+  "Class Declaration": {
+    "prefix": "class",
+    "body": [
+      "CLASS ${1:ClassName}",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a new class"
+  },
+  "Interface Declaration": {
+    "prefix": "interface",
+    "body": [
+      "INTERFACE ${1:IName}",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a new interface"
+  },
+  "Constructor": {
+    "prefix": "constructor",
+    "body": [
+      "CONSTRUCTOR(${1:parameters})",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a constructor"
+  },
+  "If Statement": {
+    "prefix": "if",
+    "body": [
+      "IF ${1:condition} THEN",
+      "    $0",
+      "END"
+    ],
+    "description": "Create an if statement"
+  },
+  "If-Else Statement": {
+    "prefix": "ifelse",
+    "body": [
+      "IF ${1:condition} THEN",
+      "    $2",
+      "ELSE",
+      "    $0",
+      "END"
+    ],
+    "description": "Create an if-else statement"
+  },
+  "For Loop": {
+    "prefix": "for",
+    "body": [
+      "FOR ${1:I} = ${2:1} TO ${3:10}",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a for loop"
+  },
+  "While Loop": {
+    "prefix": "while",
+    "body": [
+      "WHILE ${1:condition}",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a while loop"
+  },
+  "Try-Catch": {
+    "prefix": "try",
+    "body": [
+      "TRY",
+      "    $1",
+      "CATCH ${2:ERR}",
+      "    PRINT \"Erro: \" + $2",
+      "END"
+    ],
+    "description": "Create a try-catch block"
+  },
+  "Print Statement": {
+    "prefix": "print",
+    "body": [
+      "PRINT ${1:\"Hello World\"}"
+    ],
+    "description": "Create a print statement"
+  },
+  "Input Statement": {
+    "prefix": "input",
+    "body": [
+      "INPUT ${1:Variable}"
+    ],
+    "description": "Create an input statement"
+  },
+  "Variable Declaration": {
+    "prefix": "var",
+    "body": [
+      "VAR ${1:Name} ${2:NUMBER}"
+    ],
+    "description": "Declare a variable"
+  },
+  "Property Declaration": {
+    "prefix": "prop",
+    "body": [
+      "${1:PUBLIC} VAR ${2:Name} ${3:NUMBER}"
+    ],
+    "description": "Declare a class property"
+  },
+  "Method Declaration": {
+    "prefix": "method",
+    "body": [
+      "${1:PUBLIC} ${2:MethodName}(${3:parameters})",
+      "    $0",
+      "END"
+    ],
+    "description": "Declare a class method"
+  },
+  "ME Reference": {
+    "prefix": "me",
+    "body": [
+      "ME.${1:Property}"
+    ],
+    "description": "Reference current object instance"
+  },
+  "New Object": {
+    "prefix": "new",
+    "body": [
+      "${1:obj} = NEW ${2:ClassName}($3)"
+    ],
+    "description": "Create a new object instance"
+  },
+  "Base Constructor Call": {
+    "prefix": "base",
+    "body": [
+      "BASE(${1:args})"
+    ],
+    "description": "Call base class constructor"
+  },
+  "Return Statement": {
+    "prefix": "return",
+    "body": [
+      "RETURN ${1:value}"
+    ],
+    "description": "Return from function/method"
+  }
+}

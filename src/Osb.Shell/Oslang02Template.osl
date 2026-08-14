@@ -66,6 +66,7 @@ CLASS Rectangle: Shape
         ME.Width = Width
         ME.Height = Height
 
+
     END
 
     PUBLIC GET_AREA()

@@ -1,0 +1,59 @@
+{
+  "name": "oslang",
+  "displayName": "OSLANG 0.2",
+  "description": "Syntax highlighting and language support for OSLANG 0.2, the scripting language of OSB 3.0 Lince",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.0.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "oslang",
+    "osb",
+    "scripting",
+    "basic",
+    "oop"
+  ],
+  "activationEvents": [
+    "onLanguage:oslang"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "oslang",
+        "aliases": [
+          "OSLANG",
+          "oslang"
+        ],
+        "extensions": [
+          ".osl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "oslang",
+        "scopeName": "source.oslang",
+        "path": "./syntaxes/oslang.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "oslang",
+        "path": "./snippets/oslang.code-snippets"
+      }
+    ]
+  },
+  "author": {
+    "name": "Ygor Lázaro"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ygorlazaro/osb-dotnet"
+  },
+  "license": "MIT"
+}

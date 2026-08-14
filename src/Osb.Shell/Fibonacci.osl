@@ -31,6 +31,8 @@ FUNCTION MAIN()
 
     Total = NUMBER(Quantity)
 
+    Tot
+
     IF Total <= 0 THEN
 
         PRINT "Quantity must be greater than zero."
