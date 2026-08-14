@@ -7,24 +7,11 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
 {
-    public void Execute(string rawInput)
+    public void Execute(string rawInput, bool requireAuth = true)
     {
         if (rawInput.Contains(';'))
         {
-            ExecutePipeline(rawInput);
-            return;
-        }
-
-        // support multiple commands separated by ';' on the same line
-        if (rawInput.Contains(';'))
-        {
-            var parts = rawInput.Split(';');
-            foreach (var part in parts)
-            {
-                var p = part.Trim();
-                if (p.Length == 0) continue;
-                Execute(p);
-            }
+            ExecutePipeline(rawInput, requireAuth);
             return;
         }
 
@@ -39,10 +26,13 @@ public partial class OsbShell
         var spaceIndex = raw.IndexOf(' ');
         var verb = spaceIndex < 0 ? command : command[..spaceIndex];
 
-        if (!_isAuthenticated && verb != "USER" && verb != "HOSTNAME")
+        if (requireAuth && !_isAuthenticated && verb != "USER" && verb != "HOSTNAME")
         {
-            Console.WriteLine("Você deve entrar com login. Use USER para autenticar.");
-            return;
+            if (!raw.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) || !File.Exists(raw))
+            {
+                Console.WriteLine("Você deve entrar com login. Use USER para autenticar.");
+                return;
+            }
         }
 
         if (command.Length == 2 && command[1] == ':')
@@ -131,6 +121,13 @@ public partial class OsbShell
                 RemoveDirectory(args); handled = true; break;
             case "REN":
                 RenameFile(args); handled = true; break;
+            case "RUN":
+            {
+                var (path, oshArgs) = ParseOshArgs(args);
+                RunOshFile(path, oshArgs);
+                handled = true;
+                break;
+            }
             case "SET":
                 SetVariable(args); handled = true; break;
             case "SIZE":
@@ -157,8 +154,21 @@ public partial class OsbShell
                 XwinLauncher.Launch();
                 _env.ApplyColors(); handled = true; break;
             default:
+            {
+                var firstSpace = raw.IndexOf(' ');
+                var cmdPart = firstSpace < 0 ? raw : raw[..firstSpace];
+
+                if (cmdPart.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) && File.Exists(cmdPart))
+                {
+                    var oshArgs = firstSpace < 0 ? [] : ParseOshArgs(raw[(firstSpace + 1)..].Trim()).Args;
+                    RunOshFile(cmdPart, oshArgs);
+                    handled = true;
+                    break;
+                }
+
                 handled = RunExternal(raw);
                 break;
+            }
         }
     }
 
@@ -231,5 +241,52 @@ public partial class OsbShell
         {
             _env.ApplyColors();
         }
+    }
+
+    private static (string Path, string[] Args) ParseOshArgs(string args)
+    {
+        var trimmed = args.Trim();
+        if (trimmed.Length == 0)
+        {
+            return (string.Empty, []);
+        }
+
+        var tokens = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        foreach (var ch in trimmed)
+        {
+            if (ch == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (char.IsWhiteSpace(ch) && !inQuotes)
+            {
+                if (current.Length > 0)
+                {
+                    tokens.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Append(ch);
+            }
+        }
+
+        if (current.Length > 0)
+        {
+            tokens.Add(current.ToString());
+        }
+
+        if (tokens.Count == 0)
+        {
+            return (string.Empty, []);
+        }
+
+        var path = tokens[0];
+        var oshArgs = tokens.Skip(1).ToArray();
+        return (path, oshArgs);
     }
 }

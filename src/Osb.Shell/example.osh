@@ -1,0 +1,19 @@
+; Example OSB Shell Script
+; Comments start with ; or REM or '
+
+SET GREETING=Hello
+SET TARGET=World
+
+PRINT %GREETING%, %TARGET%!
+
+; Change directory example
+; CD ..
+
+; List files
+; DIR
+
+; Create a directory
+; MD TestFolder
+
+; Run an OSLANG program
+; OSL HelloWorld.osl

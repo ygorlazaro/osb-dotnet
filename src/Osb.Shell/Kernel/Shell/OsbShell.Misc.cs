@@ -176,7 +176,7 @@ public partial class OsbShell
         _running = false;
     }
 
-    private void ExecutePipeline(string rawInput)
+    private void ExecutePipeline(string rawInput, bool requireAuth = true)
     {
         var segments = rawInput.Split(';')
             .Select(s => s.Trim())
@@ -196,21 +196,21 @@ public partial class OsbShell
             {
                 if (inputLines != null)
                 {
-                    ExecuteWithPipedInput(segment, inputLines);
+                    ExecuteWithPipedInput(segment, inputLines, requireAuth);
                 }
                 else
                 {
-                    Execute(segment);
+                    Execute(segment, requireAuth);
                 }
             }
             else
             {
-                inputLines = CaptureCommandOutput(segment, inputLines);
+                inputLines = CaptureCommandOutput(segment, inputLines, requireAuth);
             }
         }
     }
 
-    private List<string> CaptureCommandOutput(string command, List<string>? inputLines)
+    private List<string> CaptureCommandOutput(string command, List<string>? inputLines, bool requireAuth = true)
     {
         var output = new List<string>();
         var sw = new StringWriter();
@@ -222,11 +222,11 @@ public partial class OsbShell
 
             if (inputLines != null)
             {
-                ExecuteWithPipedInput(command, inputLines);
+                ExecuteWithPipedInput(command, inputLines, requireAuth);
             }
             else
             {
-                Execute(command);
+                Execute(command, requireAuth);
             }
         }
         finally
@@ -243,7 +243,7 @@ public partial class OsbShell
         return output;
     }
 
-    private void ExecuteWithPipedInput(string command, List<string> inputLines)
+    private void ExecuteWithPipedInput(string command, List<string> inputLines, bool requireAuth = true)
     {
         var trimmed = command.Trim();
         var spaceIndex = trimmed.IndexOf(' ');
@@ -256,7 +256,7 @@ public partial class OsbShell
                 ExecuteGrep(args, inputLines);
                 break;
             default:
-                Execute(command);
+                Execute(command, requireAuth);
                 break;
         }
     }

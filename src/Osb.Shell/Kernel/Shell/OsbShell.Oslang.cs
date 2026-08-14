@@ -58,6 +58,31 @@ public partial class OsbShell
         }
     }
 
+    /// <summary>
+    /// Comando RUN: executa um script .osh (shell script simples).
+    ///
+    /// Uso: RUN arquivo.osh [arg1 arg2 ...]
+    /// </summary>
+    private void RunOshFile(string path, string[]? args = null)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Console.WriteLine("Uso: RUN <arquivo.osh> [argumentos...]");
+            return;
+        }
+
+        var resolvedPath = PathResolver.Resolve(path.Trim());
+
+        if (!File.Exists(resolvedPath))
+        {
+            Console.WriteLine($"Arquivo não encontrado: {path}");
+            return;
+        }
+
+        var runner = new OshScript(_env, this);
+        runner.RunFile(resolvedPath, args);
+    }
+
     private void RunOslHelp()
     {
         var candidates = new[]

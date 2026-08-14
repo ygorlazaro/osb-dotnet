@@ -1,0 +1,18 @@
+; git.osh - Simple git commit helper
+; Usage: git.osh "commit message"
+; Requires: git CLI installed and repository initialized
+
+SET MSG=%1%
+
+IF "%MSG%" == ""
+
+    PRINT Uso: git.osh "mensagem do commit"
+    EXIT
+
+END
+
+. git add ../..
+
+. git commit -m "%MSG%"
+
+PRINT Commit realizado: %MSG%
