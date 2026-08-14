@@ -86,9 +86,9 @@ public static class HelpTexts
 
     private static readonly (string Titulo, string[] Comandos)[] Categorias =
     [
-        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "TYPE", "SIZE", "PWD", "PRINT"
+        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "MOVE", "FIND", "TYPE", "SIZE", "PWD", "PRINT"
         ]),
-        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER"
+        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
         ]),
         ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "X"]),
         ("Programas externos", ["."])

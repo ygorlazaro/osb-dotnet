@@ -132,7 +132,28 @@ public partial class OsbShell
     private static void MakeDirectory(string name)
     {
         if (name == "") { HelpTexts.Show("MD"); return; }
-        try { Directory.CreateDirectory(name); }
+        
+        var upperName = name.ToUpperInvariant();
+        var createParents = upperName.Contains("/P");
+        
+        if (createParents)
+        {
+            name = name.Replace("/P", "", StringComparison.OrdinalIgnoreCase).Trim();
+        }
+        
+        if (name == "") { HelpTexts.Show("MD"); return; }
+        
+        try
+        {
+            if (createParents)
+            {
+                Directory.CreateDirectory(PathResolver.Resolve(name));
+            }
+            else
+            {
+                Directory.CreateDirectory(PathResolver.Resolve(name));
+            }
+        }
         catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
     }
 
@@ -146,6 +167,16 @@ public partial class OsbShell
     private static void DeleteFiles(string pattern)
     {
         if (pattern == "") { HelpTexts.Show("DEL"); return; }
+        
+        var upperArgs = pattern.ToUpperInvariant();
+        var recursive = upperArgs.Contains("/S");
+        var actualPattern = pattern;
+        
+        if (recursive)
+        {
+            actualPattern = pattern.Replace("/S", "", StringComparison.OrdinalIgnoreCase).Trim();
+        }
+        
         Console.Write("Você tem certeza que deseja apagar o(s) arquivo(s)? (S/N) ");
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
         if (answer != "S")
@@ -153,19 +184,32 @@ public partial class OsbShell
             return;
         }
 
-        if (pattern == ".")
+        if (actualPattern == ".")
         {
-            pattern = "*.*";
+            actualPattern = "*.*";
         }
 
         try
         {
-            var dirPart = Path.GetDirectoryName(pattern);
-            var mask = Path.GetFileName(pattern);
+            var dirPart = Path.GetDirectoryName(actualPattern);
+            var mask = Path.GetFileName(actualPattern);
             var dir = string.IsNullOrEmpty(dirPart) ? "." : PathResolver.Resolve(dirPart ?? ".");
             Console.WriteLine("Excluindo...");
-            foreach (var f in Directory.GetFiles(dir, mask))
-                File.Delete(f);
+            
+            if (recursive)
+            {
+                var files = Directory.GetFiles(dir, mask, SearchOption.AllDirectories);
+                foreach (var f in files)
+                    File.Delete(f);
+                Console.WriteLine($"{files.Length} arquivo(s) excluído(s).");
+            }
+            else
+            {
+                var files = Directory.GetFiles(dir, mask);
+                foreach (var f in files)
+                    File.Delete(f);
+                Console.WriteLine($"{files.Length} arquivo(s) excluído(s).");
+            }
         }
         catch (Exception ex)
         {
@@ -173,19 +217,98 @@ public partial class OsbShell
         }
     }
 
-    private static void RenameFile()
+    private static void RenameFile(string args)
     {
-        Console.Write("Entre com o nome antigo: ");
-        var oldName = Console.ReadLine() ?? "";
-        Console.Write("Entre com o nome novo: ");
-        var newName = Console.ReadLine() ?? "";
-        if (oldName == "" || newName == "")
+        if (string.IsNullOrWhiteSpace(args)) { HelpTexts.Show("REN"); return; }
+        
+        var parts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2)
         {
+            Console.WriteLine("Uso: REN <nome antigo> <nome novo>");
             return;
         }
-
-        try { File.Move(PathResolver.Resolve(oldName), newName); }
-        catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
+        
+        var oldPattern = parts[0];
+        var newPattern = parts[1];
+        
+        try
+        {
+            var oldDir = Path.GetDirectoryName(oldPattern);
+            var oldMask = Path.GetFileName(oldPattern);
+            var searchDir = string.IsNullOrEmpty(oldDir) ? "." : PathResolver.Resolve(oldDir);
+            
+            if (!Directory.Exists(searchDir))
+            {
+                Console.WriteLine("Erro: Diretório não encontrado.");
+                return;
+            }
+            
+            var hasWildcards = oldMask.Contains("*") || oldMask.Contains("?");
+            
+            if (hasWildcards)
+            {
+                var files = Directory.GetFiles(searchDir, oldMask);
+                if (files.Length == 0)
+                {
+                    Console.WriteLine("Nenhum arquivo encontrado.");
+                    return;
+                }
+                
+                foreach (var file in files)
+                {
+                    var fileName = Path.GetFileName(file);
+                    var newFileName = ApplyWildcardRename(fileName, oldMask, newPattern);
+                    var newPath = Path.Combine(searchDir, newFileName);
+                    if (newPath != file)
+                    {
+                        File.Move(file, newPath);
+                        Console.WriteLine($"Renomeado: {fileName} -> {newFileName}");
+                    }
+                }
+                Console.WriteLine($"{files.Length} arquivo(s) renomeado(s).");
+            }
+            else
+            {
+                var oldPath = PathResolver.Resolve(oldPattern);
+                if (!File.Exists(oldPath))
+                {
+                    Console.WriteLine("Erro: Arquivo não encontrado.");
+                    return;
+                }
+                
+                var newPath = PathResolver.Resolve(newPattern);
+                File.Move(oldPath, newPath);
+                Console.WriteLine($"Renomeado: {oldPattern} -> {newPattern}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro: " + ex.Message);
+        }
+    }
+    
+    private static string ApplyWildcardRename(string fileName, string oldPattern, string newPattern)
+    {
+        var oldStar = oldPattern.IndexOf('*');
+        var newStar = newPattern.IndexOf('*');
+        
+        if (oldStar >= 0 && newStar >= 0)
+        {
+            var prefix = oldPattern[..oldStar];
+            var suffix = oldPattern[(oldStar + 1)..];
+            var suffixLength = suffix.Length;
+            
+            if (fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && 
+                (suffixLength == 0 || fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)))
+            {
+                var middle = suffixLength > 0 
+                    ? fileName[prefix.Length..^suffixLength] 
+                    : fileName[prefix.Length..];
+                return newPattern.Replace("*", middle);
+            }
+        }
+        
+        return newPattern;
     }
 
     private static void CopyFile(string args)
@@ -336,5 +459,198 @@ public partial class OsbShell
         {
             Console.WriteLine("Erro: " + ex.Message);
         }
+    }
+
+    private void SetPromptLayout(string args)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+        {
+            Console.WriteLine("Uso: PROMPT <layout>");
+            Console.WriteLine("Marcadores: %user %hostname %pwd %d %t %br");
+            Console.WriteLine("Layout atual: " + _env.Prompt.Layout);
+            return;
+        }
+        
+        _env.Prompt.Layout = args.Trim();
+        _env.Prompt.Save(_env.HomeDir);
+        Console.WriteLine("Layout do prompt atualizado.");
+    }
+
+    private static void MoveFile(string args)
+    {
+        if (string.IsNullOrWhiteSpace(args)) { HelpTexts.Show("MOVE"); return; }
+        
+        var trimmed = args.Trim();
+        var lastSpace = trimmed.LastIndexOf(' ');
+        if (lastSpace < 0)
+        {
+            Console.WriteLine("Uso: MOVE <origem> <destino>");
+            return;
+        }
+        
+        var source = trimmed[..lastSpace].Trim();
+        var dest = trimmed[(lastSpace + 1)..].Trim();
+        
+        try
+        {
+            var resolvedSource = PathResolver.Resolve(source);
+            var resolvedDest = PathResolver.Resolve(dest);
+            
+            if (Directory.Exists(resolvedDest))
+            {
+                var fileName = Path.GetFileName(resolvedSource);
+                resolvedDest = Path.Combine(resolvedDest, fileName);
+            }
+            
+            File.Move(resolvedSource, resolvedDest);
+            Console.WriteLine($"Movido: {source} -> {dest}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro: " + ex.Message);
+        }
+    }
+
+    private static void FindFiles(string args)
+    {
+        if (string.IsNullOrWhiteSpace(args)) { HelpTexts.Show("FIND"); return; }
+        
+        var upperArgs = args.ToUpperInvariant();
+        string? searchText = null;
+        string? filePattern = null;
+        var byNameOnly = false;
+        
+        if (upperArgs.StartsWith("/NAME "))
+        {
+            byNameOnly = true;
+            filePattern = args[6..].Trim();
+        }
+        else if (upperArgs.StartsWith("/F "))
+        {
+            byNameOnly = true;
+            filePattern = args[3..].Trim();
+        }
+        else
+        {
+            var parts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            searchText = parts[0].Trim('"');
+            if (parts.Length > 1)
+            {
+                filePattern = parts[1].Trim();
+            }
+        }
+        
+        try
+        {
+            var searchDir = Directory.GetCurrentDirectory();
+            var matches = new List<string>();
+            
+            if (byNameOnly || filePattern != null)
+            {
+                var pattern = filePattern ?? "*";
+                matches.AddRange(Directory.GetFiles(searchDir, pattern, SearchOption.AllDirectories));
+            }
+            else if (searchText != null)
+            {
+                var allFiles = Directory.GetFiles(searchDir, "*", SearchOption.AllDirectories);
+                foreach (var file in allFiles)
+                {
+                    try
+                    {
+                        var content = File.ReadAllText(file);
+                        if (content.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matches.Add(file);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            
+            if (matches.Count == 0)
+            {
+                Console.WriteLine("Nenhum resultado encontrado.");
+                return;
+            }
+            
+            Console.WriteLine($"{matches.Count} resultado(s) encontrado(s):");
+            foreach (var match in matches)
+            {
+                if (byNameOnly || filePattern != null)
+                {
+                    Console.WriteLine("  " + match);
+                }
+                else if (searchText != null)
+                {
+                    Console.WriteLine("  " + match);
+                    try
+                    {
+                        var lines = File.ReadAllLines(match);
+                        for (var i = 0; i < lines.Length; i++)
+                        {
+                            if (lines[i].Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var start = Math.Max(0, i - 3);
+                                var end = Math.Min(lines.Length - 1, i + 3);
+                                
+                                for (var j = start; j <= end; j++)
+                                {
+                                    var marker = j == i ? ">>> " : "    ";
+                                    Console.WriteLine($"{marker}{j + 1}: {lines[j]}");
+                                }
+                                Console.WriteLine();
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro: " + ex.Message);
+        }
+    }
+
+    private void SetVariable(string args)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+        {
+            Console.WriteLine("Uso: SET <nome>=<valor>");
+            Console.WriteLine("  SET NOME    → mostra o valor");
+            Console.WriteLine("  SET NOME=   → remove a variável");
+            return;
+        }
+        
+        var equalsIndex = args.IndexOf('=');
+        if (equalsIndex < 0)
+        {
+            var name = args.Trim();
+            if (_env.Variables.TryGetValue(_env.CurrentUsername, name, out var value))
+            {
+                Console.WriteLine($"{name}={value}");
+            }
+            else
+            {
+                Console.WriteLine($"Variável '{name}' não definida.");
+            }
+            return;
+        }
+        
+        var varName = args[..equalsIndex].Trim();
+        var varValue = args[(equalsIndex + 1)..].Trim();
+        
+        if (string.IsNullOrEmpty(varValue))
+        {
+            _env.Variables.Remove(_env.CurrentUsername, varName);
+            Console.WriteLine($"Variável '{varName}' removida.");
+        }
+        else
+        {
+            _env.Variables.Set(_env.CurrentUsername, varName, varValue);
+            Console.WriteLine($"Variável '{varName}' definida.");
+        }
+        
+        _env.Variables.Save(_env.HomeDir, _env.CurrentUsername);
     }
 }

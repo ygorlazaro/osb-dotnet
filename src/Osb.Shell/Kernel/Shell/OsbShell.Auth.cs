@@ -27,6 +27,7 @@ public partial class OsbShell
                 {
                     _isAuthenticated = true;
                     _currentUsername = username;
+                    _env.SetCurrentUsername(username);
                     Console.WriteLine("Autenticado como " + username + ".");
                 }
                 else

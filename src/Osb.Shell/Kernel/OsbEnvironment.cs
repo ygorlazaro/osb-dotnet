@@ -15,6 +15,8 @@ public class OsbEnvironment
     public string UserConfigFile => Path.Combine(ConfDir, "USER.CFG");
     public OsbConfig Config { get; private set; } = null!;
     public PromptConfig Prompt { get; private set; } = null!;
+    public VariableStore Variables { get; private set; } = null!;
+    public string CurrentUsername { get; private set; } = string.Empty;
     public string MachineName { get; private set; } = "OSB";
     public UserManager Users { get; private set; } = null!;
 
@@ -28,6 +30,7 @@ public class OsbEnvironment
         var firstBoot = EnsureInstalled();
         Config = OsbConfig.Load(ConfigFile);
         Prompt = PromptConfig.Load(HomeDir);
+        Variables = new VariableStore(HomeDir);
         MachineName = LoadMachineName();
         Users = new UserManager(UserConfigFile);
 
@@ -194,5 +197,10 @@ public class OsbEnvironment
     {
         Config = OsbConfig.Load(ConfigFile);
         ApplyColors();
+    }
+
+    public void SetCurrentUsername(string username)
+    {
+        CurrentUsername = username;
     }
 }

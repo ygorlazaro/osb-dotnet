@@ -97,16 +97,24 @@ public partial class OsbShell
                 TextEditor.Run(args, _env); handled = true; break;
             case "MD":
                 MakeDirectory(args); handled = true; break;
+            case "MOVE":
+                MoveFile(args); handled = true; break;
             case "OSL":
                 RunOslFile(args); handled = true; break;
             case "PRINT":
                 PrintFile(args); handled = true; break;
+            case "PROMPT":
+                SetPromptLayout(args); handled = true; break;
             case "RD":
                 RemoveDirectory(args); handled = true; break;
             case "REN":
-                RenameFile(); handled = true; break;
+                RenameFile(args); handled = true; break;
+            case "SET":
+                SetVariable(args); handled = true; break;
             case "SIZE":
                 ShowSize(args); handled = true; break;
+            case "FIND":
+                FindFiles(args); handled = true; break;
             case "USER":
                 HandleUser(args); handled = true; break;
             case "TIME":

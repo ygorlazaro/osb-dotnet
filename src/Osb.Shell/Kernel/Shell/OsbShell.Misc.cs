@@ -394,7 +394,7 @@ public partial class OsbShell
         }
     }
 
-    private static string ExpandPrompt(string layout, string user, string hostname)
+    private string ExpandPrompt(string layout, string user, string hostname)
     {
         var result = layout;
         result = result.Replace("%user", user);
@@ -403,6 +403,14 @@ public partial class OsbShell
         result = result.Replace("%d", DateTime.Now.ToString("dd/MM/yyyy"));
         result = result.Replace("%t", DateTime.Now.ToString("HH:mm:ss"));
         result = result.Replace("%br", Environment.NewLine);
+        
+        // Expand %VAR% from user variables
+        var vars = _env.Variables.GetForUser(_env.CurrentUsername);
+        foreach (var (name, value) in vars)
+        {
+            result = result.Replace($"%{name}%", value);
+        }
+        
         return result;
     }
 }

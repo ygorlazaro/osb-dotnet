@@ -8,12 +8,32 @@ public partial class OsbShell
         {
             _isAuthenticated = false;
             _currentUsername = string.Empty;
+            _env.SetCurrentUsername(string.Empty);
             PromptLogin();
             return;
         }
 
         var parts = args.Trim().Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
         var action = parts.Length > 0 ? parts[0].ToUpperInvariant() : string.Empty;
+
+        if (action == "LOGIN" || (parts.Length >= 2 && !action.StartsWith("ADD") && !action.StartsWith("CHANGE") && !action.StartsWith("DEL") && !action.StartsWith("LIST")))
+        {
+            var username = parts[0];
+            var password = parts.Length > 1 ? parts[1] : string.Empty;
+            
+            if (_env.Users.Validate(username, password))
+            {
+                _isAuthenticated = true;
+                _currentUsername = username;
+                _env.SetCurrentUsername(username);
+                Console.WriteLine("Autenticado como " + username + ".");
+            }
+            else
+            {
+                Console.WriteLine("Senha incorreta.");
+            }
+            return;
+        }
 
         switch (action)
         {

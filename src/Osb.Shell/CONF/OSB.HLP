@@ -107,13 +107,16 @@ Lista em formato wide apenas arquivos .COM
 
 -DEL
 Exclui arquivos do disco.
-Modo simples de usar: DEL
+Modo simples de usar: DEL [/S] <mascara>
 
 [@] DEL ARQUIVO.ARQ
 Exclui um arquivo
 
 [@] DEL *.TMP
 Exclui todos os arquivos .TMP
+
+[@] DEL /S *.TMP
+Exclui todos os arquivos .TMP recursivamente
 -ENDCOMMAND
 
 -EXIT
@@ -149,19 +152,25 @@ COLOR = Trocar a cor da tela
 CONFIG = Configurações do sistema operacional e do PC
 COPY = Copia arquivos com suporte a curingas
 DATE = Exibir a data
-DIR = Mostra os arquivos de um diretório (com filtros)
 DEL = Apaga arquivos
+DIR = Mostra os arquivos de um diretório (com filtros)
 EXIT = Desliga, reinicia ou entra no MS-DOS©
+FIND = Busca arquivos por nome ou conteúdo
 GAMES = Mostra os jogos inclusos com OSB 3.0 Lince
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
 MD = Cria um diretório (aceita espaços)
+MOVE = Move arquivos de um local para outro
 PRINT = Imprime um arquivo
+PROMPT = Personaliza o layout do prompt
+PWD = Exibe o diretório atual
 RD = Remove um diretório vazio
-REN = Renomeia um arquivo
+REN = Renomeia arquivos com suporte a curingas
+SET = Gerencia variáveis de ambiente
 SIZE = Exibe o tamanho de um arquivo
 TIME = Exibir a hora
 TYPE = Mostra o conteúdo de um arquivo
+USER = Gerencia usuários e autenticação
 VER = Exibe a versão do sistema
 X = Exibe as interfaces do sistema
 Para uma ajuda mais detalhada, utilize o comando seguido de /?
@@ -179,13 +188,16 @@ Abre o arquivo C:\Carta.txt com números de linha e, se for .osl, realce de sint
 
 -MD
 Cria um diretório. Aceita nomes com espaços.
-Modo simples de usar: MD <Nome do diretório>
+Modo simples de usar: MD [/P] <Nome do diretório>
 
 [@] MD TEMP
 -ENDCOMMAND
 
 [@] MD "MEUS ARQUIVOS"
 Cria um diretório com espaço no nome
+
+[@] MD /P C:\A\B\C
+Cria o diretório C:\A\B\C e todos os pais necessários
 -ENDCOMMAND
 
 -PRINT
@@ -194,6 +206,61 @@ Modo simples de usar: PRINT <Nome do Arquivo>
 
 [@] PRINT CARTA.TXT
 Imprimindo... (CARTA.TXT)
+-ENDCOMMAND
+
+-PROMPT
+Personaliza o layout do prompt do OSB.
+Modo simples de usar: PROMPT <layout>
+
+Marcadores:
+  %user      - Nome do usuário autenticado (ou guest)
+  %hostname  - Nome da máquina
+  %pwd       - Diretório atual
+  %d         - Data atual (dd/MM/yyyy)
+  %t         - Hora atual (HH:mm:ss)
+  %br        - Quebra de linha
+
+[@] PROMPT %user@%hostname [@] %pwd
+Altera o prompt para mostrar usuário, máquina e diretório
+-ENDCOMMAND
+
+-MOVE
+Move um arquivo de um local para outro.
+Modo simples de usar: MOVE <origem> <destino>
+
+[@] MOVE ARQUIVO.TXT C:\BACKUP\ARQUIVO.TXT
+Move o arquivo para o diretório de backup
+
+[@] MOVE CARTA.TXT C:\DOCS\
+Move o arquivo para o diretório DOCS
+-ENDCOMMAND
+
+-FIND
+Busca arquivos por nome ou conteúdo.
+Modo simples de usar: FIND <texto> [mascara]
+
+[@] FIND "ola"
+Busca "ola" em todos os arquivos, recursivamente
+
+[@] FIND "ola" *.osl
+Busca "ola" apenas em arquivos .osl
+
+[@] FIND /F "*.txt"
+Lista todos os arquivos .txt, recursivamente
+-ENDCOMMAND
+
+-SET
+Gerencia variáveis de ambiente do usuário.
+Modo simples de usar: SET <nome>=<valor>
+
+[@] SET NOME=Ygor
+Define a variável NOME
+
+[@] SET NOME
+Mostra o valor de NOME
+
+[@] SET NOME=
+Remove a variável NOME
 -ENDCOMMAND
 
 -PROMPT
@@ -219,16 +286,13 @@ Modo simples de usar: RD <Nome do diretório>
 -ENDCOMMAND
 
 -REN
-Renomeia um ou mais arquivos.
+Renomeia um ou mais arquivos, com suporte a curingas.
+Modo simples de usar: REN <nome antigo> <nome novo>
 
-[@] REN
-Entre com o nome antigo: TEXTO.TXT
-Entre com o nome novo: CARTA.TXT
+[@] REN TEXTO.TXT CARTA.TXT
 Renomeia o arquivo TEXTO.TXT para CARTA.TXT
 
-[@] REN
-Entre com o nome antigo: *.TXT
-Entre com o nome novo: *.DOC
+[@] REN *.TXT *.DOC
 Renomeia todos os arquivos .TXT para .DOC
 -ENDCOMMAND
 
