@@ -29,17 +29,15 @@ FUNCTION MAIN()
 
     PRINT "NICE!"
 
-    DIR()
+    Total = NUMBER(Quantity)
 
-    Quantity = NUMBER(Quantity)
-
-    IF Quantity <= 0 THEN
+    IF Total <= 0 THEN
 
         PRINT "Quantity must be greater than zero."
         RETURN
 
     END
 
-    FIBONACCI(Quantity)
+    FIBONACCI(Total)
 
 END FUNCTION

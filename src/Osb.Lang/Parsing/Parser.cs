@@ -532,6 +532,7 @@ public sealed class Parser
         var tok = Advance();
         if (Check(TokenType.LParen))
         {
+            Advance(); // consume '('
             var args = ParseArgList();
             return new CallExpr(tok.Text, args, tok.Location);
         }
@@ -561,7 +562,6 @@ public sealed class Parser
     /// <summary>Assume que o token atual é '(' - consome '(' args ')'.</summary>
     private List<Expr> ParseArgList()
     {
-        Expect(TokenType.LParen, "Expected '('.");
         var args = new List<Expr>();
         if (!Check(TokenType.RParen))
         {
