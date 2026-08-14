@@ -161,6 +161,7 @@ HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
 MD = Cria um diretório (aceita espaços)
 MOVE = Move arquivos de um local para outro
+OSL = Executa programas OSLANG 0.2
 PRINT = Imprime um arquivo
 PROMPT = Personaliza o layout do prompt
 PWD = Exibe o diretório atual
@@ -411,4 +412,204 @@ Lista apenas comandos do histórico que contém "DIR"
 Exibe apenas linhas do arquivo que contém "erro"
 -ENDCOMMAND
 
--ENDOFFILE
+-OSL
+Executa um programa escrito em OSLANG 0.2, a linguagem de script do OSB.
+Modo simples de usar: OSL <arquivo.osl>
+
+[@] OSL FIBONACCI.OSL
+Executa o script FIBONACCI.OSL
+
+[@] OSL /?
+Exibe esta ajuda
+
+[@] HELP OSL
+Exibe esta ajuda
+
+OSLANG 0.2 é a linguagem de programação do OSB. Ela combina a simplicidade do BASIC
+com recursos de orientação a objetos modernos. Esta ajuda resume a sintaxe básica.
+Para a especificação completa, consulte OSLANG-0.2-SPEC.MD.
+
+--- TIPOS ---
+NUMBER   Números reais (ex: 3.14159, -10, 0)
+STRING   Texto entre aspas (ex: "Hello World")
+BOOLEAN  TRUE ou FALSE
+NULL     Valor nulo (ausência de valor)
+ARRAY    Lista de valores (ex: [1, 2, 3])
+
+--- VARIAVEIS ---
+VAR Nome NUMBER       Declara variável NUMBER
+VAR Nome STRING       Declara variável STRING
+Nome = 10             Atribui valor (declara implicitamente)
+Nome = NULL           Atribui NULL (não quebra tipo)
+
+--- FUNCOES ---
+FUNCTION NOME(parametros)
+    comandos
+    RETURN valor
+END FUNCTION
+
+Exemplo:
+FUNCTION SOMAR(A, B)
+    RETURN A + B
+END FUNCTION
+
+--- SAIDA ---
+PRINT "Hello"                    Exibe texto
+PRINT Nome                       Exibe variável
+PRINT A + ": " + B               Concatena com +
+
+--- ENTRADA ---
+INPUT Nome                       Lê texto do usuário
+
+--- CONDICIONAIS ---
+IF condicao THEN
+    comandos
+END
+
+IF condicao THEN
+    comandos
+ELIF outra_condicao THEN
+    comandos
+ELSE
+    comandos
+END
+
+--- LACOS ---
+FOR I = 1 TO 10
+    comandos
+END
+
+WHILE condicao
+    comandos
+END
+
+DO WHILE condicao
+    comandos
+END
+
+--- TRY/CATCH ---
+TRY
+    comandos
+CATCH ERR
+    PRINT "Erro: " + ERR
+END
+
+--- FUNCOES PADRAO ---
+STR(x)           Converte para STRING
+NUMBER(x)        Converte para NUMBER
+BOOL(x)          Converte para BOOLEAN
+SQRT(x)          Raiz quadrada
+ABS(x)           Valor absoluto
+POW(base, exp)   Potência
+FLOOR(x)         Arredonda para baixo
+CEIL(x)          Arredonda para cima
+COUNT(arr)       Quantidade de elementos
+TYPEOF(x)        Tipo do valor (STRING, NUMBER, BOOLEAN, ARRAY, NULL, ou nome da classe)
+
+--- CLASSES E OBJETOS (OSLANG 0.2) ---
+CLASS Nome
+    membros
+END
+
+INTERFACE Nome
+    membros
+END
+
+--- PROPRIEDADES ---
+VAR Nome STRING       Propriedade de classe
+PRIVATE VAR Nome      Acesso restrito
+PROTECTED VAR Nome    Acesso para classe e derivadas
+PUBLIC VAR Nome       Acesso livre (padrão)
+
+--- METODOS ---
+NOME(parametros)
+    comandos
+    RETURN valor
+END
+
+Exemplo:
+CLASS Calculadora
+    PUBLIC SOMAR(A, B)
+        RETURN A + B
+    END
+END
+
+--- CONSTRUTORES ---
+CONSTRUCTOR(parametros)
+    comandos
+END
+
+Exemplo:
+CLASS Pessoa
+    VAR Nome STRING
+    
+    CONSTRUCTOR(Nome STRING)
+        ME.Nome = Nome
+    END
+END
+
+--- HERANCA ---
+CLASS Filho: Pai
+    membros
+END
+
+Exemplo:
+CLASS Animal
+    VAR Nome STRING
+    CONSTRUCTOR(Nome STRING)
+        ME.Nome = Nome
+    END
+END
+
+CLASS Cachorro: Animal
+    CONSTRUCTOR(Nome STRING)
+        BASE(Nome)
+        comandos
+    END
+END
+
+--- INTERFACES ---
+INTERFACE ICor
+    GET()
+    SET(Cor STRING)
+END
+
+CLASS Item: ICor
+    PUBLIC GET()
+        RETURN ME.Cor
+    END
+    PUBLIC SET(Cor STRING)
+        ME.Cor = Cor
+    END
+END
+
+--- ME ---
+ME referencia o objeto atual (equivalente a THIS em outras linguagens)
+
+Exemplo:
+CLASS Pessoa
+    VAR Nome STRING
+    PUBLIC GET_NOME()
+        RETURN ME.Nome
+    END
+END
+
+--- NEW ---
+Objeto = NEW Classe(args)
+
+Exemplo:
+Pessoa = NEW Pessoa("Ygor")
+PRINT Pessoa.GET_NOME()
+
+--- VISIBILIDADE ---
+PUBLIC      Acesso de qualquer lugar
+PROTECTED   Acesso na classe e derivadas
+PRIVATE     Acesso apenas na classe declarante
+
+--- ATALHOS ---
+<TAB>          Autocompleta comandos e arquivos
+↑↓             Histórico de comandos
+←→             Edita linha atual
+;              Executa múltiplos comandos
+/comando /?    Ajuda detalhada
+-ENDCOMMAND

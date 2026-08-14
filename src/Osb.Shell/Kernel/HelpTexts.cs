@@ -90,7 +90,7 @@ public static class HelpTexts
         ]),
         ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
         ]),
-        ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "X"]),
+        ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "X", "OSL"]),
         ("Programas externos", ["."])
     ];
 
