@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Osb.Lang")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+10c3bc6a9d8272e89ef236da737fd280563bd25a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9a195b42f77c748a40f820812d3e0ad840e85a1b")]
 [assembly: System.Reflection.AssemblyProductAttribute("Osb.Lang")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Osb.Lang")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -331,7 +331,18 @@
           }
         }
       },
+      "Osb.Lang/1.0.0": {
+        "runtime": {
+          "Osb.Lang.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "Osb.Shell/1.0.0": {
+        "dependencies": {
+          "Osb.Lang": "1.0.0"
+        },
         "runtime": {
           "Osb.Shell.dll": {
             "assemblyVersion": "1.0.0.0",
@@ -423,6 +434,11 @@
       "sha512": "sha512-yMb6vMESlSrE3Wfj7V6cjQ3S4TXdXpRqYeNEI3zsX31uTsGMJjEw6oD5F5u1cHnMptjhEECnmZSsPxB6ChZHDQ==",
       "path": "xunit.extensibility.execution/2.9.3",
       "hashPath": "xunit.extensibility.execution.2.9.3.nupkg.sha512"
+    },
+    "Osb.Lang/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     },
     "Osb.Shell/1.0.0": {
       "type": "project",

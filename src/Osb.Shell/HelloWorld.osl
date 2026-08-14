@@ -1,0 +1,11 @@
+FUNCTION MAIN()
+
+    PRINT "Hello, OSB!"
+    PRINT ""
+
+    PRINT "Qual é o seu nome?"
+    INPUT Name
+
+    PRINT "Ola, " + Name + "!"
+
+END FUNCTION

@@ -109,6 +109,8 @@ public partial class OsbShell
                 TextEditor.Run(args, _env); handled = true; break;
             case "MD":
                 MakeDirectory(args); handled = true; break;
+            case "OSL":
+                RunOslFile(args); handled = true; break;
             case "PRINT":
                 PrintFile(args); handled = true; break;
             case "RD":

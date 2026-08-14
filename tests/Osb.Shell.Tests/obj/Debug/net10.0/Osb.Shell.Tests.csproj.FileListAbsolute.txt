@@ -95,11 +95,13 @@
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.GeneratedMSBuildEditorConfig.editorconfig
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.AssemblyInfoInputs.cache
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.AssemblyInfo.cs
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.csproj.CoreCompileInputs.cache
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.sourcelink.json
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shel.5C228B64.Up2Date
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/refint/Osb.Shell.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.pdb
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.genruntimeconfig.cache
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/ref/Osb.Shell.Tests.dll
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/bin/Debug/net10.0/Osb.Lang.dll
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/bin/Debug/net10.0/Osb.Lang.pdb
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Shell.Tests/obj/Debug/net10.0/Osb.Shell.Tests.sourcelink.json

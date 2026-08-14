@@ -1,0 +1,10 @@
+FUNCTION MAIN()
+
+    PRINT "Diretorio atual:"
+    PRINT PWD()
+    PRINT ""
+
+    PRINT "Listagem:"
+    DIR()
+
+END FUNCTION

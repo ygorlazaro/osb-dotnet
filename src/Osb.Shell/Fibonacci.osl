@@ -1,0 +1,41 @@
+FUNCTION FIBONACCI(QUANTITY)
+
+    A = 0
+    B = 1
+
+    FOR I = 1 TO QUANTITY
+
+        PRINT A
+
+        NEXT = A + B
+        A = B
+        B = NEXT
+
+    END
+
+END FUNCTION
+
+
+FUNCTION MAIN()
+
+    CLEAR
+
+    PRINT "FIBONACCI"
+    PRINT "=========="
+    PRINT ""
+
+    PRINT "How many numbers do you want?"
+    INPUT Quantity
+
+    Quantity = NUMBER(Quantity)
+
+    IF Quantity <= 0 THEN
+
+        PRINT "Quantity must be greater than zero."
+        RETURN
+
+    END
+
+    FIBONACCI(Quantity)
+
+END FUNCTION

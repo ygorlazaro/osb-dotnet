@@ -15,3 +15,7 @@
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/CONF/OSB.HLP
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/CONF/HANGMAN.WDS
 /home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.sourcelink.json
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Lang.dll
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/bin/Debug/net10.0/Osb.Lang.pdb
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.csproj.AssemblyReference.cache
+/home/ygor/Downloads/osb-dotnet(6)/src/Osb.Shell/obj/Debug/net10.0/Osb.Shell.csproj.Up2Date

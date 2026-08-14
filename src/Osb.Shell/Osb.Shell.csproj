@@ -16,4 +16,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Osb.Lang\Osb.Lang.csproj" />
+  </ItemGroup>
+
 </Project>

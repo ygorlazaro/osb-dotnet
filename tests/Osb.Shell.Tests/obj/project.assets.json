@@ -394,9 +394,22 @@
           "build/net8.0/xunit.runner.visualstudio.props": {}
         }
       },
+      "Osb.Lang/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/Osb.Lang.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Osb.Lang.dll": {}
+        }
+      },
       "Osb.Shell/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "Osb.Lang": "1.0.0"
+        },
         "compile": {
           "bin/placeholder/Osb.Shell.dll": {}
         },
@@ -913,6 +926,11 @@
         "xunit.runner.visualstudio.3.1.4.nupkg.sha512",
         "xunit.runner.visualstudio.nuspec"
       ]
+    },
+    "Osb.Lang/1.0.0": {
+      "type": "project",
+      "path": "../../src/Osb.Lang/Osb.Lang.csproj",
+      "msbuildProject": "../../src/Osb.Lang/Osb.Lang.csproj"
     },
     "Osb.Shell/1.0.0": {
       "type": "project",

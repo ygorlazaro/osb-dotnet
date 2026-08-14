@@ -37,5 +37,45 @@ public class OslangException : Exception
 }
 
 /// <summary>Erro léxico: caractere inválido, string não terminada, etc.</summary>
-public sealed class LexicalException(SourceLocation location, string message)
-    : OslangException(OslangErrorCategory.Lexical, location, message);
+public sealed class LexicalException : OslangException
+{
+    public LexicalException(SourceLocation location, string message)
+        : base(OslangErrorCategory.Lexical, location, message)
+    {
+    }
+}
+
+/// <summary>Erro sintático: token inesperado, bloco malformado, etc. (fase de parsing).</summary>
+public sealed class SyntaxException : OslangException
+{
+    public SyntaxException(SourceLocation location, string message)
+        : base(OslangErrorCategory.Syntax, location, message)
+    {
+    }
+}
+
+/// <summary>
+/// Erro semântico: detectável sem executar o programa, mas que não é um erro de
+/// sintaxe puro - por exemplo, a ausência de FUNCTION MAIN() (seção 18/50).
+/// </summary>
+public sealed class SemanticException : OslangException
+{
+    public SemanticException(SourceLocation location, string message)
+        : base(OslangErrorCategory.Semantic, location, message)
+    {
+    }
+}
+
+/// <summary>
+/// Erro de execução (runtime): divisão por zero, conversão inválida, acesso a
+/// array fora dos limites, atribuição de tipo inválida, etc. (seção 44). É a
+/// única categoria de exceção de OSLANG capturada por TRY/CATCH (seção 35) - a
+/// variável ERR recebe <see cref="Exception.Message"/> desta exceção.
+/// </summary>
+public sealed class OslangRuntimeException : OslangException
+{
+    public OslangRuntimeException(SourceLocation location, string message)
+        : base(OslangErrorCategory.Runtime, location, message)
+    {
+    }
+}
