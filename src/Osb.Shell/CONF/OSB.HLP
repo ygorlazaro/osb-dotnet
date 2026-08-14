@@ -167,11 +167,11 @@ Exemplo: Para pedir uma ajuda mais detalhada do comando DIR
 -ENDCOMMAND
 
 -KISS
-Edita um arquivo de texto com numeração de linhas
+Edita um arquivo de texto com numeração de linhas e realce de sintaxe para arquivos .osl
 Modo simples de usar: KISS <Nome do arquivo>
 
 [@] KISS C:\Carta.txt
-Abre o arquivo C:\Carta.txt com números de linha à esquerda
+Abre o arquivo C:\Carta.txt com números de linha e, se for .osl, realce de sintaxe OSLANG
 -ENDCOMMAND
 
 -MD

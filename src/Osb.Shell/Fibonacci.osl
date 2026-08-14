@@ -27,6 +27,10 @@ FUNCTION MAIN()
     PRINT "How many numbers do you want?"
     INPUT Quantity
 
+    PRINT "NICE!"
+
+    DIR()
+
     Quantity = NUMBER(Quantity)
 
     IF Quantity <= 0 THEN

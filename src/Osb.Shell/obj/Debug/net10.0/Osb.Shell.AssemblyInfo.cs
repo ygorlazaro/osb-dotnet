@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Osb.Shell")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+981374b9b87436c0ddc49acbb65a2c25bfe3a50b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2833926ffaf4939a15a6769c585fd9be7be07e3a")]
 [assembly: System.Reflection.AssemblyProductAttribute("Osb.Shell")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Osb.Shell")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
