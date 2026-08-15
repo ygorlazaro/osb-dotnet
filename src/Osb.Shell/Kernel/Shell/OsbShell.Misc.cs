@@ -95,7 +95,7 @@ public partial class OsbShell
     {
         if (_history.Count == 0)
         {
-            Console.WriteLine("Nenhum comando no histórico ainda.");
+            Console.WriteLine(I18nService.Get("commands.history_empty"));
             return;
         }
 
@@ -122,7 +122,7 @@ public partial class OsbShell
 
             if (itemsToDisplay.Count == 0)
             {
-                Console.WriteLine($"Nenhum comando no histórico começa com '{trimmedArgs}'.");
+                Console.WriteLine(I18nService.Get("commands.history_no_match", trimmedArgs));
                 return;
             }
         }
@@ -137,12 +137,12 @@ public partial class OsbShell
             Console.WriteLine($"{i + 1,4}  {timestamp}  {entry.Command}");
             if ((i + 1) % pageSize == 0 && i + 1 < itemsToDisplay.Count)
             {
-                Console.Write("-----Pressione ENTER para continuar----");
+                Console.Write(I18nService.Get("commands.history_press_enter"));
                 Console.ReadLine();
             }
         }
 
-        Console.Write("Repetir qual número (ENTER para nenhum)? ");
+        Console.Write(I18nService.Get("commands.repeat_number"));
         var input = (Console.ReadLine() ?? "").Trim();
         if (input == "")
         {
@@ -157,22 +157,22 @@ public partial class OsbShell
         }
         else
         {
-            Console.WriteLine("Número inválido.");
+            Console.WriteLine(I18nService.Get("commands.invalid_number"));
         }
     }
 
     private void DoExit()
     {
-        Console.Write("Você tem certeza que deseja sair (S/N)? ");
+        Console.Write(I18nService.Get("commands.exit_prompt"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
         if (answer != "S")
         {
             return;
         }
 
-        Console.WriteLine("Finalizando os arquivos.");
-        Console.WriteLine("Finalizando o kernel.");
-        Console.WriteLine("OSB encerrado.");
+        Console.WriteLine(I18nService.Get("commands.shutting_files"));
+        Console.WriteLine(I18nService.Get("commands.shutting_kernel"));
+        Console.WriteLine(I18nService.Get("commands.shutdown"));
         _running = false;
     }
 
@@ -265,14 +265,14 @@ public partial class OsbShell
     {
         if (inputLines == null || inputLines.Count == 0)
         {
-            Console.WriteLine("Uso: GREP <padrao>");
-            Console.WriteLine("Use em pipe: COMANDO ; GREP <padrao>");
+            Console.WriteLine(I18nService.Get("commands.grep_usage"));
+            Console.WriteLine(I18nService.Get("commands.grep_pipe_hint"));
             return;
         }
 
         if (string.IsNullOrWhiteSpace(args))
         {
-            Console.WriteLine("Uso: GREP <padrao>");
+            Console.WriteLine(I18nService.Get("commands.grep_usage"));
             return;
         }
 

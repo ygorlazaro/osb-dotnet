@@ -15,12 +15,12 @@ public partial class OsbShell
 
         if (!_isAuthenticated)
         {
-            Console.WriteLine("Você deve estar autenticado para alterar o nome da máquina.");
+            Console.WriteLine(I18nService.Get("apps.must_be_authenticated_hostname"));
             return;
         }
 
         _env.SaveMachineName(args.Trim());
-        Console.WriteLine("Nome da máquina definido para: " + _env.MachineName);
+        Console.WriteLine(I18nService.Get("apps.machine_name_set", _env.MachineName));
     }
 
     private void RunAplic(string arg)
@@ -31,18 +31,18 @@ public partial class OsbShell
 
         if (arg == "")
         {
-            Console.WriteLine("*** Aplicativos instalados no OSB ***");
+            Console.WriteLine(I18nService.Get("apps.installed_apps"));
             foreach (var app in apps)
                 Console.WriteLine($"{app.Name} - {app.Description}");
             Console.WriteLine();
-            Console.WriteLine("Use: APLIC <nome>  (ex: APLIC CAL)");
+            Console.WriteLine(I18nService.Get("apps.use_app"));
             return;
         }
 
         var entry = apps.FirstOrDefault(a => a.Name.Equals(arg, StringComparison.OrdinalIgnoreCase));
         if (entry == null)
         {
-            Console.WriteLine("Aplicativo não encontrado: " + arg);
+            Console.WriteLine(I18nService.Get("apps.app_not_found", arg));
             return;
         }
 
@@ -52,7 +52,7 @@ public partial class OsbShell
             case "KISS": TextEditor.Run("", _env); break;
             case "TOUR": RunOslFile("APLIC/TOUR/main.osl"); break;
             case "TODO": RunOslFile("APLIC/TODO/main.osl"); break;
-            default: Console.WriteLine("Aplicativo não disponível: " + entry.Name); break;
+            default: Console.WriteLine(I18nService.Get("apps.app_not_available", entry.Name)); break;
         }
     }
 
@@ -64,11 +64,11 @@ public partial class OsbShell
 
         if (arg == "")
         {
-            Console.WriteLine("*** Games instalados no OSB ***");
+            Console.WriteLine(I18nService.Get("apps.installed_games"));
             foreach (var game in games)
                 Console.WriteLine($"{game.Name} - {game.Description}");
             Console.WriteLine();
-            Console.Write("Entre com sua escolha (<ENTER> para sair): ");
+            Console.Write(I18nService.Get("apps.enter_choice"));
             arg = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
             if (arg == "")
             {
@@ -79,14 +79,14 @@ public partial class OsbShell
         var entry = games.FirstOrDefault(g => g.Name.Equals(arg, StringComparison.OrdinalIgnoreCase));
         if (entry == null)
         {
-            Console.WriteLine("Jogo não encontrado: " + arg);
+            Console.WriteLine(I18nService.Get("apps.game_not_found", arg));
             return;
         }
 
         switch (entry.Name.ToUpperInvariant())
         {
             case "HANGMAN": RunOslFile("Games/Hangman/main.osl"); break;
-            default: Console.WriteLine("Jogo não disponível: " + entry.Name); break;
+            default: Console.WriteLine(I18nService.Get("apps.game_not_available", entry.Name)); break;
         }
     }
 }

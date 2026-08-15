@@ -31,14 +31,14 @@ public partial class OsbShell
             var isOsh = cmdPart.EndsWith(".osh", StringComparison.OrdinalIgnoreCase) && File.Exists(cmdPart);
             if (!isOsh)
             {
-                Console.WriteLine("Você deve entrar com login. Use USER para autenticar.");
+                Console.WriteLine(I18nService.Get("auth.must_login"));
                 return;
             }
         }
 
         if (command.Length == 2 && command[1] == ':')
         {
-            Console.WriteLine("Conceito de drive não se aplica neste sistema operacional.");
+            Console.WriteLine(I18nService.Get("commands.drive_concept"));
             return;
         }
 
@@ -80,8 +80,8 @@ public partial class OsbShell
             case "COPY":
                 CopyFile(args); handled = true; break;
             case "DATE":
-                Console.WriteLine("Data atual: " + DateTime.Now.ToString("dd/MM/yyyy"));
-                Console.WriteLine("(Alterar a data do sistema não é suportado.)");
+                Console.WriteLine(I18nService.Get("commands.date", DateTime.Now.ToString("dd/MM/yyyy")));
+                Console.WriteLine(I18nService.Get("commands.date_not_supported"));
                 handled = true; break;
             case "DIR":
                 ListDirectory(args); handled = true; break;
@@ -141,15 +141,15 @@ public partial class OsbShell
             case "USER":
                 HandleUser(args); handled = true; break;
             case "TIME":
-                Console.WriteLine("Hora atual: " + DateTime.Now.ToString("HH:mm:ss"));
-                Console.WriteLine("(Alterar a hora do sistema não é suportado.)");
+                Console.WriteLine(I18nService.Get("commands.time", DateTime.Now.ToString("HH:mm:ss")));
+                Console.WriteLine(I18nService.Get("commands.time_not_supported"));
                 handled = true; break;
             case "TYPE":
                 TypeFile(args); handled = true; break;
             case "VER":
-                Console.WriteLine("OSB 3.0");
+                Console.WriteLine(I18nService.Get("commands.osb_version"));
                 Console.WriteLine();
-                Console.WriteLine("Digite ABOUT para mais informações");
+                Console.WriteLine(I18nService.Get("commands.about_hint"));
                 handled = true; break;
             case "X":
                 XwinLauncher.Launch();
@@ -192,15 +192,15 @@ public partial class OsbShell
 
         if (!cmd.StartsWith('.'))
         {
-            Console.WriteLine("Comando não reconhecido.");
-            Console.WriteLine("Para executar um programa externo, use . antes do comando.");
+            Console.WriteLine(I18nService.Get("commands.unrecognized"));
+            Console.WriteLine(I18nService.Get("commands.external_hint"));
             return false;
         }
 
         cmd = cmd[1..].Trim();
         if (cmd == "")
         {
-            Console.WriteLine("Uso: . <comando externo>");
+            Console.WriteLine(I18nService.Get("commands.external_usage"));
             return false;
         }
 
@@ -220,7 +220,7 @@ public partial class OsbShell
             {
                 if (p == null)
                 {
-                    Console.WriteLine("Não foi possível iniciar o processo solicitado.");
+                    Console.WriteLine(I18nService.Get("commands.cannot_start_process"));
                     return false;
                 }
 
@@ -243,7 +243,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Não foi possível executar: " + ex.Message);
+            Console.WriteLine(I18nService.Get("commands.cannot_execute", ex.Message));
             return false;
         }
         finally

@@ -369,7 +369,7 @@ public class OshScriptTests
     public void Execute_CalCommand_RendersCalendar()
     {
         var env = new OsbEnvironment();
-        env.Users.Add(UniqueUser, "testpass", out _);
+        env.Users.Add(UniqueUser, "testpass", "EN-US", out _);
         env.SetCurrentUsername(UniqueUser);
         var shell = new OsbShell(env);
 
@@ -387,7 +387,7 @@ public class OshScriptTests
     public void Execute_TourCommand_RunsSuccessfully()
     {
         var env = new OsbEnvironment();
-        env.Users.Add(UniqueUser, "testpass", out _);
+        env.Users.Add(UniqueUser, "testpass", "EN-US", out _);
         env.SetCurrentUsername(UniqueUser);
         var shell = new OsbShell(env);
 

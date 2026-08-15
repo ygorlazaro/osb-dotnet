@@ -10,7 +10,7 @@ CLASS TODOAPP
         Command = Args[0].TOUPPER()
         IF Command = "ADD" THEN
             IF COUNT(Args) < 2 THEN
-                PRINT "Uso: TODO ADD <tarefa>"
+                PRINT I18N("todo.usage_add")
                 RETURN
             END
             TaskText = Args[1]
@@ -22,7 +22,7 @@ CLASS TODOAPP
             ME.LIST(Args)
         ELIF Command = "DONE" THEN
             IF COUNT(Args) < 2 THEN
-                PRINT "Uso: TODO DONE <numero>"
+                PRINT I18N("todo.usage_done")
                 RETURN
             END
             Index = NUMBER(Args[1])
@@ -30,8 +30,8 @@ CLASS TODOAPP
         ELIF Command = "CLEAR" THEN
             ME.CLEARALL()
         ELSE
-            PRINT "Comando desconhecido: " + Command
-            PRINT "Uso: TODO [ADD|LIST|DONE|CLEAR] <args>"
+            PRINT I18N("todo.unknown_command", Command)
+            PRINT I18N("todo.usage")
         END
     END FUNCTION
 
@@ -39,7 +39,7 @@ CLASS TODOAPP
         Tasks = ME.LOAD()
         Tasks.ADD(TaskText)
         ME.SAVE(Tasks)
-        PRINT "Tarefa adicionada."
+        PRINT I18N("todo.added")
     END FUNCTION
 
     PRIVATE FUNCTION LIST(Args)
@@ -49,10 +49,10 @@ CLASS TODOAPP
             ShowAll = TRUE
         END
         IF COUNT(Tasks) = 0 THEN
-            PRINT "Nenhuma tarefa."
+            PRINT I18N("todo.no_tasks")
             RETURN
         END
-        PRINT "Tarefas:"
+        PRINT I18N("todo.tasks")
         FOR I = 0 TO COUNT(Tasks) - 1
             Marker = ""
             IF Tasks[I].STARTSWITH("[x] ") THEN
@@ -67,22 +67,22 @@ CLASS TODOAPP
     PRIVATE FUNCTION DONE(Index)
         Tasks = ME.LOAD()
         IF Index < 1 OR Index > COUNT(Tasks) THEN
-            PRINT "Indice invalido."
+            PRINT I18N("todo.invalid_index")
             RETURN
         END
         Task = Tasks[Index - 1]
         IF Task.STARTSWITH("[x] ") THEN
-            PRINT "Tarefa ja concluida: " + Task
+            PRINT I18N("todo.already_done", Task)
             RETURN
         END
         Tasks[Index - 1] = "[x] " + Task
         ME.SAVE(Tasks)
-        PRINT "Concluida: " + Task
+        PRINT I18N("todo.completed", Task)
     END FUNCTION
 
     PRIVATE FUNCTION CLEARALL()
         ME.SAVE([])
-        PRINT "Todas as tarefas removidas."
+        PRINT I18N("todo.cleared")
     END FUNCTION
 
     PRIVATE FUNCTION LOAD()

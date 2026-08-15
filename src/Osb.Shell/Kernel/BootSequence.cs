@@ -5,18 +5,18 @@ public static class BootSequence
     public static void Run(OsbEnvironment env, OsbShell shell)
     {
         Console.Clear();
-        Console.WriteLine("Iniciando o processo de boot do OSB");
-        Console.WriteLine("Lendo " + env.ConfigFile);
-        Console.WriteLine("Definindo as cores");
+        Console.WriteLine(I18nService.Get("boot.starting"));
+        Console.WriteLine(I18nService.Get("boot.reading_config", env.ConfigFile));
+        Console.WriteLine(I18nService.Get("boot.setting_colors"));
         env.ApplyColors();
 
-        Console.WriteLine("Definindo os diretórios");
-        Console.WriteLine("Pasta do OSB: " + env.HomeDir);
+        Console.WriteLine(I18nService.Get("boot.setting_dirs"));
+        Console.WriteLine(I18nService.Get("boot.osb_dir", env.HomeDir));
 
         Thread.Sleep(300);
         Console.Clear();
-        Console.WriteLine("Data: " + DateTime.Now.ToString("dd/MM/yyyy"));
-        Console.WriteLine("Hora: " + DateTime.Now.ToString("HH:mm:ss"));
+        Console.WriteLine(I18nService.Get("boot.date", DateTime.Now.ToString("dd/MM/yyyy")));
+        Console.WriteLine(I18nService.Get("boot.time", DateTime.Now.ToString("HH:mm:ss")));
         Console.WriteLine();
         Console.WriteLine(env.Config.Message);
         Console.WriteLine();

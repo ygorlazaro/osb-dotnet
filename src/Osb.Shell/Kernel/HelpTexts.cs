@@ -92,7 +92,7 @@ public static class HelpTexts
     private static string BuildOverview()
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Comandos disponíveis:");
+        sb.AppendLine(I18nService.Get("commands.available_commands"));
         sb.AppendLine();
 
         foreach (var (titulo, comandos) in Categorias)
@@ -106,7 +106,7 @@ public static class HelpTexts
             sb.AppendLine();
         }
 
-        sb.AppendLine("Dicas:");
+        sb.AppendLine(I18nService.Get("commands.tips"));
         sb.AppendLine("  <comando>/?  exibe a ajuda detalhada de um comando específico");
         sb.AppendLine("               (ex: DIR/? - mesma coisa que HELP DIR)");
         sb.AppendLine("  TAB          autocompleta comandos, subcomandos, parâmetros, arquivos e pastas (Shift+TAB cicla ao contrário)");
@@ -132,7 +132,7 @@ public static class HelpTexts
         }
         else
         {
-            Console.WriteLine($"Tópico de ajuda não encontrado: '{command}'. Digite HELP para ver a lista completa.");
+            Console.WriteLine(I18nService.Get("commands.help_not_found", command));
         }
     }
 }

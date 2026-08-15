@@ -26,7 +26,7 @@ CLASS HANGMANGAME
 
     PUBLIC FUNCTION PLAY()
         IF COUNT(ME.Words) = 0 THEN
-            PRINT "Nenhuma palavra disponivel para o jogo HANGMAN."
+            PRINT I18N("hangman.no_words")
             RETURN
         END
 
@@ -36,30 +36,30 @@ CLASS HANGMANGAME
         ME.Errors = 0
 
         PRINT ""
-        PRINT "*** JOGO DA FORCA ***"
-        PRINT "Tente adivinhar a palavra letra por letra."
+        PRINT I18N("hangman.title")
+        PRINT I18N("hangman.instruction")
         PRINT ""
 
         WHILE ME.Errors < ME.MaxErrors
             CLEAR
-            PRINT "*** JOGO DA FORCA ***"
+            PRINT I18N("hangman.title")
             PRINT ""
             ME.DRAW_STAGE()
             PRINT ""
             ME.DRAW_WORD()
             PRINT ""
-            PRINT "Erros: " + STR(ME.Errors) + "/" + STR(ME.MaxErrors)
-            PRINT "Letras ja tentadas: " + ME.GET_GUESSED_STRING()
+            PRINT I18N("hangman.errors", STR(ME.Errors), STR(ME.MaxErrors))
+            PRINT I18N("hangman.guessed", ME.GET_GUESSED_STRING())
 
             Display = ME.GET_DISPLAY()
             IF ME.GET_HIDDEN_COUNT(Display) = 0 THEN
                 PRINT ""
-                PRINT "Voce ganhou! A palavra era: " + ME.Word
+                PRINT I18N("hangman.won", ME.Word)
                 RETURN
             END
 
             PRINT ""
-            SHOW "Digite uma letra (ou 0 para sair): "
+            SHOW I18N("hangman.input_prompt")
             INPUT Guess
             IF Guess = "0" OR COUNT(Guess) = 0 THEN
                 RETURN
@@ -81,11 +81,11 @@ CLASS HANGMANGAME
         END
 
         CLEAR
-        PRINT "*** JOGO DA FORCA ***"
+        PRINT I18N("hangman.title")
         PRINT ""
         ME.DRAW_STAGE()
         PRINT ""
-        PRINT "Voce perdeu! A palavra era: " + ME.Word
+        PRINT I18N("hangman.lost", ME.Word)
     END FUNCTION
 
     PUBLIC FUNCTION DRAW_STAGE()

@@ -24,7 +24,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro ao mudar de diretório: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error_changing_dir", ex.Message));
         }
     }
 
@@ -65,11 +65,11 @@ public partial class OsbShell
 
         if (!Directory.Exists(searchDir))
         {
-            Console.WriteLine("Erro ao listar diretório: Diretório não encontrado.");
+            Console.WriteLine(I18nService.Get("fs.directory_not_found_list"));
             return;
         }
 
-        Console.WriteLine("Exibindo o conteúdo do diretório:");
+        Console.WriteLine(I18nService.Get("fs.listing_directory"));
         try
         {
             var directories = Directory.GetDirectories(searchDir)
@@ -96,8 +96,8 @@ public partial class OsbShell
                 return;
             }
 
-            Console.WriteLine("  Criado em          Modificado em       Tamanho       Nome");
-            Console.WriteLine("  ----------------  ----------------  ----------  ----------------");
+            Console.WriteLine(I18nService.Get("fs.header_created") + "          " + I18nService.Get("fs.header_modified") + "       " + I18nService.Get("fs.header_size") + "      " + I18nService.Get("fs.header_name"));
+            Console.WriteLine(I18nService.Get("fs.header_separator"));
 
             foreach (var d in directories)
             {
@@ -111,7 +111,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro ao listar diretório: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error_listing_dir", ex.Message));
         }
     }
 
@@ -154,14 +154,14 @@ public partial class OsbShell
                 Directory.CreateDirectory(PathResolver.Resolve(name));
             }
         }
-        catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
+        catch (Exception ex) { Console.WriteLine(I18nService.Get("fs.error", ex.Message)); }
     }
 
     private static void RemoveDirectory(string name)
     {
         if (name == "") { HelpTexts.Show("RD"); return; }
         try { Directory.Delete(PathResolver.Resolve(name)); }
-        catch (Exception ex) { Console.WriteLine("Erro: " + ex.Message); }
+        catch (Exception ex) { Console.WriteLine(I18nService.Get("fs.error", ex.Message)); }
     }
 
     private static void DeleteFiles(string pattern)
@@ -177,7 +177,7 @@ public partial class OsbShell
             actualPattern = pattern.Replace("/S", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
         
-        Console.Write("Você tem certeza que deseja apagar o(s) arquivo(s)? (S/N) ");
+        Console.Write(I18nService.Get("fs.confirm_delete"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
         if (answer != "S")
         {
@@ -194,26 +194,26 @@ public partial class OsbShell
             var dirPart = Path.GetDirectoryName(actualPattern);
             var mask = Path.GetFileName(actualPattern);
             var dir = string.IsNullOrEmpty(dirPart) ? "." : PathResolver.Resolve(dirPart ?? ".");
-            Console.WriteLine("Excluindo...");
+            Console.WriteLine(I18nService.Get("fs.deleting"));
             
             if (recursive)
             {
                 var files = Directory.GetFiles(dir, mask, SearchOption.AllDirectories);
                 foreach (var f in files)
                     File.Delete(f);
-                Console.WriteLine($"{files.Length} arquivo(s) excluído(s).");
+                Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_deleted", files.Length));
             }
             else
             {
                 var files = Directory.GetFiles(dir, mask);
                 foreach (var f in files)
                     File.Delete(f);
-                Console.WriteLine($"{files.Length} arquivo(s) excluído(s).");
+                Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_deleted", files.Length));
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -224,7 +224,7 @@ public partial class OsbShell
         var parts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2)
         {
-            Console.WriteLine("Uso: REN <nome antigo> <nome novo>");
+            Console.WriteLine(I18nService.Get("fs.usage_ren"));
             return;
         }
         
@@ -239,7 +239,7 @@ public partial class OsbShell
             
             if (!Directory.Exists(searchDir))
             {
-                Console.WriteLine("Erro: Diretório não encontrado.");
+                Console.WriteLine(I18nService.Get("fs.dir_not_found"));
                 return;
             }
             
@@ -250,7 +250,7 @@ public partial class OsbShell
                 var files = Directory.GetFiles(searchDir, oldMask);
                 if (files.Length == 0)
                 {
-                    Console.WriteLine("Nenhum arquivo encontrado.");
+                    Console.WriteLine(I18nService.Get("fs.no_files_found"));
                     return;
                 }
                 
@@ -262,28 +262,28 @@ public partial class OsbShell
                     if (newPath != file)
                     {
                         File.Move(file, newPath);
-                        Console.WriteLine($"Renomeado: {fileName} -> {newFileName}");
+                        Console.WriteLine($"{I18nService.Get("fs.renamed", fileName, newFileName)}");
                     }
                 }
-                Console.WriteLine($"{files.Length} arquivo(s) renomeado(s).");
+                Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_renamed", files.Length));
             }
             else
             {
                 var oldPath = PathResolver.Resolve(oldPattern);
                 if (!File.Exists(oldPath))
                 {
-                    Console.WriteLine("Erro: Arquivo não encontrado.");
+                    Console.WriteLine(I18nService.Get("fs.file_not_found_ren"));
                     return;
                 }
                 
                 var newPath = PathResolver.Resolve(newPattern);
                 File.Move(oldPath, newPath);
-                Console.WriteLine($"Renomeado: {oldPattern} -> {newPattern}");
+                Console.WriteLine($"{I18nService.Get("fs.renamed", oldPattern, newPattern)}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
     
@@ -319,7 +319,7 @@ public partial class OsbShell
         var lastSpace = trimmed.LastIndexOf(' ');
         if (lastSpace < 0)
         {
-            Console.WriteLine("Uso: COPY <origem> <destino>");
+            Console.WriteLine(I18nService.Get("fs.usage_copy"));
             return;
         }
 
@@ -337,7 +337,7 @@ public partial class OsbShell
                 var files = Directory.GetFiles(sourceDir, sourcePattern);
                 if (files.Length == 0)
                 {
-                    Console.WriteLine("Nenhum arquivo encontrado.");
+                    Console.WriteLine(I18nService.Get("fs.no_files_found"));
                     return;
                 }
 
@@ -347,9 +347,9 @@ public partial class OsbShell
                     var fileName = Path.GetFileName(file);
                     var targetPath = targetIsDir ? Path.Combine(resolvedDest, fileName) : resolvedDest;
                     File.Copy(file, targetPath, overwrite: true);
-                    Console.WriteLine($"Copiado: {fileName}");
+                    Console.WriteLine($"{I18nService.Get("fs.copied", fileName)}");
                 }
-                Console.WriteLine($"{files.Length} arquivo(s) copiado(s).");
+                Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_copied", files.Length));
             }
             else
             {
@@ -360,12 +360,12 @@ public partial class OsbShell
                     resolvedDest = Path.Combine(resolvedDest, fileName);
                 }
                 File.Copy(resolvedSource, resolvedDest, overwrite: true);
-                Console.WriteLine($"Copiado: {resolvedSource} -> {resolvedDest}");
+                Console.WriteLine($"{I18nService.Get("fs.copied", resolvedSource, resolvedDest)}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -375,11 +375,11 @@ public partial class OsbShell
         try
         {
             var kb = new FileInfo(PathResolver.Resolve(file)).Length / 1024.0;
-            Console.WriteLine($"{kb:0.##} KiloBytes");
+            Console.WriteLine($"{kb:0.##} " + I18nService.Get("fs.kilobytes"));
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -466,15 +466,15 @@ public partial class OsbShell
                 count++;
                 if (pause && count % pauseInterval == 0)
                 {
-                    Console.Write("-----Pressione ENTER para continuar----");
+                    Console.Write(I18nService.Get("fs.press_enter"));
                     Console.ReadLine();
                 }
             }
-            Console.WriteLine($"{lines.Length} linhas");
+            Console.WriteLine($"{lines.Length} " + I18nService.Get("fs.lines", lines.Length));
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -487,8 +487,8 @@ public partial class OsbShell
             var resolved = PathResolver.Resolve(file);
             if (File.Exists(resolved))
             {
-                Console.WriteLine("Imprimindo " + file);
-                Console.WriteLine("(Nenhuma impressora configurada - exibindo o conteúdo)");
+                Console.WriteLine(I18nService.Get("fs.printing", file));
+                Console.WriteLine(I18nService.Get("fs.no_printer"));
                 foreach (var line in File.ReadAllLines(resolved)) Console.WriteLine(line);
                 return;
             }
@@ -509,15 +509,15 @@ public partial class OsbShell
     {
         if (string.IsNullOrWhiteSpace(args))
         {
-            Console.WriteLine("Uso: PROMPT <layout>");
-            Console.WriteLine("Marcadores: %user %hostname %pwd %d %t %br");
-            Console.WriteLine("Layout atual: " + _env.Prompt.Layout);
+            Console.WriteLine(I18nService.Get("fs.usage_prompt"));
+            Console.WriteLine(I18nService.Get("fs.markers"));
+            Console.WriteLine(I18nService.Get("fs.current_layout", _env.Prompt.Layout));
             return;
         }
         
         _env.Prompt.Layout = args.Trim();
         _env.Prompt.Save(_env.HomeDir);
-        Console.WriteLine("Layout do prompt atualizado.");
+        Console.WriteLine(I18nService.Get("fs.layout_updated"));
     }
 
     private static void MoveFile(string args)
@@ -528,7 +528,7 @@ public partial class OsbShell
         var lastSpace = trimmed.LastIndexOf(' ');
         if (lastSpace < 0)
         {
-            Console.WriteLine("Uso: MOVE <origem> <destino>");
+            Console.WriteLine(I18nService.Get("fs.usage_move"));
             return;
         }
         
@@ -547,11 +547,11 @@ public partial class OsbShell
             }
             
             File.Move(resolvedSource, resolvedDest);
-            Console.WriteLine($"Movido: {source} -> {dest}");
+            Console.WriteLine(I18nService.Get("fs.moved", source, dest));
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -613,11 +613,11 @@ public partial class OsbShell
             
             if (matches.Count == 0)
             {
-                Console.WriteLine("Nenhum resultado encontrado.");
+                Console.WriteLine(I18nService.Get("fs.no_results"));
                 return;
             }
             
-            Console.WriteLine($"{matches.Count} resultado(s) encontrado(s):");
+            Console.WriteLine(I18nService.Get("fs.matches_found", matches.Count));
             foreach (var match in matches)
             {
                 if (byNameOnly || filePattern != null)
@@ -652,7 +652,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
         }
     }
 
@@ -663,7 +663,7 @@ public partial class OsbShell
             var vars = _env.Variables.GetForUser(_env.CurrentUsername);
             if (vars.Count == 0)
             {
-                Console.WriteLine("Nenhuma variável definida.");
+                Console.WriteLine(I18nService.Get("fs.no_variables_defined"));
                 return;
             }
 
@@ -684,7 +684,7 @@ public partial class OsbShell
             }
             else
             {
-                Console.WriteLine($"Variável '{name}' não definida.");
+                Console.WriteLine(I18nService.Get("fs.variable_not_defined", name));
             }
             return;
         }
@@ -695,12 +695,12 @@ public partial class OsbShell
         if (string.IsNullOrEmpty(varValue))
         {
             _env.Variables.Remove(_env.CurrentUsername, varName);
-            Console.WriteLine($"Variável '{varName}' removida.");
+            Console.WriteLine(I18nService.Get("fs.variable_removed", varName));
         }
         else
         {
             _env.Variables.Set(_env.CurrentUsername, varName, varValue);
-            Console.WriteLine($"Variável '{varName}' definida.");
+            Console.WriteLine(I18nService.Get("fs.variable_set", varName));
         }
         
         _env.Variables.Save(_env.HomeDir, _env.CurrentUsername);

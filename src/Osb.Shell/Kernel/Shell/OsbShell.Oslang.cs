@@ -17,7 +17,7 @@ public partial class OsbShell
     {
         if (string.IsNullOrWhiteSpace(args))
         {
-            Console.WriteLine("Uso: OSL <arquivo.osl>");
+            Console.WriteLine(I18nService.Get("osl.usage"));
             return;
         }
 
@@ -28,7 +28,7 @@ public partial class OsbShell
     {
         if (!File.Exists(scriptPath))
         {
-            Console.WriteLine($"Arquivo não encontrado: {scriptPath}");
+            Console.WriteLine(I18nService.Get("fs.file_not_found", scriptPath));
             return;
         }
 
@@ -39,7 +39,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro ao ler o arquivo: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.cannot_read_file", ex.Message));
             return;
         }
 
@@ -59,7 +59,7 @@ public partial class OsbShell
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro inesperado ao executar o script: " + ex.Message);
+            Console.WriteLine(I18nService.Get("osl.unexpected_error", ex.Message));
         }
     }
 
@@ -85,7 +85,7 @@ public partial class OsbShell
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            Console.WriteLine("Uso: RUN <arquivo.osh> [argumentos...]");
+            Console.WriteLine(I18nService.Get("osl.run_usage"));
             return;
         }
 
@@ -93,7 +93,7 @@ public partial class OsbShell
 
         if (!File.Exists(resolvedPath))
         {
-            Console.WriteLine($"Arquivo não encontrado: {path}");
+            Console.WriteLine(I18nService.Get("fs.file_not_found", path));
             return;
         }
 
@@ -119,8 +119,8 @@ public partial class OsbShell
             }
         }
 
-        Console.WriteLine("Arquivo de especificação OSLANG 0.2 não encontrado.");
-        Console.WriteLine("Use HELP OSL para ver a referência rápida.");
+        Console.WriteLine(I18nService.Get("osl.spec_not_found"));
+        Console.WriteLine(I18nService.Get("osl.spec_hint"));
     }
 
     /// <summary>
@@ -280,6 +280,71 @@ public partial class OsbShell
                 .Replace('Ç', 'C')
                 .Replace('ç', 'C');
             return new StringValue(result.ToUpperInvariant());
+        });
+
+        extensions.Register("I18N", (args, location) =>
+        {
+            if (args.Count < 1)
+            {
+                throw new OslangRuntimeException(location, "I18N() expects at least 1 argument (key).");
+            }
+
+            var key = RequireStringArg(args, 0, "I18N", location);
+            var fallback = args.Count > 1 ? RequireStringArg(args, 1, "I18N", location) : key;
+
+            var language = I18nService.CurrentLanguage;
+            var basePath = extensions.BasePath ?? string.Empty;
+            var i18nDir = Path.Combine(basePath, "I18N");
+            var i18nFile = Path.Combine(i18nDir, language + ".i18n");
+
+            if (!File.Exists(i18nFile))
+            {
+                i18nFile = Path.Combine(i18nDir, "EN-US.i18n");
+            }
+
+            var template = fallback;
+            if (File.Exists(i18nFile))
+            {
+                foreach (var line in File.ReadAllLines(i18nFile))
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
+                    {
+                        continue;
+                    }
+
+                    var equalsIndex = trimmed.IndexOf('=');
+                    if (equalsIndex < 1)
+                    {
+                        continue;
+                    }
+
+                    var k = trimmed[..equalsIndex].Trim();
+                    var v = trimmed[(equalsIndex + 1)..].Trim();
+                    if (k.Equals(key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        template = v;
+                        break;
+                    }
+                }
+            }
+
+            if (args.Count > 1)
+            {
+                var formatArgs = args.Skip(1)
+                    .Select(a => a is StringValue sv ? sv.Value : a.ToString())
+                    .ToArray();
+                try
+                {
+                    template = string.Format(System.Globalization.CultureInfo.InvariantCulture, template, formatArgs);
+                }
+                catch
+                {
+                    // ignore format errors, return raw template
+                }
+            }
+
+            return new StringValue(template);
         });
 
         extensions.Register("FILE.EXISTS", (args, location) =>

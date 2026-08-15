@@ -5,7 +5,7 @@ namespace Osb.Shell.Kernel;
 public sealed class UserManager
 {
     private readonly string _path;
-    private readonly Dictionary<string, (string Name, string Password)> _users;
+    private readonly Dictionary<string, UserEntry> _users;
 
     public UserManager(string path)
     {
@@ -45,7 +45,19 @@ public sealed class UserManager
             : username.Trim();
     }
 
-    public bool Add(string username, string password, out string message)
+    public string GetLanguage(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "EN-US";
+        }
+
+        return _users.TryGetValue(username.Trim(), out var entry)
+            ? entry.Language
+            : "EN-US";
+    }
+
+    public bool Add(string username, string password, string language, out string message)
     {
         if (string.IsNullOrWhiteSpace(username))
         {
@@ -67,7 +79,7 @@ public sealed class UserManager
             return false;
         }
 
-        _users[username] = (username, password);
+        _users[username] = new UserEntry(username, password, language ?? "EN-US");
         Save();
         message = "Usuário adicionado com sucesso.";
         return true;
@@ -94,7 +106,8 @@ public sealed class UserManager
         }
 
         var key = username.Trim();
-        _users[key] = (_users[key].Name, newPassword);
+        var entry = _users[key];
+        _users[key] = new UserEntry(entry.Name, newPassword, entry.Language);
         Save();
         message = "Senha alterada com sucesso.";
         return true;
@@ -127,9 +140,9 @@ public sealed class UserManager
         return true;
     }
 
-    private static Dictionary<string, (string Name, string Password)> LoadUsers(string path)
+    private static Dictionary<string, UserEntry> LoadUsers(string path)
     {
-        var users = new Dictionary<string, (string Name, string Password)>(StringComparer.OrdinalIgnoreCase);
+        var users = new Dictionary<string, UserEntry>(StringComparer.OrdinalIgnoreCase);
 
         if (!File.Exists(path))
         {
@@ -151,13 +164,23 @@ public sealed class UserManager
             }
 
             var name = rawLine[..equalsIndex].Trim();
-            var password = rawLine[(equalsIndex + 1)..].Trim();
+            var rest = rawLine[(equalsIndex + 1)..].Trim();
+            var password = rest;
+            var language = "EN-US";
+
+            if (rest.Contains("|"))
+            {
+                var parts = rest.Split('|', 2);
+                password = parts[0];
+                language = parts[1];
+            }
+
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(password))
             {
                 continue;
             }
 
-            users[name] = (name, password);
+            users[name] = new UserEntry(name, password, language);
         }
 
         return users;
@@ -166,7 +189,9 @@ public sealed class UserManager
     private void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_path) ?? string.Empty);
-        var lines = _users.Values.Select(u => $"{u.Name}={u.Password}");
+        var lines = _users.Values.Select(u => $"{u.Name}={u.Password}|{u.Language}");
         File.WriteAllLines(_path, lines);
     }
+
+    private sealed record UserEntry(string Name, string Password, string Language);
 }

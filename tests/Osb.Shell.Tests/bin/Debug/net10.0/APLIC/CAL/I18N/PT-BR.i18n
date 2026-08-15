@@ -1,0 +1,5 @@
+# Calendar App - Portuguese (Brazil)
+usage=Uso: CAL [mês] [ano] ou CAL <ano>
+header=   {0} / {1}
+weekdays=Dom Seg Ter Qua Qui Sex Sáb
+today=Hoje: {0}, {1}/{2}/{3} {4}:{5}:{6}

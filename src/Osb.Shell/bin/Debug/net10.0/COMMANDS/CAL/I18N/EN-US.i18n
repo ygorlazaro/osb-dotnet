@@ -1,0 +1,4 @@
+# Calendar Command - English (US)
+usage=Usage: CAL [month] [year] or CAL <year>
+weekdays=Sun Mon Tue Wed Thu Fri Sat
+today=Today: {0}, {1}/{2}/{3} {4}:{5}:{6}

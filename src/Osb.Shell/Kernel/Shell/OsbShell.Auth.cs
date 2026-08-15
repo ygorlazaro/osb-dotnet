@@ -2,47 +2,45 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
 {
-    /// <summary>Chamado pelo BootSequence: pede login logo na inicialização, antes de
-    /// liberar o prompt (sem isso, o OSB abria o prompt "guest@..." direto e só pedia
-    /// senha se o usuário lembrasse de digitar USER por conta própria).</summary>
     public void RequireLogin() => PromptLogin();
 
     private void PromptLogin()
     {
         while (!_isAuthenticated)
         {
-            Console.Write("Usuário: ");
+            Console.Write(I18nService.Get("auth.username"));
             var username = (Console.ReadLine() ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(username))
             {
-                Console.WriteLine("Nome de usuário obrigatório.");
+                Console.WriteLine(I18nService.Get("auth.username_required"));
                 continue;
             }
 
             var attempt = 0;
             while (attempt < 3 && !_isAuthenticated)
             {
-                var password = PromptForPassword("Senha: ");
+                var password = PromptForPassword(I18nService.Get("auth.password"));
                 if (_env.Users.Validate(username, password))
                 {
                     _isAuthenticated = true;
                     _currentUsername = username;
                     _env.SetCurrentUsername(username);
-                    Console.WriteLine("Autenticado como " + username + ".");
+                    I18nService.SetLanguage(_env.CurrentLanguage);
+                    Console.WriteLine(I18nService.Get("auth.authenticated", username));
                 }
                 else
                 {
                     attempt++;
                     if (attempt < 3)
                     {
-                        Console.WriteLine("Senha incorreta. Tente novamente.");
+                        Console.WriteLine(I18nService.Get("auth.incorrect_password"));
                     }
                 }
             }
 
             if (!_isAuthenticated)
             {
-                Console.WriteLine("Muitas tentativas incorretas. Aguardando 10 segundos...");
+                Console.WriteLine(I18nService.Get("auth.too_many_attempts"));
                 Thread.Sleep(10_000);
             }
         }

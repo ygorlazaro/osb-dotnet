@@ -1,4 +1,5 @@
 using System.Globalization;
+using Osb.Shell.Kernel;
 
 namespace Osb.Shell.Apps;
 
@@ -20,7 +21,7 @@ public static class Calendar
             {
                 if (!int.TryParse(parts[0], out var value))
                 {
-                    Console.WriteLine("Uso: CAL [mês] [ano]  ou  CAL <ano>");
+                    Console.WriteLine(I18nService.Get("calendar.usage"));
                     return;
                 }
 
@@ -39,7 +40,7 @@ public static class Calendar
 
         if (!int.TryParse(parts[0], out var month) || !int.TryParse(parts[1], out var year) || month is < 1 or > 12)
         {
-            Console.WriteLine("Uso: CAL [mês] [ano]  ou  CAL <ano>");
+            Console.WriteLine(I18nService.Get("calendar.usage"));
             return;
         }
 
@@ -56,9 +57,36 @@ public static class Calendar
 
     private static void ShowMonth(int month, int year, DateTime now)
     {
+        var monthNames = new[]
+        {
+            I18nService.Get("calendar.month_january"),
+            I18nService.Get("calendar.month_february"),
+            I18nService.Get("calendar.month_march"),
+            I18nService.Get("calendar.month_april"),
+            I18nService.Get("calendar.month_may"),
+            I18nService.Get("calendar.month_june"),
+            I18nService.Get("calendar.month_july"),
+            I18nService.Get("calendar.month_august"),
+            I18nService.Get("calendar.month_september"),
+            I18nService.Get("calendar.month_october"),
+            I18nService.Get("calendar.month_november"),
+            I18nService.Get("calendar.month_december")
+        };
+
+        var weekDayNames = new[]
+        {
+            I18nService.Get("calendar.weekday_sunday"),
+            I18nService.Get("calendar.weekday_monday"),
+            I18nService.Get("calendar.weekday_tuesday"),
+            I18nService.Get("calendar.weekday_wednesday"),
+            I18nService.Get("calendar.weekday_thursday"),
+            I18nService.Get("calendar.weekday_friday"),
+            I18nService.Get("calendar.weekday_saturday")
+        };
+
         Console.WriteLine();
-        Console.WriteLine($"   {Culture.DateTimeFormat.GetMonthName(month).ToUpperInvariant()} / {year}");
-        Console.WriteLine("Dom Seg Ter Qua Qui Sex Sáb");
+        Console.WriteLine($"   {monthNames[month - 1].ToUpperInvariant()} / {year}");
+        Console.WriteLine(string.Join(" ", weekDayNames));
 
         var first = new DateTime(year, month, 1);
         var startPad = (int)first.DayOfWeek;
@@ -90,7 +118,7 @@ public static class Calendar
 
         if (month == now.Month && year == now.Year)
         {
-            Console.WriteLine($"Hoje: {now.ToString("dddd, dd/MM/yyyy HH:mm:ss", Culture)}");
+            Console.WriteLine(I18nService.Get("calendar.today", now.ToString("dddd, dd/MM/yyyy HH:mm:ss", Culture)));
         }
     }
 }

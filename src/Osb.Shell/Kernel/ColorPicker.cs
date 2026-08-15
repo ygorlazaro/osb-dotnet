@@ -5,7 +5,7 @@ public static class ColorPicker
     public static void Run(OsbEnvironment env)
     {
         Console.Clear();
-        Console.WriteLine("Tabela de cores:");
+        Console.WriteLine(I18nService.Get("misc.color_table"));
         Console.WriteLine();
         for (var i = 0; i < DosColors.Names.Length; i++)
             Console.WriteLine($"{i,2} - {DosColors.Names[i]}");
@@ -15,8 +15,8 @@ public static class ColorPicker
         int fundo;
         while (true)
         {
-            letra = AskColor("Entre com a cor das letras: ", env.Config.ForeColor);
-            fundo = AskColor("Entre com a cor do fundo: ", env.Config.BackColor);
+            letra = AskColor(I18nService.Get("misc.fore_color_prompt"), env.Config.ForeColor);
+            fundo = AskColor(I18nService.Get("misc.back_color_prompt"), env.Config.BackColor);
 
             if (letra != fundo)
             {
@@ -24,8 +24,8 @@ public static class ColorPicker
             }
 
             Console.WriteLine();
-            Console.WriteLine("A cor das letras não pode ser igual à cor do fundo.");
-            Console.WriteLine("Escolha cores diferentes.");
+            Console.WriteLine(I18nService.Get("fs.same_colors"));
+            Console.WriteLine(I18nService.Get("fs.choose_different_colors"));
             Console.WriteLine();
         }
 
@@ -47,7 +47,7 @@ public static class ColorPicker
                 return value;
             }
 
-            Console.WriteLine("Valor inválido, deve ser de 0 a 15.");
+            Console.WriteLine(I18nService.Get("fs.invalid_color"));
         }
     }
 }

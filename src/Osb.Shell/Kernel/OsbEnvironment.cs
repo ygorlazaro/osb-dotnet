@@ -15,6 +15,7 @@ public class OsbEnvironment
     public PromptConfig Prompt { get; private set; } = null!;
     public VariableStore Variables { get; private set; } = null!;
     public string CurrentUsername { get; private set; } = string.Empty;
+    public string CurrentLanguage => Users.GetLanguage(CurrentUsername);
     public string MachineName { get; private set; } = "OSB";
     public UserManager Users { get; private set; } = null!;
 
@@ -125,8 +126,8 @@ public class OsbEnvironment
 
     private void PerformFirstBootSetup()
     {
-        Console.WriteLine("Primeiro boot detectado. Configurando nome da máquina e usuário inicial.");
-        Console.Write("Nome da máquina [OSB]: ");
+        Console.WriteLine(I18nService.Get("boot.first_time"));
+        Console.Write(I18nService.Get("boot.machine_name_prompt"));
         var hostName = (Console.ReadLine() ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(hostName))
         {
@@ -139,40 +140,36 @@ public class OsbEnvironment
         string username;
         do
         {
-            Console.Write("Usuário inicial: ");
+            Console.Write(I18nService.Get("boot.initial_user_prompt"));
             username = (Console.ReadLine() ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(username))
             {
-                Console.WriteLine("O nome do usuário não pode ficar vazio.");
+                Console.WriteLine(I18nService.Get("boot.username_required"));
             }
         } while (string.IsNullOrWhiteSpace(username));
 
         string password;
         while (true)
         {
-            password = PromptForPassword("Senha inicial: ");
-            var confirm = PromptForPassword("Confirme a senha: ");
+            password = PromptForPassword(I18nService.Get("boot.password_prompt"));
+            var confirm = PromptForPassword(I18nService.Get("boot.confirm_password_prompt"));
             if (string.IsNullOrWhiteSpace(password))
             {
-                Console.WriteLine("A senha não pode ficar vazia.");
+                Console.WriteLine(I18nService.Get("boot.password_required"));
                 continue;
             }
 
             if (password != confirm)
             {
-                Console.WriteLine("As senhas não conferem. Tente novamente.");
+                Console.WriteLine(I18nService.Get("boot.password_mismatch"));
                 continue;
             }
 
             break;
         }
 
-        // Importante: passa pelo Users.Add (não escreve o arquivo direto) - o UserManager
-        // já foi construído nesse ponto com a lista carregada do disco (vazia, no primeiro
-        // boot). Escrever o arquivo por fora deixava esse cache em memória desatualizado,
-        // e o primeiro login sempre dava "senha incorreta" mesmo com a senha certa.
-        Users.Add(username, password, out _);
-        Console.WriteLine($"Usuário inicial '{username}' criado com sucesso.");
+        Users.Add(username, password, "PT-BR", out _);
+        Console.WriteLine(I18nService.Get("boot.user_created", username));
         Console.WriteLine();
     }
 

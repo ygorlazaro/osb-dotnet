@@ -2,106 +2,104 @@
 CLASS TOUR
     PUBLIC FUNCTION SHOW(UserName)
         IF COUNT(UserName) = 0 THEN
-            UserName = "você"
+            UserName = I18N("tour.default_username")
         END
 
         PRINT ""
-        SHOW "Bem-vindo ao Tour do OSB, "
-        SHOW UserName
-        PRINT "!"
-        PRINT "Vamos aprender a usar o sistema passo a passo."
+        PRINT I18N("tour.welcome", UserName)
+        PRINT I18N("tour.learn")
         ME.PAUSE()
 
-        ME.SHOW_STEP(1, "O que é o OSB", [
-            "O OSB é um sistema operacional em texto, com interface de linha de comando.",
-            "Você interage com ele digitando comandos e vendo o resultado na tela.",
-            "Todos os comandos são case-insensitive: DIR, dir e Dir funcionam igual."
+        ME.SHOW_STEP(1, I18N("tour.what_is_osb"), [
+            I18N("tour.what_is_osb_1"),
+            I18N("tour.what_is_osb_2"),
+            I18N("tour.what_is_osb_3")
         ])
 
-        ME.SHOW_STEP(2, "Navegação de pastas", [
-            "Use CD para mudar de pasta e DIR para listar arquivos.",
-            "Exemplos:",
-            "  DIR               → lista arquivos da pasta atual",
-            "  DIR /W            → lista em colunas",
-            "  CD TEMP           → entra na pasta TEMP",
-            "  CD ..             → volta para a pasta anterior",
-            "  PWD               → mostra a pasta atual"
+        ME.SHOW_STEP(2, I18N("tour.folders"), [
+            I18N("tour.folders_1"),
+            I18N("tour.folders_examples"),
+            I18N("tour.folders_ex_1"),
+            I18N("tour.folders_ex_2"),
+            I18N("tour.folders_ex_3"),
+            I18N("tour.folders_ex_4"),
+            I18N("tour.folders_ex_5")
         ])
 
-        ME.SHOW_STEP(3, "Arquivos e pastas", [
-            "Use MD para criar pastas e COPY para copiar arquivos.",
-            "Exemplos:",
-            "  MD MEUDIR         → cria uma pasta chamada MEUDIR",
-            "  MD /P A\B\C      → cria pastas pais automaticamente",
-            "  COPY A.TXT B.TXT  → copia A.TXT para B.TXT",
-            "  DEL ARQ.TXT       → apaga um arquivo",
-            "  REN ANTIGO.TXT NOVO.TXT → renomeia"
+        ME.SHOW_STEP(3, I18N("tour.files"), [
+            I18N("tour.files_1"),
+            I18N("tour.files_examples"),
+            I18N("tour.files_ex_1"),
+            I18N("tour.files_ex_2"),
+            I18N("tour.files_ex_3"),
+            I18N("tour.files_ex_4"),
+            I18N("tour.files_ex_5")
         ])
 
-        ME.SHOW_STEP(4, "Vendo o conteúdo de arquivos", [
-            "Use TYPE para exibir arquivos de texto na tela.",
-            "Exemplos:",
-            "  TYPE ARQ.TXT      → exibe o conteúdo do arquivo",
-            "  TYPE /N ARQ.TXT   → exibe com números de linha",
-            "  TYPE /P ARQ.TXT   → exibe com pausa a cada 20 linhas",
-            "  FIND texto        → busca texto dentro de arquivos"
+        ME.SHOW_STEP(4, I18N("tour.view_files"), [
+            I18N("tour.view_files_1"),
+            I18N("tour.view_files_examples"),
+            I18N("tour.view_files_ex_1"),
+            I18N("tour.view_files_ex_2"),
+            I18N("tour.view_files_ex_3"),
+            I18N("tour.view_files_ex_4")
         ])
 
-        ME.SHOW_STEP(5, "Variáveis", [
-            "Use SET para criar variáveis que podem ser usadas em comandos.",
-            "Exemplos:",
-            "  SET NOME=Ygor     → define a variável NOME",
-            "  SET NOME          → mostra o valor da variável",
-            "  SET NOME=         → remove a variável",
-            "  SET               → lista todas as variáveis",
-            "Variáveis são expandidas automaticamente usando %NOME%."
+        ME.SHOW_STEP(5, I18N("tour.variables"), [
+            I18N("tour.variables_1"),
+            I18N("tour.variables_examples"),
+            I18N("tour.variables_ex_1"),
+            I18N("tour.variables_ex_2"),
+            I18N("tour.variables_ex_3"),
+            I18N("tour.variables_ex_4"),
+            I18N("tour.variables_ex_5")
         ])
 
-        ME.SHOW_STEP(6, "Calculadora rápida", [
-            "Use PRINT para avaliar expressões matemáticas.",
-            "Exemplos:",
-            "  PRINT 2+2         → exibe 4",
-            "  PRINT 10*5+3      → exibe 53",
-            "  PRINT (2+2)*3     → exibe 12",
-            "Operadores suportados: +, -, *, / e parênteses.",
-            "Novo no OSLANG 0.51: MATH.SIN(), MATH.COS(), MATH.TAN(), MATH.PI, **, MOD, arrow functions."
+        ME.SHOW_STEP(6, I18N("tour.calculator"), [
+            I18N("tour.calculator_1"),
+            I18N("tour.calculator_examples"),
+            I18N("tour.calculator_ex_1"),
+            I18N("tour.calculator_ex_2"),
+            I18N("tour.calculator_ex_3"),
+            I18N("tour.calculator_ops"),
+            I18N("tour.new_in_051")
         ])
 
-        ME.SHOW_STEP(7, "Pipelines e filtros", [
-            "Use ; para encadear comandos (pipe) e GREP para filtrar linhas.",
-            "Exemplos:",
-            "  DIR ; GREP git    → lista apenas itens que contém 'git'",
-            "  HISTORY ; GREP CD → filtra o histórico por comandos com CD",
-            "  TYPE ARQ.TXT ; GREP erro → mostra linhas com 'erro'"
+        ME.SHOW_STEP(7, I18N("tour.pipes"), [
+            I18N("tour.pipes_1"),
+            I18N("tour.pipes_examples"),
+            I18N("tour.pipes_ex_1"),
+            I18N("tour.pipes_ex_2"),
+            I18N("tour.pipes_ex_3")
         ])
 
-        ME.SHOW_STEP(8, "Aplicativos e ajuda", [
-            "Use APLIC para ver e executar aplicativos instalados.",
-            "Use HELP para ver a lista de todos os comandos.",
-            "Use HELP <comando> ou <comando> /? para ver ajuda específica.",
-            "Exemplos:",
-            "  APLIC             → lista aplicativos",
-            "  APLIC CAL         → abre o calendário",
-            "  APLIC TOUR        → exibe este tour",
-            "  HELP DIR          → ajuda do comando DIR",
-            "  DIR /?            → mesma coisa",
+        ME.SHOW_STEP(8, I18N("tour.apps_help"), [
+            I18N("tour.apps_help_1"),
+            I18N("tour.apps_help_2"),
+            I18N("tour.apps_help_3"),
+            I18N("tour.apps_examples"),
+            I18N("tour.apps_ex_1"),
+            I18N("tour.apps_ex_2"),
+            I18N("tour.apps_ex_3"),
+            I18N("tour.apps_ex_4"),
+            I18N("tour.apps_ex_5"),
             "",
-            "Novidades:",
-            "  OSL <arquivo.osl> → executa programas em OSLANG 0.51",
-            "  KISS <arquivo>    → editor de texto com syntax highlight",
-            "  GAMES             → jogos instalados (ex: HANGMAN)"
+            I18N("tour.apps_new"),
+            I18N("tour.apps_new_1"),
+            I18N("tour.apps_new_2"),
+            I18N("tour.apps_new_3")
         ])
 
         PRINT ""
-        PRINT "=== Fim do Tour ==="
-        PRINT "Agora você já sabe o básico para usar o OSB!"
-        PRINT "Use HELP para explorar mais comandos."
+        PRINT "=== " + I18N("tour.end") + " ==="
+        PRINT I18N("tour.finished")
+        PRINT I18N("tour.explore")
         PRINT ""
     END FUNCTION
 
     PRIVATE FUNCTION SHOW_STEP(Num, Tit, Lines)
         PRINT ""
-        PRINT "=== Passo " + STR(Num) + ": " + Tit + " ==="
+        PRINT "=== " + I18N("tour.step", STR(Num), Tit) + " ==="
         PRINT ""
         FOR I = 0 TO COUNT(Lines) - 1
             PRINT Lines[I]
@@ -111,7 +109,7 @@ CLASS TOUR
 
     PRIVATE FUNCTION PAUSE()
         PRINT ""
-        PRINT "-----Pressione ENTER para continuar----"
+        PRINT I18N("tour.continue")
         INPUT Dummy
     END FUNCTION
 END CLASS

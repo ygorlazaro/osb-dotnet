@@ -1,0 +1,5 @@
+# Calendar App - English (US)
+usage=Usage: CAL [month] [year] or CAL <year>
+header=   {0} / {1}
+weekdays=Sun Mon Tue Wed Thu Fri Sat
+today=Today: {0}, {1}/{2}/{3} {4}:{5}:{6}

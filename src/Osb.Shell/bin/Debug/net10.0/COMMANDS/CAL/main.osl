@@ -11,7 +11,7 @@ CLASS CALENDARAPP
             TRY
                 Value = NUMBER(Args[0])
             CATCH ERR
-                PRINT "Uso: CAL [mês] [ano]  ou  CAL <ano>"
+                PRINT I18N("usage")
                 RETURN
             END
             IF Value >= 1 AND Value <= 12 THEN
@@ -68,7 +68,7 @@ CLASS CALENDARAPP
     PRIVATE FUNCTION SHOWMONTH(Month, Year)
         PRINT ""
         PRINT "   " + ME.MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
-        PRINT "Dom Seg Ter Qua Qui Sex Sáb"
+        PRINT I18N("weekdays")
 
         FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
         DaysInMonth = ME.GETDAYSINMONTH(Month, Year)
@@ -108,7 +108,7 @@ CLASS CALENDARAPP
             Hour = STR(ME.NOW_HOUR()).PADSTART(2)
             Minute = STR(ME.NOW_MINUTE()).PADSTART(2)
             Second = STR(ME.NOW_SECOND()).PADSTART(2)
-            PRINT "Hoje: " + TodayWeekday + ", " + STR(TodayDay).PADSTART(2) + "/" + STR(TodayMonth).PADSTART(2) + "/" + STR(TodayYear) + " " + Hour + ":" + Minute + ":" + Second
+            PRINT I18N("today", TodayWeekday, STR(TodayDay).PADSTART(2), STR(TodayMonth).PADSTART(2), STR(TodayYear), Hour, Minute, Second)
         END
     END FUNCTION
 

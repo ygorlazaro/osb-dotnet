@@ -7,19 +7,19 @@ public static class ConfigUtility
         var cfg = env.Config;
         var prompt = env.Prompt;
         Console.Clear();
-        Console.WriteLine("*** Configuração do OSB ***");
+        Console.WriteLine(I18nService.Get("config.title"));
         Console.WriteLine();
-        Console.WriteLine($"1 - Mensagem de boot: {cfg.Message}");
-        Console.WriteLine($"2 - Layout do prompt: {prompt.Layout}");
-        Console.WriteLine("0 - Sair sem alterar");
+        Console.WriteLine(I18nService.Get("config.boot_message", cfg.Message));
+        Console.WriteLine(I18nService.Get("config.prompt_layout", prompt.Layout));
+        Console.WriteLine(I18nService.Get("config.exit"));
         Console.WriteLine();
-        Console.Write("Escolha uma opção para alterar: ");
+        Console.Write(I18nService.Get("config.choice"));
         var choice = (Console.ReadLine() ?? "").Trim();
 
         switch (choice)
         {
             case "1":
-                Console.Write("Nova mensagem de boot: ");
+                Console.Write(I18nService.Get("config.new_boot_message"));
                 var msg = Console.ReadLine();
                 if (!string.IsNullOrWhiteSpace(msg))
                 {
@@ -33,6 +33,23 @@ public static class ConfigUtility
                     prompt.Layout = newLayout;
                 }
                 break;
+            case "3":
+                Console.WriteLine();
+                Console.WriteLine(I18nService.Get("config.available_markers"));
+                Console.WriteLine(I18nService.Get("config.marker_user"));
+                Console.WriteLine(I18nService.Get("config.marker_hostname"));
+                Console.WriteLine(I18nService.Get("config.marker_pwd"));
+                Console.WriteLine(I18nService.Get("config.marker_date"));
+                Console.WriteLine(I18nService.Get("config.marker_time"));
+                Console.WriteLine(I18nService.Get("config.marker_br"));
+                Console.WriteLine();
+                Console.Write(I18nService.Get("config.new_layout_prompt"));
+                var lang = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
+                if (lang == "PT-BR" || lang == "EN-US")
+                {
+                    I18nService.SetLanguage(lang);
+                }
+                break;
         }
 
         cfg.Save(env.ConfigFile);
@@ -43,15 +60,15 @@ public static class ConfigUtility
     private static string? EditPromptLayout(string current)
     {
         Console.WriteLine();
-        Console.WriteLine("Marcadores disponíveis:");
-        Console.WriteLine("  %user     = nome do usuário autenticado (ou guest)");
-        Console.WriteLine("  %hostname = nome da máquina");
-        Console.WriteLine("  %pwd      = diretório atual");
-        Console.WriteLine("  %d        = data atual (dd/MM/yyyy)");
-        Console.WriteLine("  %t        = hora atual (HH:mm:ss)");
-        Console.WriteLine("  %br       = quebra de linha");
+        Console.WriteLine(I18nService.Get("config.available_markers"));
+        Console.WriteLine(I18nService.Get("config.marker_user"));
+        Console.WriteLine(I18nService.Get("config.marker_hostname"));
+        Console.WriteLine(I18nService.Get("config.marker_pwd"));
+        Console.WriteLine(I18nService.Get("config.marker_date"));
+        Console.WriteLine(I18nService.Get("config.marker_time"));
+        Console.WriteLine(I18nService.Get("config.marker_br"));
         Console.WriteLine();
-        Console.Write("Novo layout (ESC para cancelar, ENTER para confirmar): ");
+        Console.Write(I18nService.Get("config.new_layout_prompt"));
 
         var buffer = current.ToList();
         var cursor = buffer.Count;

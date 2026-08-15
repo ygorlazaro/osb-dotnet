@@ -13,15 +13,15 @@ public static class XwinLauncher
         var dllPath = FindXwinDll();
         if (dllPath is null)
         {
-            Console.WriteLine("Não encontrei o XWIN.");
-            Console.WriteLine("Rode 'dotnet build' em src/Osb.Xwin primeiro, ou defina a");
-            Console.WriteLine("variável de ambiente OSB_XWIN_PATH apontando para o Osb.Xwin.dll.");
+            Console.WriteLine(I18nService.Get("apps.xwin_not_found"));
+            Console.WriteLine(I18nService.Get("apps.xwin_build_hint"));
+            Console.WriteLine(I18nService.Get("apps.xwin_env_hint"));
             return;
         }
 
         try
         {
-            Console.WriteLine("Carregando o XWIN...");
+            Console.WriteLine(I18nService.Get("apps.xwin_loading"));
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
@@ -33,7 +33,7 @@ public static class XwinLauncher
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Não foi possível iniciar o XWIN: " + ex.Message);
+            Console.WriteLine(I18nService.Get("apps.xwin_launch_error", ex.Message));
         }
     }
 

@@ -25,7 +25,7 @@ public static class About
         }
 
         Console.WriteLine();
-        Console.WriteLine("Para mais informações sobre o OSB, entre em contato.");
+        Console.WriteLine(I18nService.Get("misc.about_hint"));
         Console.WriteLine();
     }
 }

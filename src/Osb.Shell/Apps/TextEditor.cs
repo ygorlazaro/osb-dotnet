@@ -33,7 +33,7 @@ public static class TextEditor
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Erro ao abrir o arquivo: " + ex.Message);
+            Console.WriteLine(I18nService.Get("fs.cannot_read_file", ex.Message));
             return;
         }
         if (lines.Count == 0)
@@ -324,11 +324,11 @@ public static class TextEditor
         if (path is null)
         {
             Console.SetCursorPosition(0, Console.WindowHeight - 1);
-            Console.Write("Salvar como: ");
+            Console.Write(I18nService.Get("misc.save_as"));
             var typed = (Console.ReadLine() ?? "").Trim();
             if (typed == "")
             {
-                return "Salvamento cancelado (nenhum nome informado).";
+                return I18nService.Get("misc.save_cancelled");
             }
 
             filename = typed;
@@ -338,18 +338,18 @@ public static class TextEditor
         try
         {
             File.WriteAllLines(path, lines);
-            return $"Salvo em {path}";
+            return I18nService.Get("misc.saved_to", path);
         }
         catch (Exception ex)
         {
-            return "Erro ao salvar: " + ex.Message;
+            return I18nService.Get("misc.error_saving", ex.Message);
         }
     }
 
     private static bool ConfirmDiscard()
     {
         Console.SetCursorPosition(0, Console.WindowHeight - 1);
-        Console.Write("Há alterações não salvas. Sair mesmo assim? (S/N) ");
+        Console.Write(I18nService.Get("misc.unsaved_changes"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
         return answer == "S";
     }

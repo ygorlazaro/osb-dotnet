@@ -26,11 +26,12 @@ public partial class OsbShell
                 _isAuthenticated = true;
                 _currentUsername = username;
                 _env.SetCurrentUsername(username);
-                Console.WriteLine("Autenticado como " + username + ".");
+                I18nService.SetLanguage(_env.CurrentLanguage);
+                Console.WriteLine(I18nService.Get("auth.authenticated", username));
             }
             else
             {
-                Console.WriteLine("Senha incorreta.");
+                Console.WriteLine(I18nService.Get("auth.incorrect_password"));
             }
             return;
         }
@@ -40,7 +41,7 @@ public partial class OsbShell
             case "ADD":
                 if (!_isAuthenticated)
                 {
-                    Console.WriteLine("Você deve estar autenticado para adicionar usuários.");
+                    Console.WriteLine(I18nService.Get("user.must_be_authenticated_add"));
                     return;
                 }
                 if (parts.Length >= 3)
@@ -49,21 +50,21 @@ public partial class OsbShell
                 }
                 else if (parts.Length == 2)
                 {
-                    var password = PromptForPassword("Senha: ");
+                    var password = PromptForPassword(I18nService.Get("user.enter_password"));
                     AddUser(parts[1], password);
                 }
                 else
                 {
-                    Console.Write("Nome do usuário: ");
+                    Console.Write(I18nService.Get("user.enter_username"));
                     var name = (Console.ReadLine() ?? string.Empty).Trim();
-                    var password = PromptForPassword("Senha: ");
+                    var password = PromptForPassword(I18nService.Get("user.enter_password"));
                     AddUser(name, password);
                 }
                 break;
             case "CHANGE":
                 if (!_isAuthenticated)
                 {
-                    Console.WriteLine("Você deve estar autenticado para alterar senhas.");
+                    Console.WriteLine(I18nService.Get("user.must_be_authenticated_change"));
                     return;
                 }
                 if (parts.Length >= 3)
@@ -72,21 +73,21 @@ public partial class OsbShell
                 }
                 else if (parts.Length == 2)
                 {
-                    var password = PromptForPassword("Nova senha: ");
+                    var password = PromptForPassword(I18nService.Get("user.new_password"));
                     ChangeUserPassword(parts[1], password);
                 }
                 else
                 {
-                    Console.Write("Nome do usuário: ");
+                    Console.Write(I18nService.Get("user.enter_username"));
                     var name = (Console.ReadLine() ?? string.Empty).Trim();
-                    var password = PromptForPassword("Nova senha: ");
+                    var password = PromptForPassword(I18nService.Get("user.new_password"));
                     ChangeUserPassword(name, password);
                 }
                 break;
             case "DEL":
                 if (!_isAuthenticated)
                 {
-                    Console.WriteLine("Você deve estar autenticado para excluir usuários.");
+                    Console.WriteLine(I18nService.Get("user.must_be_authenticated_delete"));
                     return;
                 }
                 if (parts.Length >= 2)
@@ -95,7 +96,7 @@ public partial class OsbShell
                 }
                 else
                 {
-                    Console.Write("Nome do usuário: ");
+                    Console.Write(I18nService.Get("user.enter_username"));
                     var name = (Console.ReadLine() ?? string.Empty).Trim();
                     DeleteUser(name);
                 }
@@ -103,7 +104,7 @@ public partial class OsbShell
             case "LIST":
                 if (!_isAuthenticated)
                 {
-                    Console.WriteLine("Você deve estar autenticado para listar usuários.");
+                    Console.WriteLine(I18nService.Get("user.must_be_authenticated_list"));
                     return;
                 }
                 ListUsers();
@@ -116,7 +117,7 @@ public partial class OsbShell
 
     private void ListUsers()
     {
-        Console.WriteLine("Usuários cadastrados:");
+        Console.WriteLine(I18nService.Get("user.registered_users"));
         foreach (var user in _env.Users.Usernames)
         {
             Console.WriteLine("  " + user);
@@ -127,11 +128,11 @@ public partial class OsbShell
     {
         if (!_env.Users.Exists(name))
         {
-            Console.WriteLine("Usuário não encontrado.");
+            Console.WriteLine(I18nService.Get("user.not_found"));
             return;
         }
 
-        var password = PromptForPassword("Senha do usuário ou do administrador: ");
+        var password = PromptForPassword(I18nService.Get("user.password_prompt"));
 
         if (_env.Users.Validate(name, password) || _env.Users.Validate(_currentUsername, password))
         {
@@ -146,13 +147,14 @@ public partial class OsbShell
         }
         else
         {
-            Console.WriteLine("Senha incorreta.");
+            Console.WriteLine(I18nService.Get("auth.incorrect_password"));
         }
     }
 
     private void AddUser(string name, string password)
     {
-        if (_env.Users.Add(name, password, out var message))
+        var language = _env.CurrentLanguage;
+        if (_env.Users.Add(name, password, language, out var message))
         {
             Console.WriteLine(message);
         }
@@ -176,10 +178,11 @@ public partial class OsbShell
 
     private void PrintUserHelp()
     {
-        Console.WriteLine("Uso: USER [Enter]   → autentica");
-        Console.WriteLine("     USER ADD <nome> <senha>   → adiciona usuário");
-        Console.WriteLine("     USER CHANGE <nome> <senha>   → altera senha");
-        Console.WriteLine("     USER DEL <nome>   → exclui usuário");
-        Console.WriteLine("     USER LIST   → lista usuários cadastrados");
+        Console.WriteLine(I18nService.Get("user.usage"));
+        Console.WriteLine(I18nService.Get("user.login"));
+        Console.WriteLine(I18nService.Get("user.add"));
+        Console.WriteLine(I18nService.Get("user.change"));
+        Console.WriteLine(I18nService.Get("user.delete"));
+        Console.WriteLine(I18nService.Get("user.list"));
     }
 }
