@@ -9,8 +9,8 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- Sem PackageReference nenhum de propósito: XWIN aqui é um app de modo texto puro,
-       só com a Console API do .NET. Nada de GTK/X11/Wayland, nada de toolkit gráfico -
-       exatamente como o VBDOS original não precisava de nada além do BIOS de vídeo. -->
+  <ItemGroup>
+    <PackageReference Include="Terminal.Gui" Version="1.19.0" />
+  </ItemGroup>
 
 </Project>
