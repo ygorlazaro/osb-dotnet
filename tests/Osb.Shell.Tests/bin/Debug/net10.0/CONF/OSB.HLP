@@ -159,6 +159,7 @@ FIND = Busca arquivos por nome ou conteúdo
 GAMES = Mostra os jogos inclusos com OSB 3.0 Lince
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
+TOUR = Tour passo a passo do OSB
 MD = Cria um diretório (aceita espaços)
 MOVE = Move arquivos de um local para outro
 OSL = Executa programas OSLANG 0.2
@@ -322,6 +323,14 @@ Exibe a hora do sistema.
 Modo simples de usar: TIME
 -ENDCOMMAND
 
+-TOUR
+Tour passo a passo do OSB.
+Modo simples de usar: APLIC TOUR
+
+[@] APLIC TOUR
+Executa o tour interativo do sistema
+-ENDCOMMAND
+
 -TYPE
 Exibe o conteúdo de um arquivo.
 Modo simples de usar: TYPE <Nome do arquivo> [/P] [/P:N] [/N]
@@ -413,7 +422,7 @@ Exibe apenas linhas do arquivo que contém "erro"
 -ENDCOMMAND
 
 -OSL
-Executa um programa escrito em OSLANG 0.2, a linguagem de script do OSB.
+Executa um programa escrito em OSLANG 0.4, a linguagem de script do OSB.
 Modo simples de usar: OSL <arquivo.osl>
 
 [@] OSL FIBONACCI.OSL
@@ -425,9 +434,9 @@ Exibe esta ajuda
 [@] HELP OSL
 Exibe esta ajuda
 
-OSLANG 0.2 é a linguagem de programação do OSB. Ela combina a simplicidade do BASIC
+OSLANG 0.4 é a linguagem de programação do OSB. Ela combina a simplicidade do BASIC
 com recursos de orientação a objetos modernos. Esta ajuda resume a sintaxe básica.
-Para a especificação completa, consulte OSLANG-0.2-SPEC.MD.
+Para a especificação completa, consulte OSLANG-0.4-SPEC.MD.
 
 --- TIPOS ---
 NUMBER   Números reais (ex: 3.14159, -10, 0)
@@ -498,15 +507,52 @@ END
 STR(x)           Converte para STRING
 NUMBER(x)        Converte para NUMBER
 BOOL(x)          Converte para BOOLEAN
-SQRT(x)          Raiz quadrada
-ABS(x)           Valor absoluto
-POW(base, exp)   Potência
-FLOOR(x)         Arredonda para baixo
-CEIL(x)          Arredonda para cima
 COUNT(arr)       Quantidade de elementos
 TYPEOF(x)        Tipo do valor (STRING, NUMBER, BOOLEAN, ARRAY, NULL, ou nome da classe)
 
---- CLASSES E OBJETOS (OSLANG 0.2) ---
+--- NAMESPACES (OSLANG 0.4) ---
+MATH.SQRT(x)          Raiz quadrada
+MATH.ABS(x)           Valor absoluto
+MATH.POW(base, exp)   Potência
+MATH.FLOOR(x)         Arredonda para baixo
+MATH.CEIL(x)          Arredonda para cima
+MATH.RANDOM(min, max) Número aleatório inteiro
+MATH.PI               Constante PI
+MATH.E                Constante de Euler
+
+FILE.READ(path)       Lê arquivo como ARRAY de STRING (uma linha por elemento)
+FILE.READTEXT(path)   Lê arquivo como STRING
+FILE.WRITE(path, text) Escreve texto no arquivo
+FILE.EXISTS(path)     Verifica se arquivo existe (BOOLEAN)
+FILE.DELETE(path)     Apaga um arquivo
+
+DIR.LIST(path)        Lista arquivos e pastas como ARRAY de STRING
+DIR.FILES(path)       Lista apenas arquivos como ARRAY de STRING
+DIR.DIRS(path)        Lista apenas pastas como ARRAY de STRING
+DIR.CURRENT()         Diretório atual como STRING
+DIR.CHANGE(path)      Muda o diretório atual
+
+--- METODOS PRIMITIVOS (OSLANG 0.4) ---
+Nome.TOUPPER()        Converte string para maiúsculas
+Nome.TOLOWER()        Converte string para minúsculas
+Nome.TRIM()           Remove espaços extras
+Nome.SUBSTR(i, len)   Extrai substring
+Nome.CONTAINS(text)   Verifica se contém texto
+Nome.INDEXOF(text)    Posição de texto (-1 se não encontrado)
+Nome.LENGTH()         Comprimento da string
+
+Valor.BETWEEN(a, b)   Verifica se número está entre a e b
+Value.TOSTRING()      Converte número para string
+
+Array.COUNT()         Quantidade de elementos
+Array.FIRST()         Primeiro elemento
+Array.LAST()          Último elemento
+Array.CONTAINS(x)     Verifica se contém valor
+Array.MAP(fn)         Aplica função a cada elemento
+Array.FILTER(fn)      Filtra elementos por função
+Array.REDUCE(fn, init) Reduz array a um valor
+
+--- CLASSES E OBJETOS (OSLANG 0.4) ---
 CLASS Nome
     membros
 END

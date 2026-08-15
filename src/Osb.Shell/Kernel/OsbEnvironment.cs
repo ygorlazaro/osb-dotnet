@@ -56,14 +56,14 @@ public class OsbEnvironment
         WriteIfMissing(Path.Combine(ConfDir, "GAMES.CFG"),
             "HANGMAN\nJogo da forca\n");
         WriteIfMissing(Path.Combine(ConfDir, "XWIN.CFG"),
-            "XWIN_TEXT\nXWinText - Editor de texto paralelo\nMJB\nMJB - Aplicativo paralelo do XWin\n");
+            "XWIN_TEXT\nXWinText - Editor de texto paralelo\n");
         WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
 
         var aplicPath = Path.Combine(ConfDir, "APLIC.CFG");
         if (!File.Exists(aplicPath))
         {
             File.WriteAllText(aplicPath,
-                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nPROG\nTeste de digitação\nTOUR\nTour passo a passo do OSB\nXWINTEXT\nEditor de texto do XWin\nMJB\nAplicativo MJB\n");
+                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\n");
         }
         else
         {

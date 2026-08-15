@@ -1,0 +1,119 @@
+' OSLANG 0.4 - Tour do OSB
+' Aplicativo de tour passo a passo
+
+CLASS TOUR
+
+    PUBLIC FUNCTION SHOW(UserName)
+        IF COUNT(UserName) = 0 THEN
+            UserName = "você"
+        END
+
+        PRINT ""
+        PRINT "Bem-vindo ao Tour do OSB, " + UserName + "!"
+        PRINT "Vamos aprender a usar o sistema passo a passo."
+        ME.PAUSE()
+
+        ME.SHOW_STEP(1, "O que é o OSB", [
+            "O OSB é um sistema operacional em texto, inspirado no DOS e no BASIC.",
+            "Você interage com ele digitando comandos e vendo o resultado na tela.",
+            "Todos os comandos são case-insensitive: DIR, dir e Dir funcionam igual."
+        ])
+
+        ME.SHOW_STEP(2, "Navegação de pastas", [
+            "Use CD para mudar de pasta e DIR para listar arquivos.",
+            "Exemplos:",
+            "  DIR               → lista arquivos da pasta atual",
+            "  DIR /W            → lista em colunas",
+            "  CD TEMP           → entra na pasta TEMP",
+            "  CD ..             → volta para a pasta anterior",
+            "  PWD               → mostra a pasta atual"
+        ])
+
+        ME.SHOW_STEP(3, "Arquivos e pastas", [
+            "Use MD para criar pastas e COPY para copiar arquivos.",
+            "Exemplos:",
+            "  MD MEUDIR         → cria uma pasta chamada MEUDIR",
+            "  MD /P A\B\C      → cria pastas pais automaticamente",
+            "  COPY A.TXT B.TXT  → copia A.TXT para B.TXT",
+            "  DEL ARQ.TXT       → apaga um arquivo",
+            "  REN ANTIGO.TXT NOVO.TXT → renomeia"
+        ])
+
+        ME.SHOW_STEP(4, "Vendo o conteúdo de arquivos", [
+            "Use TYPE para exibir arquivos de texto na tela.",
+            "Exemplos:",
+            "  TYPE ARQ.TXT      → exibe o conteúdo do arquivo",
+            "  TYPE /N ARQ.TXT   → exibe com números de linha",
+            "  TYPE /P ARQ.TXT   → exibe com pausa a cada 20 linhas",
+            "  FIND texto        → busca texto dentro de arquivos"
+        ])
+
+        ME.SHOW_STEP(5, "Variáveis", [
+            "Use SET para criar variáveis que podem ser usadas em comandos.",
+            "Exemplos:",
+            "  SET NOME=Ygor     → define a variável NOME",
+            "  SET NOME          → mostra o valor da variável",
+            "  SET NOME=         → remove a variável",
+            "  SET               → lista todas as variáveis",
+            "Variáveis são expandidas automaticamente usando %NOME%."
+        ])
+
+        ME.SHOW_STEP(6, "Calculadora rápida", [
+            "Use PRINT para avaliar expressões matemáticas.",
+            "Exemplos:",
+            "  PRINT 2+2         → exibe 4",
+            "  PRINT 10*5+3      → exibe 53",
+            "  PRINT (2+2)*3     → exibe 12",
+            "Operadores suportados: +, -, *, / e parênteses.",
+            "Novo no OSLANG 0.4: MATH.SQRT(), MATH.POW(), MATH.ABS(), etc."
+        ])
+
+        ME.SHOW_STEP(7, "Pipelines e filtros", [
+            "Use ; para encadear comandos (pipe) e GREP para filtrar linhas.",
+            "Exemplos:",
+            "  DIR ; GREP git    → lista apenas itens que contém 'git'",
+            "  HISTORY ; GREP CD → filtra o histórico por comandos com CD",
+            "  TYPE ARQ.TXT ; GREP erro → mostra linhas com 'erro'"
+        ])
+
+        ME.SHOW_STEP(8, "Aplicativos e ajuda", [
+            "Use APLIC para ver e executar aplicativos instalados.",
+            "Use HELP para ver a lista de todos os comandos.",
+            "Use HELP <comando> ou <comando> /? para ver ajuda específica.",
+            "Exemplos:",
+            "  APLIC             → lista aplicativos",
+            "  APLIC CAL         → abre o calendário",
+            "  APLIC TOUR        → exibe este tour",
+            "  HELP DIR          → ajuda do comando DIR",
+            "  DIR /?            → mesma coisa",
+            "",
+            "Novo no OSB 3.0 Lince:",
+            "  OSL <arquivo.osl> → executa programas em OSLANG 0.4",
+            "  KISS <arquivo>    → editor de texto com syntax highlight",
+            "  GAMES             → jogos instalados (ex: HANGMAN)"
+        ])
+
+        PRINT ""
+        PRINT "=== Fim do Tour ==="
+        PRINT "Agora você já sabe o básico para usar o OSB!"
+        PRINT "Use HELP para explorar mais comandos."
+        PRINT ""
+    END FUNCTION
+
+    PRIVATE FUNCTION SHOW_STEP(Num, Tit, Lines)
+        PRINT ""
+        PRINT "=== Passo " + STR(Num) + ": " + Tit + " ==="
+        PRINT ""
+        FOR I = 0 TO COUNT(Lines) - 1
+            PRINT Lines[I]
+        END
+        ME.PAUSE()
+    END FUNCTION
+
+    PRIVATE FUNCTION PAUSE()
+        PRINT ""
+        PRINT "-----Pressione ENTER para continuar----"
+        INPUT Dummy
+    END FUNCTION
+
+END CLASS
