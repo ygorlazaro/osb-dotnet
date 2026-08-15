@@ -18,13 +18,11 @@ public class OsbEnvironment
     public string CurrentLanguage => Users.GetLanguage(CurrentUsername);
     public string MachineName { get; private set; } = "OSB";
     public UserManager Users { get; private set; } = null!;
+    public bool DebugMode { get; }
 
-    public OsbEnvironment()
+    public OsbEnvironment(bool debugMode = false)
     {
-        // ~/.osb é compartilhado com o Osb.Xwin (que lê o mesmo OSB.CFG/CONF de lá) -
-        // por isso não pode ser a pasta de build de cada executável (AppContext.BaseDirectory),
-        // já que Shell e Xwin são processos/pastas de build diferentes; usar a pasta de build
-        // também faria o histórico/usuários serem apagados a cada "dotnet build" limpo.
+        DebugMode = debugMode;
         HomeDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
         var firstBoot = EnsureInstalled();
         Config = OsbConfig.Load(ConfigFile);
@@ -36,6 +34,19 @@ public class OsbEnvironment
         if (firstBoot)
         {
             PerformFirstBootSetup();
+        }
+
+        if (debugMode)
+        {
+            EnsureDebugUser();
+        }
+    }
+
+    private void EnsureDebugUser()
+    {
+        if (!Users.Exists("ygor"))
+        {
+            Users.Add("ygor", "debug", "EN-US", out _);
         }
     }
 
@@ -52,11 +63,12 @@ public class OsbEnvironment
 
         WriteIfMissing(Path.Combine(ConfDir, "START.CFG"), "VER\n");
         WriteIfMissing(Path.Combine(ConfDir, "SYSTEM.CFG"), "[CLOCK]\nTRUE\n\n[MOUSE]\nFALSE\n");
+        WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
+
         WriteIfMissing(Path.Combine(ConfDir, "GAMES.CFG"),
             "HANGMAN\nJogo da forca\n");
-        WriteIfMissing(Path.Combine(ConfDir, "XWIN.CFG"),
-            "XWIN_TEXT\nXWinText - Editor de texto paralelo\n");
-        WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
+        WriteIfMissing(Path.Combine(ConfDir, "GAMES.EN-US.CFG"),
+            "HANGMAN\nHangman game\n");
 
         var aplicPath = Path.Combine(ConfDir, "APLIC.CFG");
         if (!File.Exists(aplicPath))
@@ -64,20 +76,8 @@ public class OsbEnvironment
             File.WriteAllText(aplicPath,
                 "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\nTODO\nGerenciador de tarefas\n");
         }
-        else
-        {
-            var content = File.ReadAllText(aplicPath);
-            if (!content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Any(line => line.Equals("TOUR", StringComparison.OrdinalIgnoreCase)))
-            {
-                File.AppendAllText(aplicPath, "TOUR\nTour passo a passo do OSB\n");
-            }
-            if (!content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Any(line => line.Equals("TODO", StringComparison.OrdinalIgnoreCase)))
-            {
-                File.AppendAllText(aplicPath, "TODO\nGerenciador de tarefas\n");
-            }
-        }
+        WriteIfMissing(Path.Combine(ConfDir, "APLIC.EN-US.CFG"),
+            "CAL\nReal-time calendar\nKISS\nSimple text editor\nTOUR\nOSB step-by-step tour\nTODO\nTask manager\n");
 
         var hostnameMissing = !File.Exists(HostnameFile) || string.IsNullOrWhiteSpace(File.ReadAllText(HostnameFile));
         var userConfigMissing = !File.Exists(UserConfigFile) || string.IsNullOrWhiteSpace(File.ReadAllText(UserConfigFile));
@@ -216,5 +216,10 @@ public class OsbEnvironment
     public void SetCurrentUsername(string username)
     {
         CurrentUsername = username;
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            I18nService.SetLanguage(CurrentLanguage);
+            Environment.SetEnvironmentVariable("LANGUAGE", CurrentLanguage);
+        }
     }
 }

@@ -1,8 +1,8 @@
 ' OSLANG 0.51 - Hello World
 FUNCTION MAIN()
-    PRINT "Hello, OSB!"
+    PRINT I18N("helloworld.greeting")
     PRINT ""
-    SHOW "Qual é o seu nome? "
+    SHOW I18N("helloworld.prompt")
     INPUT Name
-    PRINT "Ola, " + Name + "!"
+    PRINT I18N("helloworld.hello", Name)
 END FUNCTION

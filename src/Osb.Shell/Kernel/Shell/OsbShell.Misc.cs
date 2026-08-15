@@ -165,7 +165,7 @@ public partial class OsbShell
     {
         Console.Write(I18nService.Get("commands.exit_prompt"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
-        if (answer != "S")
+        if (!I18nService.IsAffirmative(answer))
         {
             return;
         }

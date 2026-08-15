@@ -351,7 +351,7 @@ public static class TextEditor
         Console.SetCursorPosition(0, Console.WindowHeight - 1);
         Console.Write(I18nService.Get("misc.unsaved_changes"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
-        return answer == "S";
+        return I18nService.IsAffirmative(answer);
     }
 
     private static void Render(List<string> lines, int row, int col, int scrollTop, int visibleRows,

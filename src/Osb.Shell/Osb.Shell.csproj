@@ -11,6 +11,9 @@
     <None Include="CONF\OSB.HLP">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="CONF\EN-US.HLP">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="CONF\HANGMAN.WDS">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

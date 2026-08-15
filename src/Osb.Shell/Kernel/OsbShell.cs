@@ -19,11 +19,22 @@ public partial class OsbShell
     private bool _running = true;
     private bool _isAuthenticated;
     private string _currentUsername = string.Empty;
+    private readonly bool _debugMode;
 
     private const int MaxHistoryEntries = 1000;
     private string HistoryFile => Path.Combine(_env.HomeDir, "CONF", "HISTORY", $"{_currentUsername}.txt");
 
-    public OsbShell(OsbEnvironment env) => _env = env;
+    public OsbShell(OsbEnvironment env, bool debugMode = false)
+    {
+        _env = env;
+        _debugMode = debugMode;
+        if (_debugMode)
+        {
+            _isAuthenticated = true;
+            _currentUsername = "ygor";
+            _env.SetCurrentUsername("ygor");
+        }
+    }
 
     public void Run()
     {

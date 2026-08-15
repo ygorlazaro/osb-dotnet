@@ -21,7 +21,10 @@ public static class BootSequence
         Console.WriteLine(env.Config.Message);
         Console.WriteLine();
 
-        shell.RequireLogin();
+        if (!env.DebugMode)
+        {
+            shell.RequireLogin();
+        }
 
         RunStartupCommands(env, shell);
     }

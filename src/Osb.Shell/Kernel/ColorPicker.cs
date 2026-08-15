@@ -40,8 +40,13 @@ public static class ColorPicker
     {
         while (true)
         {
-            Console.Write(prompt);
+            Console.Write($"{prompt} ({current}): ");
             var input = Console.ReadLine() ?? "";
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return current;
+            }
+
             if (int.TryParse(input, out var value) && value is >= 0 and < 16)
             {
                 return value;

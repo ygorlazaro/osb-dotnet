@@ -15,7 +15,7 @@ public class TabCompleter
         "ABOUT", "APLIC", "CAL", "CD", "CLEAR", "CLS", "COLOR", "CONFIG", "COPY",
         "DATE", "DEL", "DIR", "EXIT", "FIND", "GAMES", "HELP", "HISTORY", "HOSTNAME",
         "KISS", "MD", "MOVE", "OSL", "PRINT", "PROMPT", "PWD", "RD", "REN", "SET",
-        "SIZE", "TIME", "TYPE", "USER", "VER", "X"
+        "SIZE", "TIME", "TYPE", "USER", "VER"
     ];
 
     private static readonly string[] UserSubcommands = ["ADD", "CHANGE", "DEL", "LIST"];

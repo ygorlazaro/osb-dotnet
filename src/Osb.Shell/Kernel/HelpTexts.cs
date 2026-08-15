@@ -8,7 +8,14 @@ public static class HelpTexts
 {
     private static readonly Dictionary<string, string> Texts = LoadHelpFile();
 
-    private static string HelpFilePath => Path.Combine(AppContext.BaseDirectory, "CONF", "OSB.HLP");
+    private static string HelpFilePath
+    {
+        get
+        {
+            var fileName = I18nService.CurrentLanguage == "EN-US" ? "EN-US.HLP" : "OSB.HLP";
+            return Path.Combine(AppContext.BaseDirectory, "CONF", fileName);
+        }
+    }
 
     private static Dictionary<string, string> LoadHelpFile()
     {
@@ -80,12 +87,12 @@ public static class HelpTexts
 
     private static readonly (string Titulo, string[] Comandos)[] Categorias =
     [
-        ("Arquivos e diretórios", ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "MOVE", "FIND", "TYPE", "SIZE", "PWD", "PRINT"
+        (I18nService.Get("help.category.files"), ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "MOVE", "FIND", "TYPE", "SIZE", "PWD", "PRINT"
         ]),
-        ("Sistema", ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
+        (I18nService.Get("help.category.system"), ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
         ]),
-        ("Aplicativos e jogos", ["APLIC", "GAMES", "CAL", "KISS", "TOUR", "TODO", "X", "OSL"]),
-        ("Programas externos", ["."])
+        (I18nService.Get("help.category.apps"), ["APLIC", "GAMES", "CAL", "KISS", "TOUR", "TODO", "OSL"]),
+        (I18nService.Get("help.category.external"), ["."])
     ];
 
     /// <summary>O que HELP (sem argumento) mostra: a lista de comandos por categoria, mais dicas.</summary>
@@ -107,13 +114,13 @@ public static class HelpTexts
         }
 
         sb.AppendLine(I18nService.Get("commands.tips"));
-        sb.AppendLine("  <comando>/?  exibe a ajuda detalhada de um comando específico");
-        sb.AppendLine("               (ex: DIR/? - mesma coisa que HELP DIR)");
-        sb.AppendLine("  TAB          autocompleta comandos, subcomandos, parâmetros, arquivos e pastas (Shift+TAB cicla ao contrário)");
-        sb.AppendLine("  Setas ←→     editam o comando que você está digitando, antes de enviar");
-        sb.AppendLine("  Setas ↑↓     navegam pelo histórico de comandos já digitados (estilo DOSKEY)");
-        sb.AppendLine("  Use ';' para encadear múltiplos comandos na mesma linha (ex: DIR ; VER)");
-        sb.AppendLine("  HISTORY      lista todo o histórico numerado e deixa escolher qual repetir");
+        sb.AppendLine(I18nService.Get("help.tip.detailed"));
+        sb.AppendLine(I18nService.Get("help.tip.detailed_example"));
+        sb.AppendLine(I18nService.Get("help.tip.tab"));
+        sb.AppendLine(I18nService.Get("help.tip.arrows"));
+        sb.AppendLine(I18nService.Get("help.tip.history"));
+        sb.AppendLine(I18nService.Get("help.tip.chain"));
+        sb.AppendLine(I18nService.Get("help.tip.history_cmd"));
         return sb.ToString();
     }
 

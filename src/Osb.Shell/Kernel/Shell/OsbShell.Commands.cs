@@ -151,9 +151,6 @@ public partial class OsbShell
                 Console.WriteLine();
                 Console.WriteLine(I18nService.Get("commands.about_hint"));
                 handled = true; break;
-            case "X":
-                XwinLauncher.Launch();
-                _env.ApplyColors(); handled = true; break;
             default:
             {
                 var firstSpace = raw.IndexOf(' ');

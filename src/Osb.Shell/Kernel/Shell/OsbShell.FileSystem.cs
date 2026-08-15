@@ -179,7 +179,7 @@ public partial class OsbShell
         
         Console.Write(I18nService.Get("fs.confirm_delete"));
         var answer = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
-        if (answer != "S")
+        if (!I18nService.IsAffirmative(answer))
         {
             return;
         }

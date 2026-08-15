@@ -51,8 +51,11 @@ auth.user_exists=User already exists.
 config.title=*** OSB Configuration ***
 config.boot_message=1 - Boot message: {0}
 config.prompt_layout=2 - Prompt layout: {0}
+config.language=3 - Language: {0}
 config.exit=0 - Exit without changes
 config.choice=Choose an option to change:
+config.available_languages=Available languages: EN-US, PT-BR
+config.language_prompt=Enter language code (EN-US or PT-BR):
 config.new_boot_message=New boot message:
 config.available_markers=Available markers:
 config.marker_user=  %user     = authenticated user name (or guest)
@@ -114,6 +117,17 @@ commands.grep_pipe_hint=Use in pipe: COMMAND ; GREP <pattern>
 commands.help_not_found=Help topic not found: '{0}'. Type HELP for the full list.
 commands.available_commands=Available commands:
 commands.tips=Tips:
+help.category.files=Files and directories
+help.category.system=System
+help.category.apps=Apps and games
+help.category.external=External programs
+help.tip.detailed=  <command>/?  shows detailed help for a specific command
+help.tip.detailed_example=               (ex: DIR/? - same as HELP DIR)
+help.tip.tab=  TAB          autocompletes commands, subcommands, parameters, files and folders (Shift+TAB cycles backwards)
+help.tip.arrows=  Arrows ←→     edit the command you are typing, before sending
+help.tip.history=  Arrows ↑↓     navigate through history of typed commands (DOSKEY style)
+help.tip.chain=  Use ';' to chain multiple commands on the same line (ex: DIR ; VER)
+help.tip.history_cmd=  HISTORY      lists all numbered history and lets you choose which to repeat
 
 # File System
 fs.file_not_found=File not found: {0}
@@ -187,11 +201,7 @@ osl.spec_hint=Type HELP OSL for a quick reference.
 osl.run_usage=Usage: RUN <file.osh> [arguments...]
 
 # Misc
-misc.xwin_not_found=XWIN not found.
-misc.xwin_build_hint=Run 'dotnet build' in src/Osb.Xwin first, or set the
-misc.xwin_env_hint=OSB_XWIN_PATH environment variable pointing to Osb.Xwin.dll.
-misc.xwin_loading=Loading XWIN...
-misc.xwin_launch_error=Could not start XWIN: {0}
+misc.about_hint=Type ABOUT for more information
 misc.yes=Y
 misc.no=N
 misc.confirm_exit=Are you sure you want to exit? (Y/N)
@@ -215,6 +225,7 @@ misc.saved_to=Saved to {0}
 misc.error_saving=Error saving: {0}
 misc.unsaved_changes=There are unsaved changes. Exit anyway? (Y/N)
 misc.about_contact=For more information about OSB, contact us.
+misc.about_hint=Type ABOUT for more information
 
 # Calendar
 calendar.usage=Usage: CAL [month] [year]  or  CAL <year>
@@ -237,4 +248,17 @@ calendar.weekday_wednesday=Wed
 calendar.weekday_thursday=Thu
 calendar.weekday_friday=Fri
 calendar.weekday_saturday=Sat
+calendar.weekday_full_sunday=Sunday
+calendar.weekday_full_monday=Monday
+calendar.weekday_full_tuesday=Tuesday
+calendar.weekday_full_wednesday=Wednesday
+calendar.weekday_full_thursday=Thursday
+calendar.weekday_full_friday=Friday
+calendar.weekday_full_saturday=Saturday
 calendar.today=Today: {0}
+helloworld.greeting=Hello, OSB!
+helloworld.prompt=What is your name?
+helloworld.hello=Hello, {0}!
+shell.pwd_label=Current directory:
+shell.listing_label=Listing:
+animal.example=Example of working with classes, using the concept of animals

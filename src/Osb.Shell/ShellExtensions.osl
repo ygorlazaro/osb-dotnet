@@ -1,8 +1,8 @@
 ' OSLANG 0.51 - Shell Extensions Demo
 FUNCTION MAIN()
-    SHOW "Diretorio atual: "
+    SHOW I18N("shell.pwd_label")
     PRINT PWD()
     PRINT ""
-    SHOW "Listagem: "
+    SHOW I18N("shell.listing_label")
     DIR()
 END FUNCTION

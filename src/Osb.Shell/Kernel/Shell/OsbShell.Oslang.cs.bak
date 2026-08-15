@@ -347,12 +347,39 @@ public partial class OsbShell
                 }
                 catch
                 {
-                    // ignore format errors, return raw template
                 }
             }
 
             return new StringValue(template);
         });
+    }
+
+    private static string LookupTranslation(string filePath, string key, string fallback)
+    {
+        foreach (var line in File.ReadAllLines(filePath))
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
+            {
+                continue;
+            }
+
+            var equalsIndex = trimmed.IndexOf('=');
+            if (equalsIndex < 1)
+            {
+                continue;
+            }
+
+            var k = trimmed[..equalsIndex].Trim();
+            var v = trimmed[(equalsIndex + 1)..].Trim();
+            if (k.Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return v;
+            }
+        }
+
+        return fallback;
+    }
 
         extensions.Register("FILE.EXISTS", (args, location) =>
         {
@@ -641,33 +668,6 @@ public partial class OsbShell
             CopyDirectory(resolvedSource, resolvedDest);
             return OslangValue.Null;
         });
-    }
-
-    private static string LookupTranslation(string filePath, string key, string fallback)
-    {
-        foreach (var line in File.ReadAllLines(filePath))
-        {
-            var trimmed = line.Trim();
-            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
-            {
-                continue;
-            }
-
-            var equalsIndex = trimmed.IndexOf('=');
-            if (equalsIndex < 1)
-            {
-                continue;
-            }
-
-            var k = trimmed[..equalsIndex].Trim();
-            var v = trimmed[(equalsIndex + 1)..].Trim();
-            if (k.Equals(key, StringComparison.OrdinalIgnoreCase))
-            {
-                return v;
-            }
-        }
-
-        return fallback;
     }
 
     private static void RequireArgCount(IReadOnlyList<OslangValue> args, int expected, string fnName, SourceLocation location)

@@ -11,6 +11,7 @@ public static class ConfigUtility
         Console.WriteLine();
         Console.WriteLine(I18nService.Get("config.boot_message", cfg.Message));
         Console.WriteLine(I18nService.Get("config.prompt_layout", prompt.Layout));
+        Console.WriteLine(I18nService.Get("config.language", I18nService.CurrentLanguage));
         Console.WriteLine(I18nService.Get("config.exit"));
         Console.WriteLine();
         Console.Write(I18nService.Get("config.choice"));
@@ -35,19 +36,13 @@ public static class ConfigUtility
                 break;
             case "3":
                 Console.WriteLine();
-                Console.WriteLine(I18nService.Get("config.available_markers"));
-                Console.WriteLine(I18nService.Get("config.marker_user"));
-                Console.WriteLine(I18nService.Get("config.marker_hostname"));
-                Console.WriteLine(I18nService.Get("config.marker_pwd"));
-                Console.WriteLine(I18nService.Get("config.marker_date"));
-                Console.WriteLine(I18nService.Get("config.marker_time"));
-                Console.WriteLine(I18nService.Get("config.marker_br"));
-                Console.WriteLine();
-                Console.Write(I18nService.Get("config.new_layout_prompt"));
+                Console.WriteLine(I18nService.Get("config.available_languages"));
+                Console.WriteLine(I18nService.Get("config.language_prompt"));
                 var lang = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
                 if (lang == "PT-BR" || lang == "EN-US")
                 {
                     I18nService.SetLanguage(lang);
+                    Environment.SetEnvironmentVariable("LANGUAGE", lang);
                 }
                 break;
         }

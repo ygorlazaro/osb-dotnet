@@ -187,7 +187,6 @@ TIME = Exibir a hora
 TYPE = Mostra o conteúdo de um arquivo
 USER = Gerencia usuários e autenticação
 VER = Exibe a versão do sistema
-X = Exibe as interfaces do sistema
 Para uma ajuda mais detalhada, utilize o comando seguido de /?
 Exemplo: Para pedir uma ajuda mais detalhada do comando TYPE
 [@] TYPE/?

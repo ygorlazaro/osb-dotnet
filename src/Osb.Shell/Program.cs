@@ -1,16 +1,15 @@
 using Osb.Shell.Kernel;
 
-// OSB - Operating System Basic
-// Shell de linha de comando multiplataforma.
-
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; };
 
-var env = new OsbEnvironment();
-var shell = new OsbShell(env);
+var debugMode = Environment.GetCommandLineArgs().Contains("--debug");
+
+var env = new OsbEnvironment(debugMode);
+var shell = new OsbShell(env, debugMode);
 
 var argsList = Environment.GetCommandLineArgs().Skip(1).ToArray();
-if (argsList.Length > 0)
+if (argsList.Length > 0 && !debugMode)
 {
     var scriptPath = Path.GetFullPath(argsList[0]);
     if (File.Exists(scriptPath))

@@ -380,7 +380,7 @@ public class OshScriptTests
         shell.Execute("cal");
 
         var result = output.ToString();
-        Assert.Contains("Agosto", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("August", result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

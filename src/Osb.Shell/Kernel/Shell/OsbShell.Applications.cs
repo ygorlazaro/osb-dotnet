@@ -5,6 +5,20 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
 {
+    private string GetLocalizedConfigPath(string baseFileName)
+    {
+        var lang = I18nService.CurrentLanguage;
+        if (lang == "EN-US")
+        {
+            var localizedPath = Path.Combine(_env.ConfDir, Path.GetFileNameWithoutExtension(baseFileName) + ".EN-US" + Path.GetExtension(baseFileName));
+            if (File.Exists(localizedPath))
+            {
+                return localizedPath;
+            }
+        }
+
+        return Path.Combine(_env.ConfDir, baseFileName);
+    }
     private void HandleHostname(string args)
     {
         if (string.IsNullOrWhiteSpace(args))
@@ -25,7 +39,7 @@ public partial class OsbShell
 
     private void RunAplic(string arg)
     {
-        var cfgPath = Path.Combine(_env.ConfDir, "APLIC.CFG");
+        var cfgPath = GetLocalizedConfigPath("APLIC.CFG");
         var apps = ConfigFileParser.LoadEntries(cfgPath);
         arg = arg.Trim().ToUpperInvariant();
 
@@ -58,7 +72,7 @@ public partial class OsbShell
 
     private void RunGames(string arg)
     {
-        var cfgPath = Path.Combine(_env.ConfDir, "GAMES.CFG");
+        var cfgPath = GetLocalizedConfigPath("GAMES.CFG");
         var games = ConfigFileParser.LoadEntries(cfgPath);
         arg = arg.Trim().ToUpperInvariant();
 

@@ -113,18 +113,17 @@ CLASS CALENDARAPP
     END FUNCTION
 
     PRIVATE FUNCTION MONTHNAME(Month)
-        Names = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-        RETURN Names[Month - 1]
+        RETURN I18N("calendar.month_" + STR(Month))
     END FUNCTION
 
     PRIVATE FUNCTION WEEKDAYNAME(Weekday)
-        Names = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-        RETURN Names[Weekday]
+        Names = ["calendar.weekday_sunday", "calendar.weekday_monday", "calendar.weekday_tuesday", "calendar.weekday_wednesday", "calendar.weekday_thursday", "calendar.weekday_friday", "calendar.weekday_saturday"]
+        RETURN I18N(Names[Weekday])
     END FUNCTION
 
     PRIVATE FUNCTION GETWEEKDAYFULLNAME(Weekday)
-        Names = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
-        RETURN Names[Weekday]
+        Keys = ["calendar.weekday_full_sunday", "calendar.weekday_full_monday", "calendar.weekday_full_tuesday", "calendar.weekday_full_wednesday", "calendar.weekday_full_thursday", "calendar.weekday_full_friday", "calendar.weekday_full_saturday"]
+        RETURN I18N(Keys[Weekday])
     END FUNCTION
 
     PRIVATE FUNCTION GETDAYSINMONTH(Month, Year)

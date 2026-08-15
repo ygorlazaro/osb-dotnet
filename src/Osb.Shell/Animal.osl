@@ -35,7 +35,7 @@ CLASS Dog: Mammal
 END
 
 FUNCTION MAIN()
-    PRINT "Exemplo de lidar com classes, usando o conceito de animais"
+    PRINT I18N("animal.example")
     fifi = new Dog("Fifi")
     saida = Fifi.GET_SOUND()
     PRINT saida

@@ -16,6 +16,11 @@ public static class I18nService
     {
         LoadLanguage("EN-US");
         LoadLanguage("PT-BR");
+        var envLang = Environment.GetEnvironmentVariable("LANGUAGE");
+        if (!string.IsNullOrWhiteSpace(envLang))
+        {
+            SetLanguage(envLang);
+        }
     }
 
     public static string CurrentLanguage => _currentLanguage;
@@ -43,6 +48,17 @@ public static class I18nService
         }
 
         return string.Format(CultureInfo.InvariantCulture, template, args);
+    }
+
+    public static bool IsAffirmative(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return false;
+        }
+
+        var normalized = answer.Trim().ToUpperInvariant();
+        return normalized is "Y" or "S";
     }
 
     private static string? GetTemplate(string key)
