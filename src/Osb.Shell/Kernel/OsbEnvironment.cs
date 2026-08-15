@@ -61,7 +61,7 @@ public class OsbEnvironment
         if (!File.Exists(aplicPath))
         {
             File.WriteAllText(aplicPath,
-                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\n");
+                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\nTODO\nGerenciador de tarefas\n");
         }
         else
         {
@@ -70,6 +70,11 @@ public class OsbEnvironment
                 .Any(line => line.Equals("TOUR", StringComparison.OrdinalIgnoreCase)))
             {
                 File.AppendAllText(aplicPath, "TOUR\nTour passo a passo do OSB\n");
+            }
+            if (!content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Any(line => line.Equals("TODO", StringComparison.OrdinalIgnoreCase)))
+            {
+                File.AppendAllText(aplicPath, "TODO\nGerenciador de tarefas\n");
             }
         }
 

@@ -29,7 +29,7 @@ public sealed class Compilation
 
     public bool HasErrors => Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);
 
-    public OslangValue Execute(TextWriter output, TextReader input, Action? clear, ExtensionRegistry? extensions = null)
+    public OslangValue Execute(TextWriter output, TextReader input, Action? clear, ExtensionRegistry? extensions = null, IReadOnlyList<OslangValue>? args = null)
     {
         if (HasErrors)
         {
@@ -44,6 +44,6 @@ public sealed class Compilation
         }
 
         var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear);
-        return interpreter.Run();
+        return interpreter.Run(args);
     }
 }

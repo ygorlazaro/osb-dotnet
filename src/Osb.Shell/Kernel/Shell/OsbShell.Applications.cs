@@ -51,6 +51,7 @@ public partial class OsbShell
             case "CAL": Calendar.Show(""); break;
             case "KISS": TextEditor.Run("", _env); break;
             case "TOUR": RunOslFile("APLIC/TOUR/main.osl"); break;
+            case "TODO": RunOslFile("APLIC/TODO/main.osl"); break;
             default: Console.WriteLine("Aplicativo não disponível: " + entry.Name); break;
         }
     }

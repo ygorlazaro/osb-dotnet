@@ -30,7 +30,7 @@ From the command line:
 
 | Line | Meaning |
 |------|---------|
-| `FUNCTION MAIN()` | Defines the program entry point. Every OSLANG program needs exactly one `FUNCTION MAIN()`. |
+| `FUNCTION MAIN()` | Defines the program entry point. Every OSLANG program needs exactly one `FUNCTION MAIN()`. Optionally, it can declare a single `ARRAY` parameter to receive command-line arguments: `FUNCTION MAIN(Args)`. |
 | `PRINT "Hello, World!"` | Outputs text to the console. |
 | `END FUNCTION` | Closes the function definition. |
 

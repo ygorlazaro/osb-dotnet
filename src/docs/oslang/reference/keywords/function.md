@@ -15,7 +15,7 @@ END [FUNCTION]
 
 `FUNCTION` declares a reusable block of code. The optional `FUNCTION` keyword at the end (`END FUNCTION`) can be shortened to just `END`.
 
-Every OSLANG program must have exactly one `FUNCTION MAIN()` as its entry point.
+Every OSLANG program must have exactly one `FUNCTION MAIN()` as its entry point. Optionally, `MAIN` can declare a single `ARRAY` parameter to receive command-line arguments: `FUNCTION MAIN(Args)`.
 
 ## Example
 

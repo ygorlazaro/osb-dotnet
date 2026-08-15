@@ -58,8 +58,8 @@ public class TabCompleterTests
     public void CompletesHistoryTopics()
     {
         var candidates = _completer.GetCandidates("HISTORY D", 9);
-        Assert.Contains("DIR ", candidates);
         Assert.Contains("DATE ", candidates);
+        Assert.Contains("DEL ", candidates);
     }
 
     [Fact]

@@ -88,6 +88,20 @@ Exibe a data do sistema.
 Modo simples de usar: DATE
 -ENDCOMMAND
 
+-DEL
+Exclui arquivos do disco.
+Modo simples de usar: DEL [/S] <mascara>
+
+[@] DEL ARQUIVO.ARQ
+Exclui um arquivo
+
+[@] DEL *.TMP
+Exclui todos os arquivos .TMP
+
+[@] DEL /S *.TMP
+Exclui todos os arquivos .TMP recursivamente
+-ENDCOMMAND
+
 -DIR
 Exibe os arquivos e diretórios, com suporte a filtros e caminhos com espaços.
 Modo simples de usar: DIR [caminho] [/W] [filtro]
@@ -103,20 +117,6 @@ Lista apenas arquivos .TXT
 
 [@] DIR /W *.COM
 Lista em formato wide apenas arquivos .COM
--ENDCOMMAND
-
--DEL
-Exclui arquivos do disco.
-Modo simples de usar: DEL [/S] <mascara>
-
-[@] DEL ARQUIVO.ARQ
-Exclui um arquivo
-
-[@] DEL *.TMP
-Exclui todos os arquivos .TMP
-
-[@] DEL /S *.TMP
-Exclui todos os arquivos .TMP recursivamente
 -ENDCOMMAND
 
 -EXIT
@@ -154,15 +154,16 @@ COPY = Copia arquivos com suporte a curingas
 DATE = Exibir a data
 DEL = Apaga arquivos
 DIR = Mostra os arquivos de um diretório (com filtros)
-EXIT = Desliga, reinicia ou entra no MS-DOS©
+EXIT = Encerra a sessão
 FIND = Busca arquivos por nome ou conteúdo
 GAMES = Mostra os jogos inclusos com OSB
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
 TOUR = Tour passo a passo do OSB
+TODO = Gerenciador de tarefas
 MD = Cria um diretório (aceita espaços)
 MOVE = Move arquivos de um local para outro
-OSL = Executa programas OSLANG 0.2
+OSL = Executa programas OSLANG 0.4
 PRINT = Imprime um arquivo
 PROMPT = Personaliza o layout do prompt
 PWD = Exibe o diretório atual
@@ -176,8 +177,8 @@ USER = Gerencia usuários e autenticação
 VER = Exibe a versão do sistema
 X = Exibe as interfaces do sistema
 Para uma ajuda mais detalhada, utilize o comando seguido de /?
-Exemplo: Para pedir uma ajuda mais detalhada do comando DIR
-[@] DIR/?
+Exemplo: Para pedir uma ajuda mais detalhada do comando TYPE
+[@] TYPE/?
 -ENDCOMMAND
 
 -KISS
@@ -329,6 +330,26 @@ Modo simples de usar: APLIC TOUR
 
 [@] APLIC TOUR
 Executa o tour interativo do sistema
+-ENDCOMMAND
+
+-TODO
+Gerenciador de tarefas.
+Modo simples de usar: TODO [ADD|LIST|DONE|CLEAR] <args>
+
+[@] TODO ADD "comprar leite"
+Adiciona uma tarefa
+
+[@] TODO LIST
+Lista apenas tarefas pendentes
+
+[@] TODO LIST ALL
+Lista todas as tarefas (pendentes e concluídas)
+
+[@] TODO DONE 1
+Marca a tarefa 1 como concluída (adiciona [x])
+
+[@] TODO CLEAR
+Remove todas as tarefas
 -ENDCOMMAND
 
 -TYPE

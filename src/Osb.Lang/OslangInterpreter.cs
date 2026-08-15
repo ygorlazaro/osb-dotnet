@@ -50,7 +50,7 @@ public sealed class OslangInterpreter
     /// Erro léxico, sintático, semântico ou de runtime não capturado por nenhum
     /// TRY/CATCH dentro do próprio programa.
     /// </exception>
-    public OslangValue Execute(string source, TextWriter? output = null, TextReader? input = null, Action? clear = null, string? basePath = null)
+    public OslangValue Execute(string source, TextWriter? output = null, TextReader? input = null, Action? clear = null, string? basePath = null, IReadOnlyList<OslangValue>? args = null)
     {
         var program = ParseSource(source);
         var module = new Module("main", string.Empty, source, program, program.Usings, null);
@@ -59,7 +59,7 @@ public sealed class OslangInterpreter
         var compilation = global::Osb.Lang.Compilation.Compilation.Create(modules, resolver);
         
         _extensions.BasePath = basePath ?? Directory.GetCurrentDirectory();
-        return compilation.Execute(output ?? Console.Out, input ?? Console.In, clear, _extensions);
+        return compilation.Execute(output ?? Console.Out, input ?? Console.In, clear, _extensions, args);
     }
 
     private static OslangProgram ParseSource(string source)

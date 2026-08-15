@@ -461,7 +461,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear)
         {
             return Advance().Text;
         }
@@ -538,6 +538,9 @@ public sealed class Parser
             TokenType.Switch => ParseSwitchStatement(),
             TokenType.Identifier => ParseIdentifierLedStatement(),
             TokenType.Me => ParseMeLedStatement(),
+            TokenType.Math => ParseNamespaceLedStatement(TokenType.Math, "MATH"),
+            TokenType.File => ParseNamespaceLedStatement(TokenType.File, "FILE"),
+            TokenType.Dir => ParseNamespaceLedStatement(TokenType.Dir, "DIR"),
             _ => throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' at start of statement."),
         };
     }
@@ -576,6 +579,14 @@ public sealed class Parser
             return new AssignStmt(target, value, start);
         }
 
+        return new ExpressionStmt(expr, start);
+    }
+
+    private Stmt ParseNamespaceLedStatement(TokenType nsType, string nsName)
+    {
+        var start = Current.Location;
+        Advance(); // consume namespace keyword
+        var expr = ParsePostfixStarting(new NamespaceExpr(nsName, start));
         return new ExpressionStmt(expr, start);
     }
 

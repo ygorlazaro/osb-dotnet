@@ -1,0 +1,121 @@
+' OSLANG 0.41 - TODO Implementation
+CLASS TODOAPP
+
+    PUBLIC FUNCTION RUN(Args)
+        IF COUNT(Args) = 0 THEN
+            ME.LIST(Args)
+            RETURN
+        END
+
+        Command = Args[0].TOUPPER()
+        IF Command = "ADD" THEN
+            IF COUNT(Args) < 2 THEN
+                PRINT "Uso: TODO ADD <tarefa>"
+                RETURN
+            END
+            TaskText = Args[1]
+            FOR I = 2 TO COUNT(Args) - 1
+                TaskText = TaskText + " " + Args[I]
+            END
+            ME.ADD(TaskText)
+        ELIF Command = "LIST" THEN
+            ME.LIST(Args)
+        ELIF Command = "DONE" THEN
+            IF COUNT(Args) < 2 THEN
+                PRINT "Uso: TODO DONE <numero>"
+                RETURN
+            END
+            Index = NUMBER(Args[1])
+            ME.DONE(Index)
+        ELIF Command = "CLEAR" THEN
+            ME.CLEARALL()
+        ELSE
+            PRINT "Comando desconhecido: " + Command
+            PRINT "Uso: TODO [ADD|LIST|DONE|CLEAR] <args>"
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION ADD(TaskText)
+        Tasks = ME.LOAD()
+        Tasks.ADD(TaskText)
+        ME.SAVE(Tasks)
+        PRINT "Tarefa adicionada."
+    END FUNCTION
+
+    PRIVATE FUNCTION LIST(Args)
+        Tasks = ME.LOAD()
+        ShowAll = FALSE
+        IF COUNT(Args) >= 2 AND Args[1].TOUPPER() = "ALL" THEN
+            ShowAll = TRUE
+        END
+        IF COUNT(Tasks) = 0 THEN
+            PRINT "Nenhuma tarefa."
+            RETURN
+        END
+        PRINT "Tarefas:"
+        FOR I = 0 TO COUNT(Tasks) - 1
+            Marker = ""
+            IF Tasks[I].STARTSWITH("[x] ") THEN
+                Marker = " [x]"
+            ELSE
+                Marker = " [ ]"
+            END
+            PRINT STR(I + 1) + Marker + " " + Tasks[I]
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION DONE(Index)
+        Tasks = ME.LOAD()
+        IF Index < 1 OR Index > COUNT(Tasks) THEN
+            PRINT "Indice invalido."
+            RETURN
+        END
+        Task = Tasks[Index - 1]
+        IF Task.STARTSWITH("[x] ") THEN
+            PRINT "Tarefa ja concluida: " + Task
+            RETURN
+        END
+        Tasks[Index - 1] = "[x] " + Task
+        ME.SAVE(Tasks)
+        PRINT "Concluida: " + Task
+    END FUNCTION
+
+    PRIVATE FUNCTION CLEARALL()
+        ME.SAVE([])
+        PRINT "Todas as tarefas removidas."
+    END FUNCTION
+
+    PRIVATE FUNCTION LOAD()
+        Path = ME.FILE_PATH()
+        IF FILE.EXISTS(Path) THEN
+            Content = FILE.READTEXT(Path)
+            IF COUNT(Content) = 0 THEN
+                RETURN []
+            END
+            Lines = Content.SPLIT("\n")
+            Result = []
+            FOR I = 0 TO COUNT(Lines) - 1
+                Line = Lines[I].TRIM()
+                IF COUNT(Line) > 0 THEN
+                    Result.ADD(Line)
+                END
+            END
+            RETURN Result
+        END
+        RETURN []
+    END FUNCTION
+
+    PRIVATE FUNCTION SAVE(Tasks)
+        Path = ME.FILE_PATH()
+        Content = Tasks.JOIN("\n")
+        IF COUNT(Content) > 0 THEN
+            Content = Content + "\n"
+        END
+        FILE.WRITE(Path, Content)
+    END FUNCTION
+
+    PRIVATE FUNCTION FILE_PATH()
+        RETURN DIR.CURRENT() + "/.todo.txt"
+    END FUNCTION
+
+END CLASS

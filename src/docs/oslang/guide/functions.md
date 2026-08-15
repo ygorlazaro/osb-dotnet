@@ -29,6 +29,19 @@ FUNCTION MAIN()
 END FUNCTION
 ```
 
+## MAIN Entry Point with Arguments
+
+OSLANG 0.41 allows `FUNCTION MAIN` to receive command-line arguments:
+
+```osl
+FUNCTION MAIN(Args)
+    PRINT "Args count: " + COUNT(Args)
+    PRINT "First arg: " + Args[0]
+END FUNCTION
+```
+
+`Args` is an ARRAY of STRING containing the arguments passed to the script. This is used by extensible OSB commands implemented in OSLANG.
+
 ## Parameters
 
 Functions can accept parameters with optional type annotations:

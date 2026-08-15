@@ -81,15 +81,24 @@ internal sealed class Interpreter
 
     public IReadOnlyDictionary<string, InterfaceDefinition> GetInterfaces() => _interfaces;
 
-    public OslangValue Run()
+    public OslangValue Run(IReadOnlyList<OslangValue>? args = null)
     {
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
-        if (main.Parameters.Count != 0)
+
+        if (main.Parameters.Count == 0)
         {
-            throw new SemanticException(main.Location, "FUNCTION MAIN() must not declare any parameters.");
+            return CallFunction("MAIN", [], SourceLocation.Unknown);
         }
 
-        return CallFunction("MAIN", [], SourceLocation.Unknown);
+        if (main.Parameters.Count == 1)
+        {
+            var argsArray = args != null
+                ? new ArrayValue(args.ToList(), RuntimeType.String)
+                : new ArrayValue([], RuntimeType.String);
+            return CallFunction("MAIN", [argsArray], SourceLocation.Unknown);
+        }
+
+        throw new SemanticException(main.Location, "FUNCTION MAIN() must declare either no parameters or a single parameter (Args).");
     }
 
     // ============================================================

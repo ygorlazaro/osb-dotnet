@@ -21,18 +21,21 @@ public partial class OsbShell
             return;
         }
 
-        var path = PathResolver.Resolve(args.Trim());
+        RunOslScript(PathResolver.Resolve(args.Trim()), []);
+    }
 
-        if (!File.Exists(path))
+    private void RunOslScript(string scriptPath, IReadOnlyList<string> commandArgs)
+    {
+        if (!File.Exists(scriptPath))
         {
-            Console.WriteLine($"Arquivo não encontrado: {args}");
+            Console.WriteLine($"Arquivo não encontrado: {scriptPath}");
             return;
         }
 
         string source;
         try
         {
-            source = File.ReadAllText(path);
+            source = File.ReadAllText(scriptPath);
         }
         catch (Exception ex)
         {
@@ -46,8 +49,9 @@ public partial class OsbShell
 
         try
         {
-            var basePath = Path.GetDirectoryName(path) ?? string.Empty;
-            interpreter.Execute(source, Console.Out, Console.In, Console.Clear, basePath);
+            var basePath = Path.GetDirectoryName(scriptPath) ?? string.Empty;
+            var oslArgs = commandArgs.Select(a => new StringValue(a)).ToList();
+            interpreter.Execute(source, Console.Out, Console.In, Console.Clear, basePath, oslArgs);
         }
         catch (OslangException ex)
         {
@@ -57,6 +61,19 @@ public partial class OsbShell
         {
             Console.WriteLine("Erro inesperado ao executar o script: " + ex.Message);
         }
+    }
+
+    private bool TryRunOslCommand(string commandName, string args)
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "COMMANDS", commandName.ToUpperInvariant(), "main.osl");
+        if (!File.Exists(scriptPath))
+        {
+            return false;
+        }
+
+        var parsedArgs = ParseArgList(args);
+        RunOslScript(scriptPath, parsedArgs);
+        return true;
     }
 
     /// <summary>
@@ -124,13 +141,6 @@ public partial class OsbShell
         {
             RequireArgCount(args, 0, "PWD", location);
             return new StringValue(Directory.GetCurrentDirectory());
-        });
-
-        extensions.Register("DIR", (args, location) =>
-        {
-            var target = args.Count > 0 ? RequireStringArg(args, 0, "DIR", location) : "";
-            ListDirectory(target);
-            return OslangValue.Null;
         });
 
         extensions.Register("CD", (args, location) =>

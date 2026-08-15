@@ -29,7 +29,7 @@ An OSLANG program consists of:
 3. Functions.
 4. Classes and interfaces.
 5. Events.
-6. The entry point: `FUNCTION MAIN()`.
+6. The entry point: `FUNCTION MAIN()` (or `FUNCTION MAIN(Args)` to receive command-line arguments as an ARRAY).
 
 Example:
 

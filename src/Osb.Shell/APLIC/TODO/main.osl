@@ -1,0 +1,7 @@
+' OSLANG 0.41 - TODO App Entry Point
+USING Todo
+
+FUNCTION MAIN()
+    App = NEW TODOAPP()
+    App.RUN([])
+END FUNCTION

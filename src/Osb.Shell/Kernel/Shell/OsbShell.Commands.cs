@@ -84,8 +84,6 @@ public partial class OsbShell
                 handled = true; break;
             case "DIR":
                 ListDirectory(args); handled = true; break;
-            case "PWD":
-                Console.WriteLine(Directory.GetCurrentDirectory()); handled = true; break;
             case "DEL":
                 DeleteFiles(args); handled = true; break;
             case "EXIT":
@@ -118,6 +116,8 @@ public partial class OsbShell
                 PrintFile(args); handled = true; break;
             case "PROMPT":
                 SetPromptLayout(args); handled = true; break;
+            case "PWD":
+                Console.WriteLine(Directory.GetCurrentDirectory()); handled = true; break;
             case "RD":
                 RemoveDirectory(args); handled = true; break;
             case "REN":
@@ -170,7 +170,11 @@ public partial class OsbShell
                     }
                 }
 
-                handled = RunExternal(raw);
+                handled = TryRunOslCommand(cmdPart, firstSpace < 0 ? "" : raw[(firstSpace + 1)..].Trim());
+                if (!handled)
+                {
+                    handled = RunExternal(raw);
+                }
                 break;
             }
         }

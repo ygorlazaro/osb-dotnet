@@ -1,0 +1,7 @@
+' OSLANG 0.4 - Hangman Game Entry Point
+USING HangmanGame
+
+FUNCTION MAIN()
+    Game = NEW HANGMANGAME()
+    Game.PLAY()
+END FUNCTION

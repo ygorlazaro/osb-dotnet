@@ -1,0 +1,7 @@
+' OSLANG 0.4 - Tour do OSB Entry Point
+USING Tour
+
+FUNCTION MAIN()
+    App = NEW TOUR()
+    App.SHOW("")
+END FUNCTION
