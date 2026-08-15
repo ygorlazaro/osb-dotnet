@@ -29,7 +29,7 @@ public sealed class Compilation
 
     public bool HasErrors => Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);
 
-    public OslangValue Execute(TextWriter output, TextReader input, Action? clear)
+    public OslangValue Execute(TextWriter output, TextReader input, Action? clear, ExtensionRegistry? extensions = null)
     {
         if (HasErrors)
         {
@@ -43,7 +43,7 @@ public sealed class Compilation
             throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
         }
 
-        var interpreter = new Interpreter(this, new ExtensionRegistry(), output, input, clear);
+        var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear);
         return interpreter.Run();
     }
 }

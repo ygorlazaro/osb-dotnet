@@ -18,6 +18,9 @@ public sealed class ExtensionRegistry
 {
     private readonly Dictionary<string, Func<IReadOnlyList<OslangValue>, SourceLocation, OslangValue>> _functions = new();
 
+    /// <summary>Base path do script em execução, usado por extensões como READLINES para resolver caminhos relativos.</summary>
+    public string? BasePath { get; set; }
+
     /// <summary>Registra uma função host, exposta a OSLANG pelo nome informado (case-insensitive).</summary>
     public void Register(string name, Func<IReadOnlyList<OslangValue>, SourceLocation, OslangValue> implementation)
     {

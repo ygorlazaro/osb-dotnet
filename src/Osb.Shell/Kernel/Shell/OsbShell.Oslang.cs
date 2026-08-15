@@ -160,6 +160,83 @@ public partial class OsbShell
             TypeFile(file);
             return OslangValue.Null;
         });
+
+        extensions.Register("RANDOM", (args, location) =>
+        {
+            RequireArgCount(args, 1, "RANDOM", location);
+            var max = (int)RequireNumberArg(args, 0, "RANDOM", location);
+            if (max <= 0)
+            {
+                throw new OslangRuntimeException(location, "RANDOM() max must be greater than 0.");
+            }
+            var rnd = new Random();
+            return new NumberValue(rnd.Next(max));
+        });
+
+        extensions.Register("READLINES", (args, location) =>
+        {
+            RequireArgCount(args, 1, "READLINES", location);
+            var path = RequireStringArg(args, 0, "READLINES", location);
+            var resolvedPath = path;
+            if (!Path.IsPathFullyQualified(path) && !string.IsNullOrEmpty(extensions.BasePath))
+            {
+                var candidate = Path.GetFullPath(Path.Combine(extensions.BasePath, path));
+                if (File.Exists(candidate))
+                {
+                    resolvedPath = candidate;
+                }
+            }
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"READLINES() file not found: {path}");
+            }
+            var lines = File.ReadAllLines(resolvedPath)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var items = lines.Select(l => (OslangValue)new StringValue(l)).ToList();
+            return new ArrayValue(items, RuntimeType.String);
+        });
+
+        extensions.Register("CHARAT", (args, location) =>
+        {
+            RequireArgCount(args, 2, "CHARAT", location);
+            var str = RequireStringArg(args, 0, "CHARAT", location);
+            var index = (int)RequireNumberArg(args, 1, "CHARAT", location);
+            if (index < 0 || index >= str.Length)
+            {
+                throw new OslangRuntimeException(location, "CHARAT() index out of range.");
+            }
+            return new StringValue(str[index].ToString());
+        });
+
+        extensions.Register("UCASE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "UCASE", location);
+            var str = RequireStringArg(args, 0, "UCASE", location);
+            return new StringValue(str.ToUpperInvariant());
+        });
+
+        extensions.Register("NORMALIZE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "NORMALIZE", location);
+            var text = RequireStringArg(args, 0, "NORMALIZE", location);
+            var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+            var builder = new System.Text.StringBuilder();
+            foreach (var ch in normalized)
+            {
+                var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    builder.Append(ch);
+                }
+            }
+            var result = builder.ToString().Normalize(System.Text.NormalizationForm.FormC)
+                .Replace('Ç', 'C')
+                .Replace('ç', 'C');
+            return new StringValue(result.ToUpperInvariant());
+        });
     }
 
     private static void RequireArgCount(IReadOnlyList<OslangValue> args, int expected, string fnName, SourceLocation location)
@@ -183,5 +260,20 @@ public partial class OsbShell
         }
 
         return s.Value;
+    }
+
+    private static double RequireNumberArg(IReadOnlyList<OslangValue> args, int index, string fnName, SourceLocation location)
+    {
+        if (index >= args.Count)
+        {
+            throw new OslangRuntimeException(location, $"{fnName}() expects at least {index + 1} argument(s).");
+        }
+
+        if (args[index] is not NumberValue n)
+        {
+            throw new OslangRuntimeException(location, $"{fnName}() expects a NUMBER argument, got {args[index].TypeName}.");
+        }
+
+        return n.Value;
     }
 }

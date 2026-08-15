@@ -1070,16 +1070,19 @@ public sealed class Parser
         var start = Current.Location;
         Advance(); // '['
         var elements = new List<Expr>();
+        SkipNewlines();
         if (!Check(TokenType.RBracket))
         {
             elements.Add(ParseExpression());
             while (Check(TokenType.Comma))
             {
                 Advance();
+                SkipNewlines();
                 elements.Add(ParseExpression());
             }
         }
 
+        SkipNewlines();
         Expect(TokenType.RBracket, "Expected ']' to close array literal.");
         return new ArrayLiteralExpr(elements, start);
     }

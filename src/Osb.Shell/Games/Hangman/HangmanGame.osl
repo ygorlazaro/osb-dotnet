@@ -1,0 +1,169 @@
+' OSLANG 0.3 - Hangman Game Module
+' First internal OSLANG app for OSB
+
+CLASS HANGMANGAME
+
+    VAR Words
+    VAR Word
+    VAR Guessed
+    VAR Errors
+    VAR MaxErrors
+    VAR Stages
+
+    CONSTRUCTOR()
+        ME.Words = READLINES("../../CONF/HANGMAN.WDS")
+        ME.MaxErrors = 7
+        ME.Guessed = ""
+        ME.Errors = 0
+        ME.Stages = [
+            ["", "", "", "", "", "========="],
+            ["  |", "  |", "  |", "  |", "  |", "========="],
+            ["  +---+", "  |", "  |", "  |", "  |", "  |", "========="],
+            ["  +---+", "  |   |", "  |", "  |", "  |", "  |", "========="],
+            ["  +---+", "  |   |", "  |   O", "  |", "  |", "  |", "========="],
+            ["  +---+", "  |   |", "  |   O", "  |   |", "  |", "  |", "========="],
+            ["  +---+", "  |   |", "  |   O", "  |  /|\\", "  |", "  |", "========="],
+            ["  +---+", "  |   |", "  |   O", "  |  /|\\", "  |  / \\", "  |", "========="]
+        ]
+    END CONSTRUCTOR
+
+    PUBLIC FUNCTION PLAY()
+        IF COUNT(ME.Words) = 0 THEN
+            PRINT "Nenhuma palavra disponivel para o jogo HANGMAN."
+            RETURN
+        END
+
+        Index = RANDOM(COUNT(ME.Words))
+        ME.Word = ME.Words[Index]
+        ME.Guessed = ""
+        ME.Errors = 0
+
+        PRINT ""
+        PRINT "*** JOGO DA FORCA ***"
+        PRINT "Tente adivinhar a palavra letra por letra."
+        PRINT ""
+
+        WHILE ME.Errors < ME.MaxErrors
+            CLEAR
+            PRINT "*** JOGO DA FORCA ***"
+            PRINT ""
+            ME.DRAW_STAGE()
+            PRINT ""
+            ME.DRAW_WORD()
+            PRINT ""
+            PRINT "Erros: " + STR(ME.Errors) + "/" + STR(ME.MaxErrors)
+            PRINT "Letras ja tentadas: " + ME.GET_GUESSED_STRING()
+
+            Display = ME.GET_DISPLAY()
+            IF ME.GET_HIDDEN_COUNT(Display) = 0 THEN
+                PRINT ""
+                PRINT "Voce ganhou! A palavra era: " + ME.Word
+                RETURN
+            END
+
+            PRINT ""
+            PRINT "Digite uma letra (ou 0 para sair): "
+            INPUT Guess
+            IF Guess = "0" OR COUNT(Guess) = 0 THEN
+                RETURN
+            END
+
+            Letter = UCASE(Guess)
+            IF COUNT(Letter) <> 1 THEN
+                CONTINUE
+            END
+
+            IF ME.HAS_GUESSED(Letter) THEN
+                CONTINUE
+            END
+
+            ME.ADD_GUESSED(Letter)
+            IF ME.CONTAINS_LETTER(NORMALIZE(ME.Word), Letter) = FALSE THEN
+                ME.Errors = ME.Errors + 1
+            END
+        END
+
+        CLEAR
+        PRINT "*** JOGO DA FORCA ***"
+        PRINT ""
+        ME.DRAW_STAGE()
+        PRINT ""
+        PRINT "Voce perdeu! A palavra era: " + ME.Word
+    END FUNCTION
+
+    PUBLIC FUNCTION DRAW_STAGE()
+        Stage = ME.Stages[ME.Errors]
+        FOR I = 0 TO COUNT(Stage) - 1
+            PRINT Stage[I]
+        END
+    END FUNCTION
+
+    PUBLIC FUNCTION DRAW_WORD()
+        Display = ME.GET_DISPLAY()
+        FOR I = 0 TO COUNT(Display) - 1
+            IF I > 0 THEN
+                PRINT " "
+            END
+            PRINT CHARAT(Display, I)
+        END
+        PRINT ""
+    END FUNCTION
+
+    PUBLIC FUNCTION GET_DISPLAY()
+        Result = ""
+        WordLen = COUNT(ME.Word)
+        FOR I = 0 TO WordLen - 1
+            NormalizedChar = NORMALIZE(CHARAT(ME.Word, I))
+            IF ME.HAS_GUESSED(NormalizedChar) THEN
+                Result = Result + CHARAT(ME.Word, I)
+            ELSE
+                Result = Result + "_"
+            END
+        END
+        RETURN Result
+    END FUNCTION
+
+    PUBLIC FUNCTION GET_HIDDEN_COUNT(Display)
+        HiddenCount = 0
+        FOR I = 0 TO COUNT(Display) - 1
+            IF CHARAT(Display, I) = "_" THEN
+                HiddenCount = HiddenCount + 1
+            END
+        END
+        RETURN HiddenCount
+    END FUNCTION
+
+    PUBLIC FUNCTION HAS_GUESSED(Letter)
+        FOR I = 0 TO COUNT(ME.Guessed) - 1
+            IF CHARAT(ME.Guessed, I) = Letter THEN
+                RETURN TRUE
+            END
+        END
+        RETURN FALSE
+    END FUNCTION
+
+    PUBLIC FUNCTION ADD_GUESSED(Letter)
+        ME.Guessed = ME.Guessed + Letter
+    END FUNCTION
+
+    PUBLIC FUNCTION GET_GUESSED_STRING()
+        IF COUNT(ME.Guessed) = 0 THEN
+            RETURN ""
+        END
+        Result = CHARAT(ME.Guessed, 0)
+        FOR I = 1 TO COUNT(ME.Guessed) - 1
+            Result = Result + ", " + CHARAT(ME.Guessed, I)
+        END
+        RETURN Result
+    END FUNCTION
+
+    PUBLIC FUNCTION CONTAINS_LETTER(Word, Letter)
+        FOR I = 0 TO COUNT(Word) - 1
+            IF CHARAT(Word, I) = Letter THEN
+                RETURN TRUE
+            END
+        END
+        RETURN FALSE
+    END FUNCTION
+
+END CLASS

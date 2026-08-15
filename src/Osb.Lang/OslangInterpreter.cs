@@ -58,7 +58,8 @@ public sealed class OslangInterpreter
         var resolver = new FilesystemModuleResolver(basePath ?? Directory.GetCurrentDirectory());
         var compilation = global::Osb.Lang.Compilation.Compilation.Create(modules, resolver);
         
-        return compilation.Execute(output ?? Console.Out, input ?? Console.In, clear);
+        _extensions.BasePath = basePath ?? Directory.GetCurrentDirectory();
+        return compilation.Execute(output ?? Console.Out, input ?? Console.In, clear, _extensions);
     }
 
     private static OslangProgram ParseSource(string source)
