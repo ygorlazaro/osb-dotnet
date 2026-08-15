@@ -66,7 +66,8 @@ public partial class OsbShell
             case "APLIC":
                 RunAplic(args); handled = true; break;
             case "CAL":
-                Calendar.Show(args); handled = true; break;
+                handled = TryRunOslCommand("CAL", args);
+                break;
             case "CD":
                 ChangeDirectory(args); handled = true; break;
             case "CLS":

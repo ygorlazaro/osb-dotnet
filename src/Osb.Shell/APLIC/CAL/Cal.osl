@@ -1,0 +1,168 @@
+' OSLANG 0.41 - Calendar Implementation
+CLASS CALENDARAPP
+
+    PUBLIC FUNCTION RUN(Args)
+        IF COUNT(Args) = 0 THEN
+            ME.SHOWMONTH(ME.NOW_MONTH(), ME.NOW_YEAR())
+            RETURN
+        END
+
+        IF COUNT(Args) = 1 THEN
+            TRY
+                Value = NUMBER(Args[0])
+            CATCH ERR
+                PRINT "Uso: CAL [mês] [ano]  ou  CAL <ano>"
+                RETURN
+            END
+            IF Value >= 1 AND Value <= 12 THEN
+                ME.SHOWMONTH(Value, ME.NOW_YEAR())
+            ELSE
+                ME.SHOWYEAR(Value)
+            END
+            RETURN
+        END
+
+        IF COUNT(Args) >= 2 THEN
+            Month = NUMBER(Args[0])
+            Year = NUMBER(Args[1])
+            ME.SHOWMONTH(Month, Year)
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_YEAR()
+        Now = NOW()
+        RETURN Now[0]
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_MONTH()
+        Now = NOW()
+        RETURN Now[1]
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_DAY()
+        Now = NOW()
+        RETURN Now[2]
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_HOUR()
+        Now = NOW()
+        RETURN Now[3]
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_MINUTE()
+        Now = NOW()
+        RETURN Now[4]
+    END FUNCTION
+
+    PRIVATE FUNCTION NOW_SECOND()
+        Now = NOW()
+        RETURN Now[5]
+    END FUNCTION
+
+    PRIVATE FUNCTION SHOWYEAR(Year)
+        FOR Month = 1 TO 12
+            ME.SHOWMONTH(Month, Year)
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION SHOWMONTH(Month, Year)
+        PRINT ""
+        PRINT "   " + ME.MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
+        PRINT "Dom Seg Ter Qua Qui Sex Sáb"
+
+        FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
+        DaysInMonth = ME.GETDAYSINMONTH(Month, Year)
+        TodayDay = ME.NOW_DAY()
+        TodayMonth = ME.NOW_MONTH()
+        TodayYear = ME.NOW_YEAR()
+
+        IF FirstDay > 0 THEN
+            Pad = ""
+            FOR I = 1 TO FirstDay * 4
+                Pad = Pad + " "
+            END
+            PRINT Pad
+        END
+
+        FOR Day = 1 TO DaysInMonth
+            IsToday = (Day = TodayDay AND Month = TodayMonth AND Year = TodayYear)
+            IF IsToday THEN
+                PRINT "[" + ME.PADLEFT(STR(Day), 2) + "]"
+            ELSE
+                PRINT " " + ME.PADLEFT(STR(Day), 2) + " "
+            END
+
+            IF (Day + FirstDay) % 7 = 0 THEN
+                PRINT ""
+            END
+        END
+        PRINT ""
+
+        IF Month = TodayMonth AND Year = TodayYear THEN
+            TodayWeekdayIndex = (FirstDay + TodayDay - 1) % 7
+            TodayWeekday = ME.GETWEEKDAYFULLNAME(TodayWeekdayIndex)
+            Hour = ME.PADLEFT(STR(ME.NOW_HOUR()), 2)
+            Minute = ME.PADLEFT(STR(ME.NOW_MINUTE()), 2)
+            Second = ME.PADLEFT(STR(ME.NOW_SECOND()), 2)
+            PRINT "Hoje: " + TodayWeekday + ", " + ME.PADLEFT(STR(TodayDay), 2) + "/" + ME.PADLEFT(STR(TodayMonth), 2) + "/" + STR(TodayYear) + " " + Hour + ":" + Minute + ":" + Second
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION MONTHNAME(Month)
+        Names = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+        RETURN Names[Month - 1]
+    END FUNCTION
+
+    PRIVATE FUNCTION WEEKDAYNAME(Weekday)
+        Names = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+        RETURN Names[Weekday]
+    END FUNCTION
+
+    PRIVATE FUNCTION GETWEEKDAYFULLNAME(Weekday)
+        Names = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
+        RETURN Names[Weekday]
+    END FUNCTION
+
+    PRIVATE FUNCTION GETDAYSINMONTH(Month, Year)
+        IF Month = 2 THEN
+            IF (Year % 400 = 0) OR ((Year % 4 = 0) AND (Year % 100 <> 0)) THEN
+                RETURN 29
+            END
+            RETURN 28
+        END
+        IF Month = 4 OR Month = 6 OR Month = 9 OR Month = 11 THEN
+            RETURN 30
+        END
+        RETURN 31
+    END FUNCTION
+
+    PRIVATE FUNCTION GETFIRSTDAYOFWEEK(Month, Year)
+        M = Month
+        Y = Year
+        IF M <= 2 THEN
+            M = M + 12
+            Y = Y - 1
+        END
+        Q = 1
+        K = Y % 100
+        J = (Y / 100).FLOOR()
+        H = (Q + ((13 * (M + 1)) / 5).FLOOR() + K + (K / 4).FLOOR() + (J / 4).FLOOR() + 5 * J) % 7
+        IF H = 0 THEN
+            RETURN 6
+        END
+        RETURN H - 1
+    END FUNCTION
+
+    PRIVATE FUNCTION PADLEFT(Text, Width)
+        Len = COUNT(Text)
+        IF Len >= Width THEN
+            RETURN Text
+        END
+        Pad = ""
+        FOR I = 1 TO Width - Len
+            Pad = Pad + " "
+        END
+        RETURN Pad + Text
+    END FUNCTION
+
+END CLASS

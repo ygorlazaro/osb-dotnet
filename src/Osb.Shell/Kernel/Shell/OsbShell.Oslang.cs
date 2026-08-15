@@ -143,6 +143,40 @@ public partial class OsbShell
             return new StringValue(Directory.GetCurrentDirectory());
         });
 
+        extensions.Register("NOW", (args, location) =>
+        {
+            RequireArgCount(args, 0, "NOW", location);
+            var now = DateTime.Now;
+            return new ArrayValue([
+                new NumberValue(now.Year),
+                new NumberValue(now.Month),
+                new NumberValue(now.Day),
+                new NumberValue(now.Hour),
+                new NumberValue(now.Minute),
+                new NumberValue(now.Second)
+            ], RuntimeType.Number);
+        });
+
+        extensions.Register("MONTHNAME", (args, location) =>
+        {
+            RequireArgCount(args, 1, "MONTHNAME", location);
+            var month = (int)RequireNumberArg(args, 0, "MONTHNAME", location);
+            var names = new[] {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
+            if (month < 1 || month > 12)
+                throw new OslangRuntimeException(location, $"MONTHNAME() month must be 1-12");
+            return new StringValue(names[month - 1]);
+        });
+
+        extensions.Register("WEEKDAYNAME", (args, location) =>
+        {
+            RequireArgCount(args, 1, "WEEKDAYNAME", location);
+            var weekday = (int)RequireNumberArg(args, 0, "WEEKDAYNAME", location);
+            var names = new[] {"Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"};
+            if (weekday < 0 || weekday > 6)
+                throw new OslangRuntimeException(location, $"WEEKDAYNAME() weekday must be 0-6");
+            return new StringValue(names[weekday]);
+        });
+
         extensions.Register("CD", (args, location) =>
         {
             var target = RequireStringArg(args, 0, "CD", location);

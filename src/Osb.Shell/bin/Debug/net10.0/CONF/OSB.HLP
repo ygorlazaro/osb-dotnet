@@ -23,8 +23,20 @@ Executar o aplicativo KISS
 -ENDCOMMAND
 
 -CAL
-Exibe um calendário
-Modo simples de usar: CAL
+Exibe um calendário em tempo real.
+Modo simples de usar: CAL [mês] [ano]  ou  CAL <ano>
+
+[@] CAL
+Abre o calendário do mês atual
+
+[@] CAL 8
+Abre o calendário de agosto do ano atual
+
+[@] CAL 2026
+Abre o calendário completo do ano 2026
+
+[@] CAL 8 2026
+Abre o calendário de agosto de 2026
 -ENDCOMMAND
 
 -CD

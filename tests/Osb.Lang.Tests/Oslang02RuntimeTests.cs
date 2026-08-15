@@ -581,5 +581,35 @@ END FUNCTION";
             try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public void PrivateMethod_MeCall_FromSameClass_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS CALENDARAPP
+    PUBLIC FUNCTION RUN(Args)
+        ME.SHOWMONTH(8, 2026)
+    END FUNCTION
+
+    PRIVATE FUNCTION SHOWMONTH(Month, Year)
+        PRINT ""Month: "" + STR(Month)
+        FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
+        PRINT ""FirstDay: "" + STR(FirstDay)
+    END FUNCTION
+
+    PRIVATE FUNCTION GETFIRSTDAYOFWEEK(Month, Year)
+        RETURN 1
+    END FUNCTION
+END CLASS
+
+FUNCTION MAIN(Args)
+    App = NEW CALENDARAPP()
+    App.RUN(Args)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Contains("FirstDay: 1", output.ToString());
+    }
 }
 

@@ -1,9 +1,5 @@
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/.msCoverageSourceRootsMapping_Osb.Lang.Tests
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/CoverletSourceRootsMapping_Osb.Lang.Tests
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.AssemblyReference.cache
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.GeneratedMSBuildEditorConfig.editorconfig
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfoInputs.cache
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfo.cs
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/xunit.abstractions.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/xunit.runner.visualstudio.testadapter.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/Osb.Lang.Tests.deps.json
@@ -90,11 +86,15 @@
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/zh-Hant/Microsoft.VisualStudio.TestPlatform.Common.resources.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/Osb.Lang.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/Osb.Lang.pdb
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.AssemblyReference.cache
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.GeneratedMSBuildEditorConfig.editorconfig
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfoInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfo.cs
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.sourcelink.json
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.DF6948F2.Up2Date
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/refint/Osb.Lang.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.pdb
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.genruntimeconfig.cache
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/ref/Osb.Lang.Tests.dll
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.CoreCompileInputs.cache
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.sourcelink.json

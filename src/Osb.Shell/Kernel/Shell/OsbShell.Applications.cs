@@ -48,7 +48,7 @@ public partial class OsbShell
 
         switch (entry.Name.ToUpperInvariant())
         {
-            case "CAL": Calendar.Show(""); break;
+            case "CAL": RunOslFile("APLIC/CAL/main.osl"); break;
             case "KISS": TextEditor.Run("", _env); break;
             case "TOUR": RunOslFile("APLIC/TOUR/main.osl"); break;
             case "TODO": RunOslFile("APLIC/TODO/main.osl"); break;

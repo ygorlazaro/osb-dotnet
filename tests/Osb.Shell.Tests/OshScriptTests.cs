@@ -364,4 +364,22 @@ public class OshScriptTests
             Directory.Delete(tempDir);
         }
     }
+
+    [Fact]
+    public void Execute_CalCommand_RendersCalendar()
+    {
+        var env = new OsbEnvironment();
+        env.Users.Add(UniqueUser, "testpass", out _);
+        env.SetCurrentUsername(UniqueUser);
+        var shell = new OsbShell(env);
+
+        var output = new StringWriter();
+        Console.SetOut(output);
+
+        shell.Execute("USER " + UniqueUser + " testpass");
+        shell.Execute("cal");
+
+        var result = output.ToString();
+        Assert.Contains("Agosto", result, StringComparison.OrdinalIgnoreCase);
+    }
 }
