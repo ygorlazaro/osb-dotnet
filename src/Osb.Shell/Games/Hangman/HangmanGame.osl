@@ -11,7 +11,7 @@ CLASS HANGMANGAME
     VAR Stages
 
     CONSTRUCTOR()
-        ME.Words = READLINES("../../CONF/HANGMAN.WDS")
+        ME.Words = FILE.READ("../../CONF/HANGMAN.WDS")
         ME.MaxErrors = 7
         ME.Guessed = ""
         ME.Errors = 0
@@ -33,7 +33,7 @@ CLASS HANGMANGAME
             RETURN
         END
 
-        Index = RANDOM(COUNT(ME.Words))
+        Index = MATH.RANDOM(0, COUNT(ME.Words) - 1)
         ME.Word = ME.Words[Index]
         ME.Guessed = ""
         ME.Errors = 0
@@ -78,7 +78,7 @@ CLASS HANGMANGAME
             END
 
             ME.ADD_GUESSED(Letter)
-            IF ME.CONTAINS_LETTER(NORMALIZE(ME.Word), Letter) = FALSE THEN
+            IF ME.CONTAINS_LETTER(ME.Word.NORMALIZE(), Letter) = FALSE THEN
                 ME.Errors = ME.Errors + 1
             END
         END
@@ -105,7 +105,7 @@ CLASS HANGMANGAME
             IF I > 0 THEN
                 Result = Result + " "
             END
-            Result = Result + CHARAT(Display, I)
+            Result = Result + Display.SUBSTR(I, 1)
         END
         PRINT Result
     END FUNCTION
@@ -114,9 +114,9 @@ CLASS HANGMANGAME
         Result = ""
         WordLen = COUNT(ME.Word)
         FOR I = 0 TO WordLen - 1
-            NormalizedChar = NORMALIZE(CHARAT(ME.Word, I))
+            NormalizedChar = ME.Word.SUBSTR(I, 1).NORMALIZE()
             IF ME.HAS_GUESSED(NormalizedChar) THEN
-                Result = Result + CHARAT(ME.Word, I)
+                Result = Result + ME.Word.SUBSTR(I, 1)
             ELSE
                 Result = Result + "_"
             END
@@ -127,7 +127,7 @@ CLASS HANGMANGAME
     PUBLIC FUNCTION GET_HIDDEN_COUNT(Display)
         HiddenCount = 0
         FOR I = 0 TO COUNT(Display) - 1
-            IF CHARAT(Display, I) = "_" THEN
+            IF Display.SUBSTR(I, 1) = "_" THEN
                 HiddenCount = HiddenCount + 1
             END
         END
@@ -136,7 +136,7 @@ CLASS HANGMANGAME
 
     PUBLIC FUNCTION HAS_GUESSED(Letter)
         FOR I = 0 TO COUNT(ME.Guessed) - 1
-            IF CHARAT(ME.Guessed, I) = Letter THEN
+            IF ME.Guessed.SUBSTR(I, 1) = Letter THEN
                 RETURN TRUE
             END
         END
@@ -151,16 +151,16 @@ CLASS HANGMANGAME
         IF COUNT(ME.Guessed) = 0 THEN
             RETURN ""
         END
-        Result = CHARAT(ME.Guessed, 0)
+        Result = ME.Guessed.SUBSTR(0, 1)
         FOR I = 1 TO COUNT(ME.Guessed) - 1
-            Result = Result + ", " + CHARAT(ME.Guessed, I)
+            Result = Result + ", " + ME.Guessed.SUBSTR(I, 1)
         END
         RETURN Result
     END FUNCTION
 
     PUBLIC FUNCTION CONTAINS_LETTER(Word, Letter)
         FOR I = 0 TO COUNT(Word) - 1
-            IF CHARAT(Word, I) = Letter THEN
+            IF Word.SUBSTR(I, 1) = Letter THEN
                 RETURN TRUE
             END
         END

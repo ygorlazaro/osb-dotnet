@@ -3,11 +3,11 @@ const vscode = require('vscode');
 const KEYWORDS = [
   'AND', 'BASE', 'BOOL', 'BOOLEAN', 'BREAK', 'CATCH', 'CLASS', 'CONSTRUCTOR',
   'CONTINUE', 'COUNT', 'DO', 'ELIF', 'ELSE', 'END', 'FALSE', 'FLOOR', 'FOR',
-  'FUNCTION', 'GLOBAL', 'IF', 'INPUT', 'INTERFACE', 'ME', 'NEW', 'NOT', 'NULL',
+  'FUNCTION', 'GLOBAL', 'IF', 'INPUT', 'INTERFACE', 'KISS', 'ME', 'NEW', 'NOT', 'NULL',
   'NUMBER', 'OR', 'PRINT', 'PRIVATE', 'PROTECTED', 'PUBLIC', 'RETURN', 'SQRT',
   'STEP', 'STR', 'STRING', 'SWITCH', 'CASE', 'DEFAULT', 'THEN', 'TO', 'TRUE',
   'TRY', 'TYPEOF', 'USING', 'VAR', 'VIRTUAL', 'OVERRIDE', 'EVENT', 'ON', 'RAISE',
-  'WHILE', 'OBJECT'
+  'WHILE', 'OBJECT', 'TYPE', 'CLS', 'CLEAR', 'MATH', 'FILE', 'DIR'
 ];
 
 const BUILTINS = [

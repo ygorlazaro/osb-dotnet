@@ -49,7 +49,7 @@ END FUNCTION
 
 ## Constraints
 
-In OSLANG 0.3, generic type parameters have no explicit constraints. Any type can be substituted.
+In OSLANG 0.4, generic type parameters have no explicit constraints. Any type can be substituted.
 
 ## Related Topics
 

@@ -22,7 +22,7 @@ Welcome to the official OSLANG documentation. OSLANG is a BASIC-inspired, interp
 
 ## Specification
 
-- **[OSLANG 0.3 Specification](/src/Osb.Lang/OSLANG-0.3-SPEC.md)** — Full language specification.
+- **[OSLANG 0.4 Specification](/src/Osb.Lang/OSLANG-0.4-SPEC.md)** — Full language specification.
 
 ## Contributing
 

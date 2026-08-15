@@ -42,6 +42,9 @@ public static class PrimitiveMethodDispatcher
             case "TOUPPER":
                 EnsureArgCount(args, 0, methodName, location);
                 return new StringValue(s.Value.ToUpperInvariant());
+            case "NORMALIZE":
+                EnsureArgCount(args, 0, methodName, location);
+                return NormalizeString(s.Value, location);
             case "TOLOWER":
                 EnsureArgCount(args, 0, methodName, location);
                 return new StringValue(s.Value.ToLowerInvariant());
@@ -359,5 +362,23 @@ public static class PrimitiveMethodDispatcher
         }
 
         throw new InvalidOperationException($"Cannot compare {left.TypeName} and {right.TypeName}.");
+    }
+
+    private static StringValue NormalizeString(string value, SourceLocation location)
+    {
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder();
+        foreach (var ch in normalized)
+        {
+            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(ch);
+            }
+        }
+        var result = builder.ToString().Normalize(System.Text.NormalizationForm.FormC)
+            .Replace('Ç', 'C')
+            .Replace('ç', 'C');
+        return new StringValue(result.ToUpperInvariant());
     }
 }

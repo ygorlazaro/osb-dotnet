@@ -14,11 +14,12 @@ public static class OslangHighlighter
 
     private static readonly HashSet<string> Keywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        "AND", "BASE", "BOOL", "BREAK", "CATCH", "CEIL", "CLASS", "CLEAR", "CONSTRUCTOR",
+        "AND", "BASE", "BOOL", "BREAK", "CATCH", "CEIL", "CLASS", "CLEAR", "CLS", "CONSTRUCTOR",
         "CONTINUE", "COUNT", "DO", "ELIF", "ELSE", "END", "FALSE", "FLOOR", "FOR", "FUNCTION",
-        "GLOBAL", "IF", "INPUT", "INTERFACE", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
-        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "WHILE",
-        "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING"
+        "GLOBAL", "IF", "INPUT", "INTERFACE", "KISS", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
+        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
+        "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING",
+        "MATH", "FILE", "DIR"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)

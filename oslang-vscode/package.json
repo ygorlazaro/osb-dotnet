@@ -1,7 +1,7 @@
 {
   "name": "oslang",
-  "displayName": "OSLANG 0.3",
-  "description": "Syntax highlighting and language support for OSLANG 0.3, the scripting language of OSB 3.0 Lince",
+  "displayName": "OSLANG 0.4",
+  "description": "Syntax highlighting and language support for OSLANG 0.4, the scripting language of OSB 3.0 Lince",
   "version": "1.0.0",
   "engines": {
     "vscode": "^1.0.0"

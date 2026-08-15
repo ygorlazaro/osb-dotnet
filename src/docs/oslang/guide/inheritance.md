@@ -88,7 +88,7 @@ END CLASS
 
 ## Abstract Classes
 
-While OSLANG 0.3 does not have a dedicated `ABSTRACT` keyword, you can simulate abstract classes by raising a runtime error in the base method:
+While OSLANG 0.4 does not have a dedicated `ABSTRACT` keyword, you can simulate abstract classes by raising a runtime error in the base method:
 
 ```osl
 CLASS Shape
