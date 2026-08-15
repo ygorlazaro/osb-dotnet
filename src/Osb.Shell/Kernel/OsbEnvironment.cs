@@ -1,10 +1,8 @@
 namespace Osb.Shell.Kernel;
 
 /// <summary>
-/// No OSB original, tudo vivia em C:\OSB (OSB.CFG na raiz do drive, Conf\ com os
-/// arquivos de configuração, etc). Aqui usamos ~/.osb (um "CONF" dentro dela),
-/// criada automaticamente com valores padrão no primeiro boot - a mesma pasta que
-/// o Osb.Xwin usa, para os dois compartilharem cores/hostname/usuários.
+/// OSB environment configuration and paths.
+/// Uses ~/.osb as the home directory with a CONF subfolder for configuration files.
 /// </summary>
 public class OsbEnvironment
 {

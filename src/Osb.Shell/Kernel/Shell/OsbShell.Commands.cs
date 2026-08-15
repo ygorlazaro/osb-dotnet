@@ -80,7 +80,7 @@ public partial class OsbShell
                 CopyFile(args); handled = true; break;
             case "DATE":
                 Console.WriteLine("Data atual: " + DateTime.Now.ToString("dd/MM/yyyy"));
-                Console.WriteLine("(Alterar a data do sistema não é suportado nesta versão portada.)");
+                Console.WriteLine("(Alterar a data do sistema não é suportado.)");
                 handled = true; break;
             case "DIR":
                 ListDirectory(args); handled = true; break;
@@ -141,13 +141,12 @@ public partial class OsbShell
                 HandleUser(args); handled = true; break;
             case "TIME":
                 Console.WriteLine("Hora atual: " + DateTime.Now.ToString("HH:mm:ss"));
-                Console.WriteLine("(Alterar a hora do sistema não é suportado nesta versão portada.)");
+                Console.WriteLine("(Alterar a hora do sistema não é suportado.)");
                 handled = true; break;
             case "TYPE":
                 TypeFile(args); handled = true; break;
             case "VER":
-                Console.WriteLine("OSB 3.0 Lince (porte para .NET 10)");
-                Console.WriteLine("Original: http://www.osb.rg3.net");
+                Console.WriteLine("OSB 3.0");
                 Console.WriteLine();
                 Console.WriteLine("Digite ABOUT para mais informações");
                 handled = true; break;

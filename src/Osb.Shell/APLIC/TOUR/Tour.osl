@@ -14,7 +14,7 @@ CLASS TOUR
         ME.PAUSE()
 
         ME.SHOW_STEP(1, "O que é o OSB", [
-            "O OSB é um sistema operacional em texto, inspirado no DOS e no BASIC.",
+            "O OSB é um sistema operacional em texto, com interface de linha de comando.",
             "Você interage com ele digitando comandos e vendo o resultado na tela.",
             "Todos os comandos são case-insensitive: DIR, dir e Dir funcionam igual."
         ])
@@ -87,7 +87,7 @@ CLASS TOUR
             "  HELP DIR          → ajuda do comando DIR",
             "  DIR /?            → mesma coisa",
             "",
-            "Novo no OSB 3.0 Lince:",
+            "Novidades:",
             "  OSL <arquivo.osl> → executa programas em OSLANG 0.4",
             "  KISS <arquivo>    → editor de texto com syntax highlight",
             "  GAMES             → jogos instalados (ex: HANGMAN)"

@@ -3,10 +3,8 @@ using System.Diagnostics;
 namespace Osb.Shell.Kernel;
 
 /// <summary>
-/// Localiza e executa o Osb.Xwin como um processo separado que assume o terminal
-/// (igual o COMMAND.COM do MS-DOS 6.22 chamava o WIN.COM): o OSB "congela" no
-/// Process.WaitForExit, o XWIN tem a tela toda para ele, e quando ele termina o
-/// controle volta pro prompt do OSB, exatamente de onde parou.
+/// Launches Osb.Xwin as a separate process that takes over the terminal.
+/// OSB waits for Xwin to exit, then returns to the prompt.
 /// </summary>
 public static class XwinLauncher
 {

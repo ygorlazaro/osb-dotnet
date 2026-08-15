@@ -6,13 +6,11 @@ public static class About
     [
         "****************************************",
         "******                            ******",
-        "******       OSB 3.0 Lince       ******",
+        "******         OSB 3.0           ******",
         "******   Operating System Basic   ******",
         "****** Sistema Operacional Básico ******",
         "******                            ******",
-        "******         CRÉDITOS           ******",
-        "******                            ******",
-        "******      www.osb.rg3.net       ******",
+        "******       Feito por Ygor Lazaro      ******",
         "******                            ******",
         "****************************************"
     ];
@@ -27,11 +25,7 @@ public static class About
         }
 
         Console.WriteLine();
-        Console.WriteLine("Para mais informações sobre o OSB, o projeto OSB Brasil, sobre como obter e");
-        Console.WriteLine("ajudar o projeto, entre em contato conosco.");
+        Console.WriteLine("Para mais informações sobre o OSB, entre em contato.");
         Console.WriteLine();
-        Console.WriteLine("Site original: http://www.osb.rg3.net");
-        Console.WriteLine("Criado por: Ygor Lazaro, entre os 14 e 16 anos, em BASIC (BC7)");
-        Console.WriteLine("Este porte: .NET 10, feito ~30 anos depois.");
     }
 }

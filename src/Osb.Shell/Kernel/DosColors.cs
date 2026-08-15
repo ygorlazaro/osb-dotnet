@@ -1,9 +1,7 @@
 namespace Osb.Shell.Kernel;
 
 /// <summary>
-/// A paleta clássica de 16 cores do modo texto DOS (a mesma usada pelo COLOR do QBasic
-/// em COLOR.BAS). Mapeamos para System.ConsoleColor para preservar a mesma numeração
-/// que o OSB original usava em OSB.CFG.
+/// Classic 16-color palette mapped to System.ConsoleColor.
 /// </summary>
 public static class DosColors
 {

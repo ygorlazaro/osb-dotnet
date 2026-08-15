@@ -108,6 +108,25 @@ END FUNCTION
 
 OSLANG includes several built-in functions. See [Built-in Functions](/src/docs/oslang/reference/built-ins/index.md).
 
+## Function References as Callbacks
+
+OSLANG 0.4 supports passing functions as arguments to array methods:
+
+```osl
+FUNCTION DOUBLE(x)
+    RETURN x * 2
+END FUNCTION
+
+FUNCTION MAIN()
+    Doubled = [1, 2, 3].MAP(DOUBLE)      ' [2, 4, 6]
+    Even = [1, 2, 3, 4].FILTER(IS_EVEN)  ' [2, 4]
+    Sum = [1, 2, 3].REDUCE(ADD, 0)        ' 6
+    PRINT Doubled
+END FUNCTION
+```
+
+Supported callback methods: `MAP`, `FILTER`, `ANY`, `SOME`, `ALL`, `REDUCE`.
+
 ## Related Topics
 
 - [Syntax Basics](/src/docs/oslang/guide/syntax-basics.md)

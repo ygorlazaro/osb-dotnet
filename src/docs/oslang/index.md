@@ -1,6 +1,6 @@
 # OSLANG Documentation
 
-Welcome to the official OSLANG documentation. OSLANG is a BASIC-inspired, interpreted programming language designed for simplicity, readability, and rapid development. It supports procedural, object-oriented, and event-driven programming paradigms with a focus on order-independent declarations and multi-file programs.
+Welcome to the official OSLANG documentation. OSLANG is a modern, interpreted programming language designed for simplicity, readability, and rapid development. It supports procedural, object-oriented, and event-driven programming paradigms with a focus on order-independent declarations and multi-file programs.
 
 ## Quick Links
 
@@ -16,6 +16,7 @@ Welcome to the official OSLANG documentation. OSLANG is a BASIC-inspired, interp
 - **[Generics](/src/docs/oslang/guide/generics.md)** — Write reusable generic types and functions.
 - **[Events](/src/docs/oslang/guide/events.md)** — Declare and handle events with `EVENT`, `ON`, and `RAISE`.
 - **[Modules](/src/docs/oslang/guide/modules.md)** — Organize code across files with `USING`.
+- **[Namespaces](/src/docs/oslang/guide/namespaces.md)** — `MATH`, `FILE`, `DIR` namespaces and primitive methods.
 - **[Error Handling](/src/docs/oslang/guide/error-handling.md)** — Catch runtime errors with `TRY` and `CATCH`.
 - **[Keywords Reference](/src/docs/oslang/reference/keywords/index.md)** — Complete list of OSLANG keywords.
 - **[Built-in Functions](/src/docs/oslang/reference/built-ins/index.md)** — Standard library functions.

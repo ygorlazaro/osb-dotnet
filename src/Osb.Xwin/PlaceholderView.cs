@@ -19,7 +19,7 @@ internal class PlaceholderView : AppView
             Height = 1,
         };
 
-        var label = new Label($"Aplicativo: {appName}\n\nAplicativo ainda nao portado para .NET.\n\nFeche ou minimize esta janela.")
+        var label = new Label($"Aplicativo: {appName}\n\nAplicativo não disponível.\n\nFeche ou minimize esta janela.")
         {
             X = 0,
             Y = 2,

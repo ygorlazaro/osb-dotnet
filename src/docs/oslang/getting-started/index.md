@@ -4,13 +4,15 @@ This guide will help you install OSLANG, set up your development environment, an
 
 ## What is OSLANG?
 
-OSLANG is a BASIC-inspired, interpreted programming language. It is designed to be:
+OSLANG is a modern, interpreted programming language. It is designed to be:
 
 - **Simple** — Minimal syntax, easy to read and write.
 - **Case-insensitive** — Keywords, variable names, and function names are not case-sensitive.
 - **Order-independent** — Declarations can appear in any order; forward references are allowed.
-- **Multi-file** — Split programs across files with `USING`.
-- **Object-oriented** — Classes, interfaces, inheritance, and virtual/override methods.
+ - **Multi-file** — Split programs across files with `USING`.
+ - **Object-oriented** — Classes, interfaces, inheritance, and virtual/override methods.
+ - **Namespaces** — Built-in `MATH`, `FILE`, and `DIR` namespaces.
+ - **Primitive methods** — Call methods directly on strings, numbers, booleans, and arrays.
 
 ## Installing OSLANG
 
@@ -68,6 +70,7 @@ Hello, OSLANG!
 - Explore [variables and types](/src/docs/oslang/guide/variables-and-types.md).
 - Write your first [function](/src/docs/oslang/guide/functions.md).
 - Organize code with [modules](/src/docs/oslang/guide/modules.md).
+- Explore [namespaces and primitive methods](/src/docs/oslang/guide/namespaces.md).
 
 ## Need Help?
 

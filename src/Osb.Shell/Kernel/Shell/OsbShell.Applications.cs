@@ -51,7 +51,7 @@ public partial class OsbShell
             case "CAL": Calendar.Show(""); break;
             case "KISS": TextEditor.Run("", _env); break;
             case "TOUR": RunOslFile("APLIC/TOUR/main.osl"); break;
-            default: Console.WriteLine("Aplicativo não portado para .NET: " + entry.Name); break;
+            default: Console.WriteLine("Aplicativo não disponível: " + entry.Name); break;
         }
     }
 
@@ -85,7 +85,7 @@ public partial class OsbShell
         switch (entry.Name.ToUpperInvariant())
         {
             case "HANGMAN": RunOslFile("Games/Hangman/main.osl"); break;
-            default: Console.WriteLine("Jogo não portado para .NET: " + entry.Name); break;
+            default: Console.WriteLine("Jogo não disponível: " + entry.Name); break;
         }
     }
 }

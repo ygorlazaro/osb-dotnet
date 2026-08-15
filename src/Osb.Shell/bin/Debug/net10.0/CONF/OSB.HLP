@@ -1,5 +1,5 @@
 -.
-Executa um programa/aplicativo do MS-DOS ou OSB
+Executa um programa externo
 Modo simples de usar: .<Nome do programa>
 
 [@] .GAME
@@ -58,7 +58,7 @@ Limpa a tela como CLS
 -ENDCOMMAND
 
 -COLOR
-Escolhe as cores de fundo e de letra do OSB 3.0 Lince.
+Escolhe as cores de fundo e de letra do OSB.
 Modo simples de usar: COLOR
 -ENDCOMMAND
 
@@ -120,7 +120,7 @@ Exclui todos os arquivos .TMP recursivamente
 -ENDCOMMAND
 
 -EXIT
-Prepara seu computador para desligar, reiniciar ou passar o comando ao MS-DOS©
+Encerra a sessão do OSB.
 Modo simples de usar: EXIT
 -ENDCOMMAND
 
@@ -143,8 +143,8 @@ Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (e
 
 <Comando>/? = Exibe ajuda detalhada do comando
 . = Executa um programa do MS-DOS ou OSB
-ABOUT = Sobre o OSB 3.0 Lince
-APLIC = Mostra os aplicativos inclusos com OSB 3.0 Lince
+ABOUT = Sobre o OSB
+APLIC = Mostra os aplicativos inclusos com OSB
 CAL = Calendário simples
 CD = Entrar em um diretório (aceita espaços)
 CLS = Limpar a tela
@@ -156,7 +156,7 @@ DEL = Apaga arquivos
 DIR = Mostra os arquivos de um diretório (com filtros)
 EXIT = Desliga, reinicia ou entra no MS-DOS©
 FIND = Busca arquivos por nome ou conteúdo
-GAMES = Mostra os jogos inclusos com OSB 3.0 Lince
+GAMES = Mostra os jogos inclusos com OSB
 HELP = Menu de ajuda
 KISS = Editor de arquivos em modo texto
 TOUR = Tour passo a passo do OSB

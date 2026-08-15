@@ -172,7 +172,7 @@ public partial class OsbShell
 
         Console.WriteLine("Finalizando os arquivos.");
         Console.WriteLine("Finalizando o kernel.");
-        Console.WriteLine("OSB 3.0 Lince encerrado.");
+        Console.WriteLine("OSB encerrado.");
         _running = false;
     }
 

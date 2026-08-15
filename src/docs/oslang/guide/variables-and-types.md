@@ -22,13 +22,14 @@ In this case, the variable is dynamically typed and can hold any value.
 
 ## Built-in Types
 
-OSLANG provides three built-in primitive types:
+OSLANG provides the following built-in types:
 
 | Type | Description | Literal Example |
 |------|-------------|-----------------|
 | `NUMBER` | Double-precision floating-point number | `42`, `3.14`, `-0.5` |
 | `STRING` | Text string | `"Hello"`, `"World"` |
 | `BOOLEAN` | Boolean value | `TRUE`, `FALSE` |
+| `ARRAY` | List of values | `[1, 2, 3]`, `["a", "b"]` |
 | `OBJECT` | Base type for all class instances | (see [Classes and Objects](/src/docs/oslang/guide/classes-and-objects.md)) |
 
 ## Type Annotations
@@ -109,6 +110,49 @@ IF result = NULL THEN
     PRINT "No result"
 END IF
 ```
+
+## Primitive Methods
+
+OSLANG 0.4 adds methods directly on primitive values.
+
+### String Methods
+
+```osl
+Name = "Ygor"
+PRINT Name.TOUPPER()        ' "YGOR"
+PRINT Name.TOLOWER()        ' "ygor"
+PRINT "  hi  ".TRIM()       ' "hi"
+PRINT Name.LENGTH()         ' 4
+PRINT Name.SUBSTR(0, 2)     ' "Yg"
+PRINT Name.CONTAINS("go")   ' TRUE
+PRINT Name.REVERSE()        ' "rogY"
+PRINT "Açúcar".NORMALIZE()  ' "ACUCAR"
+```
+
+### Array Methods
+
+```osl
+Numbers = [3, 1, 2]
+PRINT Numbers.COUNT()       ' 3
+PRINT Numbers.FIRST()       ' 3
+PRINT Numbers.LAST()        ' 2
+PRINT Numbers.SORT()        ' [1, 2, 3]
+PRINT Numbers.JOIN(", ")    ' "3, 1, 2"
+```
+
+### Callback Support
+
+Array functional methods accept function references:
+
+```osl
+FUNCTION IS_EVEN(x)
+    RETURN x MOD 2 = 0
+END FUNCTION
+
+Even = [1, 2, 3, 4].FILTER(IS_EVEN)  ' [2, 4]
+```
+
+See [Namespaces](/src/docs/oslang/guide/namespaces.md) for the full list of primitive methods.
 
 ## Scope
 

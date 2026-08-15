@@ -9,9 +9,7 @@ public class HistoryEntry
 }
 
 /// <summary>
-/// Porte da SUB Command(Comando$) do OSB.BAS original: o loop principal do
-/// interpretador de comandos do OSB. Cada bloco IF do BASIC virou um "case"
-/// aqui, mantendo a mesma ordem e o mesmo comportamento sempre que possível.
+/// Main command interpreter loop for OSB.
 /// </summary>
 public partial class OsbShell
 {

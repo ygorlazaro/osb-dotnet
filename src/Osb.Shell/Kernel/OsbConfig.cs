@@ -1,16 +1,14 @@
 namespace Osb.Shell.Kernel;
 
 /// <summary>
-/// Porte de OSB.CFG (as variáveis globais lidas na SUB Boot do OSB.BAS original).
-/// Mantém o mesmo formato de seções [CHAVE] seguidas do valor na linha seguinte,
-/// para ficar o mais fiel possível ao arquivo de configuração de 1997.
+/// Configuration file format for OSB.
 /// </summary>
 public class OsbConfig
 {
     public int ForeColor { get; set; } = 15;
     public int BackColor { get; set; } = 1;
     public string SystemDir { get; set; } = "";
-    public string Message { get; set; } = "Seja bem-vindo ao OSB 3.0 Lince (portado para .NET)";
+    public string Message { get; set; } = "Seja bem-vindo ao OSB 3.0";
 
     public static OsbConfig Load(string path)
     {

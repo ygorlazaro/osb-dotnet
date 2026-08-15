@@ -1,14 +1,8 @@
 namespace Osb.Shell.Kernel;
 
 /// <summary>
-/// Porte do sistema de ajuda original (HELP.BAS + Help/OSB.HLP). O HELP.BAS
-/// original era só um leitor: a ajuda de verdade vinha do OSB.HLP, um arquivo de
-/// blocos "-COMANDO ... -ENDCOMMAND" com sintaxe e exemplos por comando. Esse
-/// conteúdo (o arquivo é texto puro, não binário) foi recuperado e é reproduzido
-/// aqui, com pequenos ajustes onde o comportamento do port difere do DOS original
-/// (ex: DATE/TIME não alteram mais o relógio do sistema) e documentação para os
-/// comandos que não existiam no OSB.HLP original (PWD, DIR /W, CLEAR, edição de
-/// linha com setas).
+/// Help system for OSB commands. Loads help text from OSB.HLP file
+/// and provides categorized command listings.
 /// </summary>
 public static class HelpTexts
 {
