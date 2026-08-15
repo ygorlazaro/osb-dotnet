@@ -1,6 +1,5 @@
 using System.Linq;
 using Osb.Shell.Apps;
-using Osb.Shell.Games;
 
 namespace Osb.Shell.Kernel;
 
@@ -86,7 +85,7 @@ public partial class OsbShell
 
         switch (entry.Name.ToUpperInvariant())
         {
-            case "HANGMAN": Hangman.Play(); break;
+            case "HANGMAN": RunOslFile("Games/Hangman/main.osl"); break;
             default: Console.WriteLine("Jogo não portado para .NET: " + entry.Name); break;
         }
     }

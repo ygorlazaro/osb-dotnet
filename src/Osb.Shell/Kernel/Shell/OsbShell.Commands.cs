@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Linq;
 using Osb.Shell.Apps;
-using Osb.Shell.Games;
 
 namespace Osb.Shell.Kernel;
 
