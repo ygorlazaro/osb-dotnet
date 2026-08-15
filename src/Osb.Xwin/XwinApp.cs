@@ -143,7 +143,7 @@ internal class XwinApp : Toplevel
 
     private AppView CreateTextEditorWindow()
     {
-        return new TextEditorView(OsbHomeDir);
+        return new CodeEditorView(OsbHomeDir);
     }
 
     private AppView CreateCalculatorWindow()
@@ -257,6 +257,45 @@ internal class XwinApp : Toplevel
     {
         _currentForeColor = foreIndex;
         _currentBackColor = backIndex;
+        var foreColor = (Color)foreIndex;
+        var backColor = (Color)backIndex;
+        var scheme = new ColorScheme
+        {
+            Normal = new Terminal.Gui.Attribute(foreColor, backColor),
+            Focus = new Terminal.Gui.Attribute(foreColor, backColor),
+            HotNormal = new Terminal.Gui.Attribute(foreColor, backColor),
+            HotFocus = new Terminal.Gui.Attribute(foreColor, backColor),
+            Disabled = new Terminal.Gui.Attribute(foreColor, backColor),
+        };
+        ColorScheme = scheme;
+    }
+
+    public void SetBackgroundColor(int backIndex)
+    {
+        _currentBackColor = backIndex;
+        ApplyColorScheme(_currentForeColor, backIndex);
+        SaveColorScheme();
+    }
+
+    private void SaveColorScheme()
+    {
+        var path = Path.Combine(OsbHomeDir, "OSB.CFG");
+        if (!File.Exists(path)) return;
+        var lines = File.ReadAllLines(path).ToList();
+        var backIndex = -1;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (lines[i].Trim().Equals("[BACKCOLOR]", StringComparison.OrdinalIgnoreCase))
+            {
+                backIndex = i;
+                break;
+            }
+        }
+        if (backIndex >= 0 && backIndex + 1 < lines.Count)
+        {
+            lines[backIndex + 1] = _currentBackColor.ToString();
+            File.WriteAllLines(path, lines);
+        }
     }
 
     private void UpdateTaskbar()
