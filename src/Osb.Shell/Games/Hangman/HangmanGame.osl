@@ -1,4 +1,4 @@
-' OSLANG 0.3 - Hangman Game Module
+' OSLANG 0.4 - Hangman Game Module
 ' First internal OSLANG app for OSB
 
 CLASS HANGMANGAME
@@ -68,7 +68,7 @@ CLASS HANGMANGAME
                 RETURN
             END
 
-            Letter = UCASE(Guess)
+            Letter = Guess.TOUPPER()
             IF COUNT(Letter) <> 1 THEN
                 CONTINUE
             END
@@ -100,13 +100,14 @@ CLASS HANGMANGAME
 
     PUBLIC FUNCTION DRAW_WORD()
         Display = ME.GET_DISPLAY()
+        Result = ""
         FOR I = 0 TO COUNT(Display) - 1
             IF I > 0 THEN
-                PRINT " "
+                Result = Result + " "
             END
-            PRINT CHARAT(Display, I)
+            Result = Result + CHARAT(Display, I)
         END
-        PRINT ""
+        PRINT Result
     END FUNCTION
 
     PUBLIC FUNCTION GET_DISPLAY()

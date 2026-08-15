@@ -237,6 +237,294 @@ public partial class OsbShell
                 .Replace('ç', 'C');
             return new StringValue(result.ToUpperInvariant());
         });
+
+        extensions.Register("FILE.EXISTS", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.EXISTS", location);
+            var path = RequireStringArg(args, 0, "FILE.EXISTS", location);
+            return BooleanValue.Of(File.Exists(ResolvePath(path, extensions)));
+        });
+
+        extensions.Register("FILE.READ", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.READ", location);
+            var path = RequireStringArg(args, 0, "FILE.READ", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.READ() file not found: {path}");
+            }
+            var lines = File.ReadAllLines(resolvedPath)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var items = lines.Select(l => (OslangValue)new StringValue(l)).ToList();
+            return new ArrayValue(items, RuntimeType.String);
+        });
+
+        extensions.Register("FILE.READTEXT", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.READTEXT", location);
+            var path = RequireStringArg(args, 0, "FILE.READTEXT", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.READTEXT() file not found: {path}");
+            }
+            return new StringValue(File.ReadAllText(resolvedPath));
+        });
+
+        extensions.Register("FILE.WRITE", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.WRITE", location);
+            var path = RequireStringArg(args, 0, "FILE.WRITE", location);
+            var text = RequireStringArg(args, 1, "FILE.WRITE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            File.WriteAllText(resolvedPath, text);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.APPEND", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.APPEND", location);
+            var path = RequireStringArg(args, 0, "FILE.APPEND", location);
+            var text = RequireStringArg(args, 1, "FILE.APPEND", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            File.AppendAllText(resolvedPath, text);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.CREATE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.CREATE", location);
+            var path = RequireStringArg(args, 0, "FILE.CREATE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.CREATE() file already exists: {path}");
+            }
+            File.WriteAllText(resolvedPath, string.Empty);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.DELETE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.DELETE", location);
+            var path = RequireStringArg(args, 0, "FILE.DELETE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.DELETE() file not found: {path}");
+            }
+            File.Delete(resolvedPath);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.DEL", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.DEL", location);
+            var path = RequireStringArg(args, 0, "FILE.DEL", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.DEL() file not found: {path}");
+            }
+            File.Delete(resolvedPath);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.COPY", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.COPY", location);
+            var source = RequireStringArg(args, 0, "FILE.COPY", location);
+            var dest = RequireStringArg(args, 1, "FILE.COPY", location);
+            var resolvedSource = ResolvePath(source, extensions);
+            var resolvedDest = ResolvePath(dest, extensions);
+            if (!File.Exists(resolvedSource))
+            {
+                throw new OslangRuntimeException(location, $"FILE.COPY() source not found: {source}");
+            }
+            File.Copy(resolvedSource, resolvedDest);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.MOVE", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.MOVE", location);
+            var source = RequireStringArg(args, 0, "FILE.MOVE", location);
+            var dest = RequireStringArg(args, 1, "FILE.MOVE", location);
+            var resolvedSource = ResolvePath(source, extensions);
+            var resolvedDest = ResolvePath(dest, extensions);
+            if (!File.Exists(resolvedSource))
+            {
+                throw new OslangRuntimeException(location, $"FILE.MOVE() source not found: {source}");
+            }
+            File.Move(resolvedSource, resolvedDest);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.SIZE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.SIZE", location);
+            var path = RequireStringArg(args, 0, "FILE.SIZE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.SIZE() file not found: {path}");
+            }
+            return new NumberValue(new FileInfo(resolvedPath).Length);
+        });
+
+        extensions.Register("FILE.EXTENSION", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.EXTENSION", location);
+            var path = RequireStringArg(args, 0, "FILE.EXTENSION", location);
+            return new StringValue(Path.GetExtension(path));
+        });
+
+        extensions.Register("FILE.NAME", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.NAME", location);
+            var path = RequireStringArg(args, 0, "FILE.NAME", location);
+            return new StringValue(Path.GetFileName(path));
+        });
+
+        extensions.Register("FILE.DIR", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.DIR", location);
+            var path = RequireStringArg(args, 0, "FILE.DIR", location);
+            return new StringValue(Path.GetDirectoryName(path) ?? string.Empty);
+        });
+
+        extensions.Register("FILE.OPEN", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.OPEN", location);
+            var path = RequireStringArg(args, 0, "FILE.OPEN", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.OPEN() file not found: {path}");
+            }
+            // Return a placeholder - stream operations would need more infrastructure
+            return new StringValue(resolvedPath);
+        });
+
+        extensions.Register("DIR.EXISTS", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.EXISTS", location);
+            var path = RequireStringArg(args, 0, "DIR.EXISTS", location);
+            return BooleanValue.Of(Directory.Exists(ResolvePath(path, extensions)));
+        });
+
+        extensions.Register("DIR.CREATE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.CREATE", location);
+            var path = RequireStringArg(args, 0, "DIR.CREATE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            Directory.CreateDirectory(resolvedPath);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("DIR.DELETE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.DELETE", location);
+            var path = RequireStringArg(args, 0, "DIR.DELETE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!Directory.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"DIR.DELETE() directory not found: {path}");
+            }
+            Directory.Delete(resolvedPath);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("DIR.LIST", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.LIST", location);
+            var path = RequireStringArg(args, 0, "DIR.LIST", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!Directory.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"DIR.LIST() directory not found: {path}");
+            }
+            var entries = Directory.GetFileSystemEntries(resolvedPath);
+            var items = entries.Select(e => (OslangValue)new StringValue(e)).ToList();
+            return new ArrayValue(items, RuntimeType.String);
+        });
+
+        extensions.Register("DIR.FILES", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.FILES", location);
+            var path = RequireStringArg(args, 0, "DIR.FILES", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!Directory.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"DIR.FILES() directory not found: {path}");
+            }
+            var files = Directory.GetFiles(resolvedPath);
+            var items = files.Select(f => (OslangValue)new StringValue(f)).ToList();
+            return new ArrayValue(items, RuntimeType.String);
+        });
+
+        extensions.Register("DIR.DIRS", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.DIRS", location);
+            var path = RequireStringArg(args, 0, "DIR.DIRS", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!Directory.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"DIR.DIRS() directory not found: {path}");
+            }
+            var dirs = Directory.GetDirectories(resolvedPath);
+            var items = dirs.Select(d => (OslangValue)new StringValue(d)).ToList();
+            return new ArrayValue(items, RuntimeType.String);
+        });
+
+        extensions.Register("DIR.CURRENT", (args, location) =>
+        {
+            RequireArgCount(args, 0, "DIR.CURRENT", location);
+            return new StringValue(Directory.GetCurrentDirectory());
+        });
+
+        extensions.Register("DIR.CHANGE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "DIR.CHANGE", location);
+            var path = RequireStringArg(args, 0, "DIR.CHANGE", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            Directory.SetCurrentDirectory(resolvedPath);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("DIR.RENAME", (args, location) =>
+        {
+            RequireArgCount(args, 2, "DIR.RENAME", location);
+            var source = RequireStringArg(args, 0, "DIR.RENAME", location);
+            var dest = RequireStringArg(args, 1, "DIR.RENAME", location);
+            var resolvedSource = ResolvePath(source, extensions);
+            var resolvedDest = ResolvePath(dest, extensions);
+            if (!Directory.Exists(resolvedSource))
+            {
+                throw new OslangRuntimeException(location, $"DIR.RENAME() source not found: {source}");
+            }
+            Directory.Move(resolvedSource, resolvedDest);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("DIR.COPY", (args, location) =>
+        {
+            RequireArgCount(args, 2, "DIR.COPY", location);
+            var source = RequireStringArg(args, 0, "DIR.COPY", location);
+            var dest = RequireStringArg(args, 1, "DIR.COPY", location);
+            var resolvedSource = ResolvePath(source, extensions);
+            var resolvedDest = ResolvePath(dest, extensions);
+            if (!Directory.Exists(resolvedSource))
+            {
+                throw new OslangRuntimeException(location, $"DIR.COPY() source not found: {source}");
+            }
+            CopyDirectory(resolvedSource, resolvedDest);
+            return OslangValue.Null;
+        });
     }
 
     private static void RequireArgCount(IReadOnlyList<OslangValue> args, int expected, string fnName, SourceLocation location)
@@ -275,5 +563,35 @@ public partial class OsbShell
         }
 
         return n.Value;
+    }
+
+    private static string ResolvePath(string path, ExtensionRegistry extensions)
+    {
+        if (Path.IsPathFullyQualified(path))
+        {
+            return path;
+        }
+
+        if (!string.IsNullOrEmpty(extensions.BasePath))
+        {
+            return Path.GetFullPath(Path.Combine(extensions.BasePath, path));
+        }
+
+        return Path.GetFullPath(path);
+    }
+
+    private static void CopyDirectory(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var destFile = Path.Combine(destDir, Path.GetFileName(file));
+            File.Copy(file, destFile);
+        }
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            var destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
+            CopyDirectory(dir, destSubDir);
+        }
     }
 }
