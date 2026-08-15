@@ -76,25 +76,29 @@ CLASS CALENDARAPP
         TodayMonth = ME.NOW_MONTH()
         TodayYear = ME.NOW_YEAR()
 
+        Line = ""
         IF FirstDay > 0 THEN
-            Pad = ""
-            FOR I = 1 TO FirstDay * 4
-                Pad = Pad + " "
+            FOR I = 1 TO FirstDay
+                Line = Line + "    "
             END
-            PRINT Pad
         END
 
         FOR Day = 1 TO DaysInMonth
             IsToday = (Day = TodayDay AND Month = TodayMonth AND Year = TodayYear)
             IF IsToday THEN
-                PRINT "[" + ME.PADLEFT(STR(Day), 2) + "]"
+                Line = Line + "[" + ME.PADLEFT(STR(Day), 2) + "]"
             ELSE
-                PRINT " " + ME.PADLEFT(STR(Day), 2) + " "
+                Line = Line + " " + ME.PADLEFT(STR(Day), 2) + " "
             END
 
             IF (Day + FirstDay) % 7 = 0 THEN
-                PRINT ""
+                PRINT Line
+                Line = ""
             END
+        END
+
+        IF COUNT(Line) > 0 THEN
+            PRINT Line
         END
         PRINT ""
 
