@@ -273,18 +273,50 @@ public sealed class Lexer
 
         switch (c)
         {
-            case '+': return new Token(TokenType.Plus, "+", start);
-            case '-': return new Token(TokenType.Minus, "-", start);
-            case '*': return new Token(TokenType.Star, "*", start);
-            case '/': return new Token(TokenType.Slash, "/", start);
-            case '%': return new Token(TokenType.Percent, "%", start);
-            case '(': return new Token(TokenType.LParen, "(", start);
-            case ')': return new Token(TokenType.RParen, ")", start);
-            case '[': return new Token(TokenType.LBracket, "[", start);
-            case ']': return new Token(TokenType.RBracket, "]", start);
-            case ',': return new Token(TokenType.Comma, ",", start);
-            case ':': return new Token(TokenType.Colon, ":", start);
-            case '.': return new Token(TokenType.Dot, ".", start);
+            case '+':
+                if (Current == '+')
+                {
+                    Advance();
+                    return new Token(TokenType.PlusPlus, "++", start);
+                }
+                if (Current == '=')
+                {
+                    Advance();
+                    return new Token(TokenType.PlusEqual, "+=", start);
+                }
+                return new Token(TokenType.Plus, "+", start);
+            case '-':
+                if (Current == '-')
+                {
+                    Advance();
+                    return new Token(TokenType.MinusMinus, "--", start);
+                }
+                return new Token(TokenType.Minus, "-", start);
+            case '*':
+                if (Current == '*')
+                {
+                    Advance();
+                    return new Token(TokenType.StarStar, "**", start);
+                }
+                return new Token(TokenType.Star, "*", start);
+            case '/':
+                return new Token(TokenType.Slash, "/", start);
+            case '%':
+                return new Token(TokenType.Percent, "%", start);
+            case '(':
+                return new Token(TokenType.LParen, "(", start);
+            case ')':
+                return new Token(TokenType.RParen, ")", start);
+            case '[':
+                return new Token(TokenType.LBracket, "[", start);
+            case ']':
+                return new Token(TokenType.RBracket, "]", start);
+            case ',':
+                return new Token(TokenType.Comma, ",", start);
+            case ':':
+                return new Token(TokenType.Colon, ":", start);
+            case '.':
+                return new Token(TokenType.Dot, ".", start);
             case '=':
                 if (Current == '>')
                 {

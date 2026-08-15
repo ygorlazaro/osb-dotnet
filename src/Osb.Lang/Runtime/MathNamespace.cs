@@ -19,6 +19,18 @@ public static class MathNamespace
         var upper = methodName.ToUpperInvariant();
         switch (upper)
         {
+            case "PI":
+                if (args.Count != 0)
+                {
+                    throw new OslangRuntimeException(location, "MATH.PI expects no arguments.");
+                }
+                return PI;
+            case "E":
+                if (args.Count != 0)
+                {
+                    throw new OslangRuntimeException(location, "MATH.E expects no arguments.");
+                }
+                return E;
             case "SQRT":
                 return new NumberValue(Math.Sqrt(OneNumber(args, methodName, location)));
             case "ABS":
@@ -42,7 +54,7 @@ public static class MathNamespace
             case "ROUND":
                 return Round(args, methodName, location);
             case "TRUNC":
-                return new NumberValue(Math.Truncate(OneNumber(args, methodName, location)));
+                return Trunc(args, methodName, location);
             case "MOD":
                 return Mod(args, methodName, location);
             case "SIN":
@@ -175,6 +187,37 @@ public static class MathNamespace
             throw new OslangRuntimeException(location, $"{fn}() expects two NUMBER arguments.");
         }
         return new NumberValue(a.Value % b.Value);
+    }
+
+    private static OslangValue Trunc(IReadOnlyList<OslangValue> args, string fn, SourceLocation location)
+    {
+        if (args.Count == 0)
+        {
+            throw new OslangRuntimeException(location, $"{fn}() expects 1 or 2 arguments, got 0.");
+        }
+        if (args[0] is not NumberValue value)
+        {
+            throw new OslangRuntimeException(location, $"{fn}() expects a NUMBER argument.");
+        }
+        if (args.Count == 1)
+        {
+            return new NumberValue(Math.Truncate(value.Value));
+        }
+        if (args.Count == 2)
+        {
+            if (args[1] is not NumberValue decimals)
+            {
+                throw new OslangRuntimeException(location, $"{fn}() expects a NUMBER for decimals.");
+            }
+            var d = (int)decimals.Value;
+            if (d < 0)
+            {
+                throw new OslangRuntimeException(location, $"{fn}() decimals must be non-negative.");
+            }
+            var factor = Math.Pow(10, d);
+            return new NumberValue(Math.Truncate(value.Value * factor) / factor);
+        }
+        throw new OslangRuntimeException(location, $"{fn}() expects 1 or 2 arguments, got {args.Count}.");
     }
 
     private static OslangValue Atan2(IReadOnlyList<OslangValue> args, string fn, SourceLocation location)

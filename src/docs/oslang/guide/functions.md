@@ -117,6 +117,42 @@ FUNCTION MAIN()
 END FUNCTION
 ```
 
+## Arrow Functions
+
+OSLANG 0.51 introduces arrow functions for concise inline callbacks and closures.
+
+```osl
+' Expression body
+Double = X => X * 2
+PRINT Double(10)   ' 20
+
+' Multiple parameters
+Add = (A, B) => A + B
+PRINT Add(3, 4)    ' 7
+
+' Block body
+Double = X =>
+    Result = X * 2
+    RETURN Result
+END
+
+' Closure (captures surrounding variables)
+Multiplier = 10
+Multiply = X => X * Multiplier
+PRINT Multiply(5)  ' 50
+```
+
+Arrow functions can be stored in variables, passed as arguments, and returned from functions.
+
+```osl
+FUNCTION APPLY(Value, Operation)
+    RETURN Operation(Value)
+END FUNCTION
+
+Double = X => X * 2
+PRINT APPLY(10, Double)  ' 20
+```
+
 ## Built-in Functions
 
 OSLANG includes several built-in functions. See [Built-in Functions](/src/docs/oslang/reference/built-ins/index.md).
@@ -139,6 +175,15 @@ END FUNCTION
 ```
 
 Supported callback methods: `MAP`, `FILTER`, `ANY`, `SOME`, `ALL`, `REDUCE`.
+
+OSLANG 0.51 adds arrow function callbacks:
+
+```osl
+Numbers = [1, 2, 3, 4, 5, 6]
+Even = Numbers.FILTER(X => X MOD 2 = 0)
+Doubled = Even.MAP(X => X * 2)
+PRINT Doubled.JOIN(", ")  ' 4, 8, 12
+```
 
 ## Related Topics
 

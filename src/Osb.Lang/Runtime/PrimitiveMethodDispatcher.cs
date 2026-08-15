@@ -95,6 +95,12 @@ public static class PrimitiveMethodDispatcher
             case "TOSTRING":
                 EnsureArgCount(args, 0, methodName, location);
                 return s;
+            case "PADSTART":
+                return DispatchPadStart(s, args, methodName, location);
+            case "PADEND":
+                return DispatchPadEnd(s, args, methodName, location);
+            case "REPEAT":
+                return DispatchRepeat(s, args, methodName, location);
             default:
                 throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on STRING.");
         }
@@ -125,6 +131,8 @@ public static class PrimitiveMethodDispatcher
                 var min = RequireNumber(args, 0, methodName, location);
                 var max = RequireNumber(args, 1, methodName, location);
                 return BooleanValue.Of(n.Value >= min && n.Value <= max);
+            case "TRUNC":
+                return DispatchTrunc(n, args, methodName, location);
             default:
                 throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on NUMBER.");
         }
@@ -204,6 +212,84 @@ public static class PrimitiveMethodDispatcher
                 EnsureArgCount(args, 1, methodName, location);
                 var separator = RequireString(args, 0, methodName, location);
                 return new StringValue(string.Join(separator, a.Items.Select(item => Conversions.ToDisplayString(item, location))));
+            case "PUSH":
+                EnsureArgCount(args, 1, methodName, location);
+                a.Items.Add(args[0]);
+                if (a.ElementType is null && args[0].Type != RuntimeType.Null)
+                {
+                    a.ElementType = args[0].Type;
+                }
+                return a;
+            case "POP":
+                EnsureArgCount(args, 0, methodName, location);
+                if (a.Items.Count == 0)
+                {
+                    throw new OslangRuntimeException(location, "POP() on empty array.");
+                }
+                var last = a.Items[^1];
+                a.Items.RemoveAt(a.Items.Count - 1);
+                return last;
+            case "FINDINDEX":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not FunctionValue funcFind)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a function argument.");
+                }
+                for (var i = 0; i < a.Items.Count; i++)
+                {
+                    var result = CallFunctionReference(funcFind, [a.Items[i]], location);
+                    if (result is BooleanValue bFind && bFind.Value)
+                    {
+                        return new NumberValue(i);
+                    }
+                }
+                return new NumberValue(-1);
+            case "FOREACH":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not FunctionValue funcForeach)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a function argument.");
+                }
+                foreach (var item in a.Items)
+                {
+                    CallFunctionReference(funcForeach, [item], location);
+                }
+                return OslangValue.Null;
+            case "FLAT":
+                EnsureArgCount(args, 0, methodName, location);
+                var flatItems = new List<OslangValue>();
+                foreach (var item in a.Items)
+                {
+                    if (item is ArrayValue innerArray)
+                    {
+                        flatItems.AddRange(innerArray.Items);
+                    }
+                    else
+                    {
+                        flatItems.Add(item);
+                    }
+                }
+                return new ArrayValue(flatItems, null);
+            case "FLATMAP":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not FunctionValue funcFlatMap)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a function argument.");
+                }
+                var flatMapResult = new List<OslangValue>();
+                foreach (var item in a.Items)
+                {
+                    var mapped = CallFunctionReference(funcFlatMap, [item], location);
+                    if (mapped is ArrayValue mappedArray)
+                    {
+                        flatMapResult.AddRange(mappedArray.Items);
+                    }
+                    else
+                    {
+                        flatMapResult.Add(mapped);
+                    }
+                }
+                return new ArrayValue(flatMapResult, null);
             case "MAP":
             case "FILTER":
             case "ANY":
@@ -380,5 +466,77 @@ public static class PrimitiveMethodDispatcher
             .Replace('Ç', 'C')
             .Replace('ç', 'C');
         return new StringValue(result.ToUpperInvariant());
+    }
+
+    private static StringValue DispatchPadStart(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        if (args.Count < 1 || args.Count > 2)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() expects 1 or 2 arguments, got {args.Count}.");
+        }
+        var width = (int)RequireNumber(args, 0, methodName, location);
+        var padding = args.Count >= 2 ? RequireString(args, 1, methodName, location) : " ";
+        if (width < 0)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() width must be non-negative.");
+        }
+        if (s.Value.Length >= width)
+        {
+            return s;
+        }
+        var padLength = width - s.Value.Length;
+        var pad = new string(padding[0], padLength);
+        return new StringValue(pad + s.Value);
+    }
+
+    private static StringValue DispatchPadEnd(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        if (args.Count < 1 || args.Count > 2)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() expects 1 or 2 arguments, got {args.Count}.");
+        }
+        var width = (int)RequireNumber(args, 0, methodName, location);
+        var padding = args.Count >= 2 ? RequireString(args, 1, methodName, location) : " ";
+        if (width < 0)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() width must be non-negative.");
+        }
+        if (s.Value.Length >= width)
+        {
+            return s;
+        }
+        var padLength = width - s.Value.Length;
+        var pad = new string(padding[0], padLength);
+        return new StringValue(s.Value + pad);
+    }
+
+    private static StringValue DispatchRepeat(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 1, methodName, location);
+        var count = (int)RequireNumber(args, 0, methodName, location);
+        if (count < 0)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() count must be non-negative.");
+        }
+        return new StringValue(string.Concat(Enumerable.Repeat(s.Value, count)));
+    }
+
+    private static OslangValue DispatchTrunc(NumberValue n, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        if (args.Count == 0)
+        {
+            return new NumberValue(Math.Truncate(n.Value));
+        }
+        if (args.Count == 1)
+        {
+            var decimals = (int)RequireNumber(args, 0, methodName, location);
+            if (decimals < 0)
+            {
+                throw new OslangRuntimeException(location, $"{methodName}() decimals must be non-negative.");
+            }
+            var factor = Math.Pow(10, decimals);
+            return new NumberValue(Math.Truncate(n.Value * factor) / factor);
+        }
+        throw new OslangRuntimeException(location, $"{methodName}() expects 0 or 1 arguments, got {args.Count}.");
     }
 }

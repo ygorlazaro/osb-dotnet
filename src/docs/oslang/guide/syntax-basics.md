@@ -74,6 +74,24 @@ PRINT "Line 1"
 PRINT "Line 2"
 ```
 
+### SHOW Statement
+
+OSLANG 0.51 adds `SHOW`, which outputs text without a trailing newline:
+
+```osl
+SHOW "Enter your name: "
+INPUT Name
+PRINT "Hello, " + Name
+```
+
+Multiple `SHOW` statements concatenate their output:
+
+```osl
+SHOW "Hello "
+SHOW "World"
+PRINT ""   ' outputs "Hello World" followed by a newline
+```
+
 ## Blocks
 
 Blocks are groups of statements enclosed by a start keyword and an `END` keyword.

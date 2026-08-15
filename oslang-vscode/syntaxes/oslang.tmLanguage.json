@@ -1,6 +1,6 @@
 {
   "scopeName": "source.oslang",
-  "name": "OSLANG 0.3",
+  "name": "OSLANG 0.51",
   "patterns": [
     {
       "include": "#comments"
@@ -16,6 +16,9 @@
     },
     {
       "include": "#types"
+    },
+    {
+      "include": "#operators"
     },
     {
       "include": "#identifiers"
@@ -69,7 +72,7 @@
           },
           {
             "name": "keyword.other.oslang",
-            "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME)\\b"
+            "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF)\\b"
           },
           {
             "name": "storage.modifier.oslang",
@@ -94,6 +97,14 @@
         {
           "name": "variable.other.identifier.oslang",
           "match": "\\b[A-Z_][A-Z0-9_]*\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.oslang",
+          "match": "\\*\\*|\\+\\+|--|\\+=|%|\\*|\\/|\\+|-"
         }
       ]
     }

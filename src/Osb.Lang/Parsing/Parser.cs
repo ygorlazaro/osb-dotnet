@@ -48,6 +48,16 @@ public sealed class Parser
 
     private bool CheckAny(params TokenType[] types) => Array.IndexOf(types, Current.Type) >= 0;
 
+    private bool CheckNext(TokenType type)
+    {
+        if (_pos + 1 >= _tokens.Count)
+        {
+            return false;
+        }
+
+        return _tokens[_pos + 1].Type == type;
+    }
+
     private Token Expect(TokenType type, string message)
     {
         if (!Check(type))
@@ -532,6 +542,7 @@ public sealed class Parser
             TokenType.Return => ParseReturn(),
             TokenType.Try => ParseTryCatch(),
             TokenType.Print => ParsePrint(),
+            TokenType.Show => ParseShow(),
             TokenType.Input => ParseInput(),
             TokenType.Clear => new ClearStmt(Advance().Location),
             TokenType.Base => ParseBaseCall(),
@@ -577,6 +588,15 @@ public sealed class Parser
             var value = ParseExpression();
             var target = ToAssignTarget(expr);
             return new AssignStmt(target, value, start);
+        }
+
+        if (Check(TokenType.PlusEqual))
+        {
+            Advance();
+            var right = ParseExpression();
+            var target = ToAssignTarget(expr);
+            var addExpr = new BinaryExpr("+", expr, right, start);
+            return new AssignStmt(target, addExpr, start);
         }
 
         return new ExpressionStmt(expr, start);
@@ -661,6 +681,15 @@ public sealed class Parser
             return new AssignStmt(target, value, start);
         }
 
+        if (Check(TokenType.PlusEqual))
+        {
+            Advance();
+            var right = ParseExpression();
+            var target = ToAssignTarget(expr);
+            var addExpr = new BinaryExpr("+", expr, right, start);
+            return new AssignStmt(target, addExpr, start);
+        }
+
         return new ExpressionStmt(expr, start);
     }
 
@@ -689,6 +718,25 @@ public sealed class Parser
         }
 
         return new PrintStmt(expressions, start);
+    }
+
+    private Stmt ParseShow()
+    {
+        var start = Current.Location;
+        Advance(); // SHOW
+
+        var expressions = new List<Expr>();
+        if (!Check(TokenType.Newline) && !IsAtEnd)
+        {
+            expressions.Add(ParseExpression());
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                expressions.Add(ParseExpression());
+            }
+        }
+
+        return new ShowStmt(expressions, start);
     }
 
     private Stmt ParseInput()
@@ -876,14 +924,28 @@ public sealed class Parser
 
     private Expr ParseMultiplicative()
     {
-        var left = ParseUnary();
-        while (CheckAny(TokenType.Star, TokenType.Slash, TokenType.Percent))
+        var left = ParseExponentiation();
+        while (CheckAny(TokenType.Star, TokenType.Slash, TokenType.Percent, TokenType.Mod))
         {
-            var op = Current.Type switch { TokenType.Star => "*", TokenType.Slash => "/", _ => "%" };
+            var op = Current.Type switch { TokenType.Star => "*", TokenType.Slash => "/", TokenType.Percent => "%", TokenType.Mod => "MOD", _ => "*" };
             var loc = Current.Location;
             Advance();
-            var right = ParseUnary();
+            var right = ParseExponentiation();
             left = new BinaryExpr(op, left, right, loc);
+        }
+
+        return left;
+    }
+
+    private Expr ParseExponentiation()
+    {
+        var left = ParseUnary();
+        if (Check(TokenType.StarStar))
+        {
+            var loc = Current.Location;
+            Advance();
+            var right = ParseExponentiation(); // right-associative
+            left = new BinaryExpr("**", left, right, loc);
         }
 
         return left;
@@ -1014,6 +1076,13 @@ public sealed class Parser
                     expr = new MemberAccessExpr(expr, memberTok, loc);
                 }
             }
+            else if (Check(TokenType.PlusPlus) || Check(TokenType.MinusMinus))
+            {
+                var op = Current.Type == TokenType.PlusPlus ? "++" : "--";
+                var loc = Current.Location;
+                Advance();
+                expr = new PostfixExpr(op, expr, loc);
+            }
             else
             {
                 break;
@@ -1051,13 +1120,7 @@ public sealed class Parser
                 Advance();
                 return new NullLiteralExpr(tok.Location);
             case TokenType.LParen:
-            {
-                Advance();
-                var inner = ParseExpression();
-                Expect(TokenType.RParen, "Expected ')'.");
-                return inner;
-            }
-
+                return ParseParenOrArrow();
             case TokenType.LBracket:
                 return ParseArrayLiteral();
             case TokenType.Me:
@@ -1069,7 +1132,7 @@ public sealed class Parser
             case TokenType.New:
                 return ParseNewExpression();
             case TokenType.Identifier:
-                return ParseIdentifierOrCall();
+                return ParseIdentifierOrArrow();
             case TokenType.Math:
                 Advance();
                 return new NamespaceExpr("MATH", tok.Location);
@@ -1102,9 +1165,16 @@ public sealed class Parser
         return new NewExpr(classNameTok.Text, args, start);
     }
 
-    private Expr ParseIdentifierOrCall()
+    private Expr ParseIdentifierOrArrow()
     {
         var tok = Advance();
+        
+        if (Check(TokenType.DoubleArrow))
+        {
+            Advance(); // consume =>
+            return ParseArrowFunctionBody([tok.Text], tok.Location);
+        }
+        
         if (Check(TokenType.LParen))
         {
             Advance(); // consume '('
@@ -1113,6 +1183,84 @@ public sealed class Parser
         }
 
         return new IdentifierExpr(tok.Text, tok.Location);
+    }
+
+    private Expr ParseParenOrArrow()
+    {
+        var start = Current.Location;
+        Advance(); // consume '('
+        
+        if (Check(TokenType.RParen))
+        {
+            Advance(); // consume ')'
+            if (Check(TokenType.DoubleArrow))
+            {
+                Advance(); // consume =>
+                return ParseArrowFunctionBody([], start);
+            }
+            
+            throw new SyntaxException(start, "Empty parentheses are not valid as an expression.");
+        }
+        
+        var paramStart = _pos;
+        var paramNames = new List<string>();
+        var isArrowParams = false;
+        
+        if (Current.Type == TokenType.Identifier)
+        {
+            paramNames.Add(Advance().Text);
+            
+            while (Check(TokenType.Comma))
+            {
+                Advance();
+                if (Current.Type != TokenType.Identifier)
+                {
+                    break;
+                }
+                paramNames.Add(Advance().Text);
+            }
+            
+            if (Check(TokenType.RParen) && CheckNext(TokenType.DoubleArrow))
+            {
+                isArrowParams = true;
+            }
+        }
+        
+        if (isArrowParams)
+        {
+            Advance(); // consume ')'
+            Advance(); // consume =>
+            return ParseArrowFunctionBody(paramNames.ToArray(), start);
+        }
+        
+        _pos = paramStart;
+        var expr = ParseExpression();
+        Expect(TokenType.RParen, "Expected ')' after expression.");
+        return expr;
+    }
+
+    private Expr ParseArrowFunctionBody(string[] parameters, SourceLocation location)
+    {
+        if (Check(TokenType.Newline))
+        {
+            Advance();
+            if (Check(TokenType.End))
+            {
+                var emptyBody = new List<Stmt>();
+                Expect(TokenType.End, "Expected END to close empty arrow function block.");
+                return new BlockArrowFunctionExpr(parameters, emptyBody, location);
+            }
+            var blockBody = ParseBlockUntil(TokenType.End);
+            Expect(TokenType.End, "Expected END to close arrow function block.");
+            return new BlockArrowFunctionExpr(parameters, blockBody, location);
+        }
+        
+        var body = ParseExpression();
+        if (Check(TokenType.End))
+        {
+            Advance(); // consume optional END for expression body
+        }
+        return new ArrowFunctionExpr(parameters, body, location);
     }
 
     private Expr ParseArrayLiteral()

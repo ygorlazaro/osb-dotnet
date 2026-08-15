@@ -14,9 +14,31 @@ PRINT MATH.PI            ' 3.14159...
 PRINT MATH.RANDOM(1, 100) ' random integer 1-100
 ```
 
-Available functions: `SQRT`, `ABS`, `POW`, `FLOOR`, `CEIL`, `MIN`, `MAX`, `CLAMP`, `SIGN`, `ROUND`, `TRUNC`, `MOD`, `RANDOM`, `SIN`, `COS`, `TAN`, `LOG`, `EXP`.
+Available functions: `SQRT`, `ABS`, `POW`, `FLOOR`, `CEIL`, `MIN`, `MAX`, `CLAMP`, `SIGN`, `ROUND`, `TRUNC`, `MOD`, `RANDOM`, `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`, `LOG`, `LOG10`, `EXP`.
 
 Constants: `MATH.PI`, `MATH.E`.
+
+### Trigonometric Functions
+
+OSLANG 0.51 adds trigonometric functions. Angles are expressed in radians.
+
+```osl
+Angle = MATH.PI / 2
+PRINT MATH.SIN(Angle)   ' 1
+PRINT MATH.COS(Angle)   ' ~0
+PRINT MATH.TAN(Angle)   ' very large
+```
+
+Available: `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`.
+
+### Truncation
+
+`MATH.TRUNC` truncates a number. OSLANG 0.51 adds decimal-place truncation.
+
+```osl
+PRINT MATH.TRUNC(3.9)        ' 3
+PRINT MATH.TRUNC(3.14159, 2) ' 3.14
+```
 
 ## FILE Namespace
 

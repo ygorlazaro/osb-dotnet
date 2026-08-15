@@ -22,10 +22,16 @@ public sealed class Scope
 {
     private readonly Dictionary<string, Variable> _locals = new();
     private readonly Dictionary<string, Variable> _globals;
+    private readonly Scope? _parent;
 
     public Scope(Dictionary<string, Variable> globals)
     {
         _globals = globals;
+    }
+
+    public Scope(Scope parent) : this(parent._globals)
+    {
+        _parent = parent;
     }
 
     /// <summary>Declara (ou redeclara) uma variável local - usado por VAR e por parâmetros de função.</summary>
@@ -44,15 +50,38 @@ public sealed class Scope
             return local;
         }
 
+        if (_parent is not null)
+        {
+            var parentResult = _parent.TryResolve(name);
+            if (parentResult is not null)
+            {
+                return parentResult;
+            }
+        }
+
         return _globals.GetValueOrDefault(name);
     }
 
     /// <summary>Resolve um nome para atribuição implícita, criando uma variável local nova se necessário.</summary>
+    public string GetLocals()
+    {
+        return string.Join(",", _locals.Keys);
+    }
+
     public Variable ResolveForAssignment(string name)
     {
         if (_locals.TryGetValue(name, out var local))
         {
             return local;
+        }
+
+        if (_parent is not null)
+        {
+            var parentVar = _parent.TryResolve(name);
+            if (parentVar is not null)
+            {
+                return parentVar;
+            }
         }
 
         if (_globals.TryGetValue(name, out var global))

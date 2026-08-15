@@ -73,12 +73,22 @@ public enum TokenType
     File,
     Dir,
 
+    // OSLANG 0.51
+    Show,
+    Mod,
+
     // Operadores aritméticos
     Plus,
     Minus,
     Star,
+    StarStar,
     Slash,
     Percent,
+
+    // Operadores de incremento/decremento
+    PlusPlus,
+    MinusMinus,
+    PlusEqual,
 
     // Operadores de comparação
     Equal,

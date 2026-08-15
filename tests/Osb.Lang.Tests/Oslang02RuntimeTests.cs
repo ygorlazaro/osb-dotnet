@@ -611,5 +611,297 @@ END FUNCTION";
         Execute(source, output);
         Assert.Contains("FirstDay: 1", output.ToString());
     }
+
+    [Fact]
+    public void ShowStatement_OutputsWithoutNewline()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    SHOW ""Hello ""
+    SHOW ""World""
+    PRINT """"
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello World" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrowFunction_ExpressionBody_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Double = X => X * 2
+    PRINT Double(10)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("20" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrowFunction_MultipleParameters_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Add = (A, B) => A + B
+    PRINT Add(3, 4)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("7" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrowFunction_BlockBody_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Double = X =>
+        Result = X * 2
+        RETURN Result
+    END
+    PRINT Double(10)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("20" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrowFunction_Closure_CapturesVariable()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Multiplier = 10
+    Multiply = X => X * Multiplier
+    PRINT Multiply(5)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("50" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ModOperator_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = 10 MOD 3
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void PowerOperator_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = 2 ** 8
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("256" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void PostfixIncrement_ReturnsOriginalValue()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Counter = 10
+    Value = Counter++
+    PRINT Value
+    PRINT Counter
+END FUNCTION";
+
+        Execute(source, output);
+        var lines = output.ToString().Split('\n');
+        Assert.Equal("10", lines[0]);
+        Assert.Equal("11", lines[1]);
+    }
+
+    [Fact]
+    public void CompoundAssignment_PlusEqual_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Total = 10
+    Total += 5
+    PRINT Total
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("15" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NestedArrays_Work()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Matrix = [[1, 2], [3, 4]]
+    PRINT Matrix[0][1]
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("2" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayFindIndex_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Numbers = [5, 8, 13, 21]
+    Index = Numbers.FINDINDEX(X => X > 10)
+    PRINT Index
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("2" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayPushPop_Work()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Numbers = [1, 2, 3]
+    Numbers.PUSH(4)
+    Last = Numbers.POP()
+    PRINT Last
+    PRINT Numbers[2]
+END FUNCTION";
+
+        Execute(source, output);
+        var lines = output.ToString().Split('\n');
+        Assert.Equal("4", lines[0]);
+        Assert.Equal("3", lines[1]);
+    }
+
+    [Fact]
+    public void ArrayFlat_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Values = [[1, 2], [3, 4]]
+    Result = Values.FLAT()
+    PRINT Result[2]
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringPadStart_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = ""42"".PADSTART(5, ""0"")
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("00042" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringRepeat_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = ""OS"".REPEAT(3)
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("OSOSOS" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NumberTrunc_WithDecimals_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Value = 3.141592
+    PRINT Value.TRUNC(2)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3.14" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void PrefixIncrement_ThrowsSyntaxError()
+    {
+        var source = @"FUNCTION MAIN()
+    Counter = 10
+    Value = ++Counter
+END FUNCTION";
+
+        var ex = Assert.Throws<SyntaxException>(() => Execute(source));
+        Assert.Contains("++", ex.Message);
+    }
+
+    [Fact]
+    public void MathPi_Constant_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    PRINT MATH.PI
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Contains("3.14159", output.ToString());
+    }
+
+    [Fact]
+    public void ArrayForeach_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Sum = 0
+    Numbers = [1, 2, 3]
+    Numbers.FOREACH(X =>
+        Sum = Sum + X
+    END)
+    PRINT Sum
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("6" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void PowerOperator_RightAssociative_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = 2 ** 3 ** 2
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("512" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringPadEnd_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Result = ""42"".PADEND(5, ""0"")
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("42000" + Environment.NewLine, output.ToString());
+    }
 }
 

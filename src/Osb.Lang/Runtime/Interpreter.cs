@@ -223,6 +223,9 @@ internal sealed class Interpreter
             case PrintStmt p:
                 ExecutePrint(p, scope);
                 break;
+            case ShowStmt s:
+                ExecuteShow(s, scope);
+                break;
             case InputStmt i:
                 ExecuteInput(i, scope);
                 break;
@@ -319,6 +322,7 @@ internal sealed class Interpreter
         {
             case VariableTarget vt:
                 var variable = scope.ResolveForAssignment(vt.Name);
+                Console.WriteLine($"[DEBUG] Assign '{vt.Name}' scope locals={string.Join(",", scope.GetLocals())} value={value}");
                 TypeSystem.Assign(variable, value, vt.Location, $"variable '{vt.Name}'");
                 break;
             case IndexTarget it:
@@ -377,6 +381,12 @@ internal sealed class Interpreter
     {
         var text = string.Concat(p.Expressions.Select(e => Conversions.ToDisplayString(Eval(e, scope), e.Location)));
         _output.WriteLine(text);
+    }
+
+    private void ExecuteShow(ShowStmt s, Scope scope)
+    {
+        var text = string.Concat(s.Expressions.Select(e => Conversions.ToDisplayString(Eval(e, scope), e.Location)));
+        _output.Write(text);
     }
 
     private void ExecuteInput(InputStmt i, Scope scope)
@@ -543,6 +553,9 @@ internal sealed class Interpreter
         BinaryExpr b => EvalBinary(b, scope),
         SwitchExpr s => EvalSwitchExpr(s, scope),
         NamespaceExpr ns => EvalNamespace(ns, scope),
+        ArrowFunctionExpr a => EvalArrowFunction(a, scope),
+        BlockArrowFunctionExpr b => EvalBlockArrowFunction(b, scope),
+        PostfixExpr p => EvalPostfix(p, scope),
         _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
     };
 
@@ -825,6 +838,13 @@ internal sealed class Interpreter
     private OslangValue EvalCall(CallExpr call, Scope scope)
     {
         var args = call.Args.Select(a => Eval(a, scope)).ToList();
+        
+        var variable = scope.TryResolve(call.Name);
+        if (variable is not null && variable.Value is FunctionValue func)
+        {
+            return func.Callback(args, call.Location);
+        }
+        
         return CallFunction(call.Name, args, call.Location);
     }
 
@@ -833,6 +853,11 @@ internal sealed class Interpreter
         if (u.Op == "NOT")
         {
             return BooleanValue.Of(!Conversions.IsTruthy(Eval(u.Operand, scope)));
+        }
+
+        if (u.Op == "++" || u.Op == "--")
+        {
+            throw new OslangRuntimeException(u.Location, $"Prefix '{u.Op}' is not allowed. Use postfix form (e.g. Counter{u.Op}).");
         }
 
         // "-" (menos unário)
@@ -880,6 +905,8 @@ internal sealed class Interpreter
             "*" => NumericOp(leftValue, rightValue, b.Location, "*", (x, y) => x * y),
             "/" => EvalDivide(leftValue, rightValue, b.Location),
             "%" => EvalModulo(leftValue, rightValue, b.Location),
+            "MOD" => EvalModulo(leftValue, rightValue, b.Location),
+            "**" => EvalPower(leftValue, rightValue, b.Location),
             "=" => BooleanValue.Of(ValuesEqual(leftValue, rightValue)),
             "<>" => BooleanValue.Of(!ValuesEqual(leftValue, rightValue)),
             "<" => CompareOp(leftValue, rightValue, b.Location, "<", (x, y) => x < y),
@@ -946,6 +973,16 @@ internal sealed class Interpreter
         return new NumberValue(l.Value % r.Value);
     }
 
+    private static OslangValue EvalPower(OslangValue left, OslangValue right, SourceLocation location)
+    {
+        if (left is not NumberValue l || right is not NumberValue r)
+        {
+            throw new OslangRuntimeException(location, $"Invalid operation '**' between {left.TypeName} and {right.TypeName}.");
+        }
+
+        return new NumberValue(Math.Pow(l.Value, r.Value));
+    }
+
     private static OslangValue CompareOp(OslangValue left, OslangValue right, SourceLocation location, string op, Func<double, double, bool> fn)
     {
         if (left is not NumberValue l || right is not NumberValue r)
@@ -977,6 +1014,151 @@ internal sealed class Interpreter
         }
 
         return result ?? OslangValue.Null;
+    }
+
+    private OslangValue EvalArrowFunction(ArrowFunctionExpr arrow, Scope scope)
+    {
+        return CreateArrowFunction(arrow.Parameters, arrow.Body, scope);
+    }
+
+    private OslangValue EvalBlockArrowFunction(BlockArrowFunctionExpr arrow, Scope scope)
+    {
+        return CreateBlockArrowFunction(arrow.Parameters, arrow.Body, scope);
+    }
+
+    private OslangValue EvalPostfix(PostfixExpr postfix, Scope scope)
+    {
+        var operandExpr = postfix.Operand;
+        
+        if (operandExpr is IdentifierExpr id)
+        {
+            var variable = scope.ResolveForAssignment(id.Name);
+            var oldValue = variable.Value;
+            var numericValue = oldValue as NumberValue ?? throw new OslangRuntimeException(postfix.Location, $"Postfix '{postfix.Operator}' requires a NUMBER operand.");
+            
+            var newValue = postfix.Operator switch
+            {
+                "++" => new NumberValue(numericValue.Value + 1),
+                "--" => new NumberValue(numericValue.Value - 1),
+                _ => throw new InvalidOperationException($"Unknown postfix operator '{postfix.Operator}'.")
+            };
+            
+            TypeSystem.Assign(variable, newValue, postfix.Location, $"variable '{id.Name}'");
+            return oldValue;
+        }
+        
+        if (operandExpr is IndexExpr ix)
+        {
+            var array = EvalArray(ix.Array, scope);
+            var index = ResolveIndex(Eval(ix.Index, scope), array, ix.Location);
+            var oldValue = array.Items[index];
+            var numericValue = oldValue as NumberValue ?? throw new OslangRuntimeException(postfix.Location, $"Postfix '{postfix.Operator}' requires a NUMBER element.");
+            
+            var newValue = postfix.Operator switch
+            {
+                "++" => new NumberValue(numericValue.Value + 1),
+                "--" => new NumberValue(numericValue.Value - 1),
+                _ => throw new InvalidOperationException($"Unknown postfix operator '{postfix.Operator}'.")
+            };
+            
+            TypeSystem.AssignArrayElement(array, index, newValue, postfix.Location);
+            return oldValue;
+        }
+        
+        if (operandExpr is MemberAccessExpr ma)
+        {
+            var obj = Eval(ma.Object, scope);
+            if (obj is not ObjectValue objectValue)
+            {
+                throw new OslangRuntimeException(postfix.Location, $"Cannot apply postfix '{postfix.Operator}' to type {obj.TypeName}.");
+            }
+            
+            var instance = objectValue.Instance;
+            var classDef = instance.ClassDefinition;
+            var prop = classDef.FindProperty(ma.MemberName);
+            if (prop is null)
+            {
+                throw new OslangRuntimeException(postfix.Location, $"Property '{ma.MemberName}' not found in class '{classDef.Name}'.");
+            }
+            
+            CheckMemberAccessVisibility(instance, prop.Visibility, prop.Name, postfix.Location);
+            
+            if (!instance.PropertyValues.TryGetValue(prop.Name, out var oldValue))
+            {
+                oldValue = OslangValue.Null;
+            }
+            var numericValue = oldValue as NumberValue ?? throw new OslangRuntimeException(postfix.Location, $"Postfix '{postfix.Operator}' requires a NUMBER property.");
+            
+            var newValue = postfix.Operator switch
+            {
+                "++" => new NumberValue(numericValue.Value + 1),
+                "--" => new NumberValue(numericValue.Value - 1),
+                _ => throw new InvalidOperationException($"Unknown postfix operator '{postfix.Operator}'.")
+            };
+            
+            instance.PropertyValues[prop.Name] = newValue;
+            return oldValue;
+        }
+        
+        throw new OslangRuntimeException(postfix.Location, $"Invalid target for postfix '{postfix.Operator}'. Expected variable, array index, or member access.");
+    }
+
+    private FunctionValue CreateArrowFunction(IReadOnlyList<string> parameters, Expr body, Scope scope)
+    {
+        var capturedScope = scope;
+        
+        return new FunctionValue((args, location) =>
+        {
+            if (args.Count != parameters.Count)
+            {
+                throw new OslangRuntimeException(location, $"Arrow function expects {parameters.Count} argument(s), got {args.Count}.");
+            }
+            
+            var innerScope = new Scope(capturedScope);
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                var param = parameters[i];
+                var variable = innerScope.DeclareLocal(param);
+                TypeSystem.Assign(variable, args[i], location, $"parameter '{param}'");
+            }
+            
+            return Eval(body, innerScope);
+        });
+    }
+
+    private FunctionValue CreateBlockArrowFunction(IReadOnlyList<string> parameters, IReadOnlyList<Stmt> body, Scope scope)
+    {
+        var capturedScope = scope;
+        
+        return new FunctionValue((args, location) =>
+        {
+            if (args.Count != parameters.Count)
+            {
+                throw new OslangRuntimeException(location, $"Arrow function expects {parameters.Count} argument(s), got {args.Count}.");
+            }
+            
+            var innerScope = new Scope(capturedScope);
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                var param = parameters[i];
+                var variable = innerScope.DeclareLocal(param);
+                TypeSystem.Assign(variable, args[i], location, $"parameter '{param}'");
+            }
+            
+            try
+            {
+                foreach (var stmt in body)
+                {
+                    ExecuteStatement(stmt, innerScope, loopDepth: 0);
+                }
+            }
+            catch (ReturnSignal ret)
+            {
+                return ret.Value;
+            }
+            
+            return OslangValue.Null;
+        });
     }
 
     private static bool ValuesEqual(OslangValue left, OslangValue right)
@@ -1046,6 +1228,11 @@ internal sealed class Interpreter
 
     private OslangValue EvalMemberAccess(MemberAccessExpr expr, Scope scope)
     {
+        if (expr.Object is NamespaceExpr ns)
+        {
+            return CallNamespaceMethod(ns.NamespaceName, expr.MemberName, [], expr.Location);
+        }
+
         var obj = Eval(expr.Object, scope);
         if (obj is not ObjectValue objectValue)
         {

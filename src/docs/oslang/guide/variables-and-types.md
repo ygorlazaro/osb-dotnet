@@ -33,6 +33,41 @@ OSLANG provides the following built-in types:
 | `TIME` | Time of day | `TIME.NOW()`, `TIME.NEW(13, 30, 45)` |
 | `ARRAY` | List of values | `[1, 2, 3]`, `["a", "b"]` |
 | `OBJECT` | Base type for all class instances | (see [Classes and Objects](/src/docs/oslang/guide/classes-and-objects.md)) |
+| `NULL` | Absence of a value | `NULL` |
+
+## Nested Arrays
+
+OSLANG 0.51 supports arrays containing arrays:
+
+```osl
+Matrix = [[1, 2], [3, 4], [5, 6]]
+PRINT Matrix[0][1]   ' 2
+PRINT Matrix[2][0]   ' 5
+```
+
+Nested arrays follow the same homogeneous-type rule: all elements at each level must be the same type.
+
+## TYPEOF
+
+`TYPEOF` returns the runtime type name of a value as a `STRING`.
+
+```osl
+PRINT TYPEOF(10)        ' "NUMBER"
+PRINT TYPEOF("Hello")   ' "STRING"
+PRINT TYPEOF(TRUE)      ' "BOOLEAN"
+PRINT TYPEOF([1, 2, 3]) ' "ARRAY"
+PRINT TYPEOF(NULL)      ' "NULL"
+```
+
+For class instances, `TYPEOF` returns the class name.
+
+```osl
+CLASS Color
+END CLASS
+
+Value = NEW Color()
+PRINT TYPEOF(Value)  ' "Color"
+```
 
 ## Type Annotations
 
@@ -119,6 +154,8 @@ OSLANG 0.4 adds methods directly on primitive values.
 
 ### String Methods
 
+OSLANG 0.4 string methods:
+
 ```osl
 Name = "Ygor"
 PRINT Name.TOUPPER()        ' "YGOR"
@@ -131,7 +168,25 @@ PRINT Name.REVERSE()        ' "rogY"
 PRINT "Açúcar".NORMALIZE()  ' "ACUCAR"
 ```
 
+OSLANG 0.51 adds:
+
+```osl
+PRINT "42".PADSTART(5, "0")   ' "00042"
+PRINT "42".PADEND(5, "0")     ' "42000"
+PRINT "OS".REPEAT(3)          ' "OSOSOS"
+```
+
+### Number Methods
+
+```osl
+Value = 3.141592
+PRINT Value.TRUNC(2)    ' 3.14
+PRINT Value.TRUNC()     ' 3
+```
+
 ### Array Methods
+
+OSLANG 0.4 array methods:
 
 ```osl
 Numbers = [3, 1, 2]
@@ -140,6 +195,36 @@ PRINT Numbers.FIRST()       ' 3
 PRINT Numbers.LAST()        ' 2
 PRINT Numbers.SORT()        ' [1, 2, 3]
 PRINT Numbers.JOIN(", ")    ' "3, 1, 2"
+```
+
+OSLANG 0.51 adds:
+
+```osl
+Numbers = [1, 2, 3, 4]
+
+' Search
+PRINT Numbers.CONTAINS(3)           ' TRUE
+PRINT Numbers.INDEXOF(3)            ' 1
+PRINT Numbers.FINDINDEX(X => X > 2) ' 2
+
+' Mutation
+Numbers.PUSH(5)           ' [1, 2, 3, 4, 5]
+Last = Numbers.POP()      ' 5, Numbers is now [1, 2, 3, 4]
+Numbers.REMOVE(2)         ' removes first 2
+
+' Transformation
+Rev = Numbers.REVERSE()   ' [4, 3, 2, 1]
+Sorted = Numbers.SORT()   ' [1, 2, 3, 4]
+Str = Numbers.JOIN(", ")  ' "4, 3, 2, 1"
+
+' Nested arrays
+Matrix = [[1, 2], [3, 4]]
+Flat = Matrix.FLAT()      ' [1, 2, 3, 4]
+Result = Matrix.FLATMAP(X => [X, X * 10])  ' [[1,2],[3,4]] -> [1, 2, 10, 3, 4, 20]
+
+' Side-effect iteration
+Sum = 0
+Numbers.FOREACH(X => Sum = Sum + X)  ' Sum = 10
 ```
 
 ### Callback Support
