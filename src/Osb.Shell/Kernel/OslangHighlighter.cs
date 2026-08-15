@@ -19,12 +19,12 @@ public static class OslangHighlighter
         "GLOBAL", "IF", "INPUT", "INTERFACE", "KISS", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
         "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
         "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING",
-        "MATH", "FILE", "DIR"
+        "MATH", "FILE", "DIR", "DATE", "TIME"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)
     {
-        "NUMBER", "STRING", "BOOLEAN", "ARRAY", "NULL", "OBJECT"
+        "NUMBER", "STRING", "BOOLEAN", "ARRAY", "NULL", "OBJECT", "DATE", "TIME"
     };
 
     public static string Highlight(string line, int maxVisibleWidth)

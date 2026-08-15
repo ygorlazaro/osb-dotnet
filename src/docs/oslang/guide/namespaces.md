@@ -57,6 +57,38 @@ IF DIR.EXISTS("mydir") THEN
 END IF
 ```
 
+## DATE Namespace
+
+The `DATE` namespace provides date values and operations.
+
+```osl
+Today = DATE.NOW()
+Birthday = DATE.NEW(1986, 4, 12)
+Epoch = DATE.FROMNUMBER(0)
+
+Year = Today.YEAR()
+Month = Today.MONTH()
+Day = Today.DAY()
+Weekday = Today.DAYOFWEEK()
+Formatted = Today.FORMAT("DD/MM/YYYY")
+```
+
+## TIME Namespace
+
+The `TIME` namespace provides time-of-day values and operations.
+
+```osl
+Now = TIME.NOW()
+Alarm = TIME.NEW(8, 30, 0)
+Midnight = TIME.MIDNIGHT()
+FromSeconds = TIME.FROMNUMBER(3600)
+
+Hour = Now.HOUR()
+Minute = Now.MINUTE()
+Second = Now.SECOND()
+Formatted = Now.FORMAT("HH:mm:ss")
+```
+
 ## Primitive Methods
 
 OSLANG 0.4 adds methods directly on primitive values.

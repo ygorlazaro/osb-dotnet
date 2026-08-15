@@ -11,6 +11,7 @@ OSLANG includes the following built-in functions and namespaces. They are availa
 | `BOOL(value)` | Converts a value to a boolean. | `BOOL(0)` → `FALSE` |
 | `COUNT(value)` | Returns the number of items in an array or string. | `COUNT("abc")` → `3` |
 | `TYPEOF(value)` | Returns the type name as a string. | `TYPEOF(42)` → `"NUMBER"` |
+| `ARGS` | Array of command-line argument strings passed to `MAIN(Args)`. | `ARGS[0]` → first argument |
 
 ## MATH Namespace
 

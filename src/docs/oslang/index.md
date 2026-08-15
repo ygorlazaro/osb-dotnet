@@ -23,7 +23,14 @@ Welcome to the official OSLANG documentation. OSLANG is a modern, interpreted pr
 
 ## Specification
 
-- **[OSLANG 0.4 Specification](/src/Osb.Lang/OSLANG-0.4-SPEC.md)** — Full language specification.
+- **[OSLANG 0.5 Specification](/src/Osb.Lang/OSLANG-0.5-SPEC.md)** — Full language specification (DATE, TIME, ARGS).
+- **[OSLANG 0.41 Specification](/src/Osb.Lang/OSLANG-0.4-SPEC.md)** — Previous version with ARGS support.
+
+## Version Notes
+
+- **OSLANG 0.5** adds native `DATE` and `TIME` types, `DATE.*` and `TIME.*` namespaces, and temporal conversions.
+- **OSLANG 0.41** adds optional `ARGS` parameter to `FUNCTION MAIN(Args)` for command-line argument access.
+- **OSLANG 0.4** adds primitive methods, namespaces (`MATH`, `FILE`, `DIR`), and stable dynamic typing.
 
 ## Contributing
 

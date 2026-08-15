@@ -69,7 +69,7 @@
           },
           {
             "name": "keyword.other.oslang",
-            "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR)\\b"
+            "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME)\\b"
           },
           {
             "name": "storage.modifier.oslang",
@@ -85,7 +85,7 @@
       "patterns": [
         {
           "name": "storage.type.oslang",
-          "match": "(?i)\\b(NUMBER|STRING|BOOLEAN|ARRAY|OBJECT|VOID)\\b"
+          "match": "(?i)\\b(NUMBER|STRING|BOOLEAN|ARRAY|NULL|OBJECT|DATE|TIME)\\b"
         }
       ]
     },

@@ -11,8 +11,9 @@ OSLANG is a modern, interpreted programming language. It is designed to be:
 - **Order-independent** — Declarations can appear in any order; forward references are allowed.
  - **Multi-file** — Split programs across files with `USING`.
  - **Object-oriented** — Classes, interfaces, inheritance, and virtual/override methods.
- - **Namespaces** — Built-in `MATH`, `FILE`, and `DIR` namespaces.
- - **Primitive methods** — Call methods directly on strings, numbers, booleans, and arrays.
+  - **Namespaces** — Built-in `MATH`, `FILE`, `DIR`, `DATE`, and `TIME` namespaces.
+  - **Primitive methods** — Call methods directly on strings, numbers, booleans, arrays, dates, and times.
+  - **Command-line arguments** — `FUNCTION MAIN(Args)` receives script arguments as an array of strings.
 
 ## Installing OSLANG
 
@@ -74,5 +75,5 @@ Hello, OSLANG!
 
 ## Need Help?
 
-- Full specification: [OSLANG 0.4 SPEC](/src/Osb.Lang/OSLANG-0.4-SPEC.md)
+- Full specification: [OSLANG 0.5 SPEC](/src/Osb.Lang/OSLANG-0.5-SPEC.md)
 - Report issues: [GitHub Issues](https://github.com/ygorlazaro/osb-dotnet/issues)

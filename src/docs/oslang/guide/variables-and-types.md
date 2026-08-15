@@ -29,6 +29,8 @@ OSLANG provides the following built-in types:
 | `NUMBER` | Double-precision floating-point number | `42`, `3.14`, `-0.5` |
 | `STRING` | Text string | `"Hello"`, `"World"` |
 | `BOOLEAN` | Boolean value | `TRUE`, `FALSE` |
+| `DATE` | Calendar date | `DATE.NOW()`, `DATE.NEW(2026, 8, 15)` |
+| `TIME` | Time of day | `TIME.NOW()`, `TIME.NEW(13, 30, 45)` |
 | `ARRAY` | List of values | `[1, 2, 3]`, `["a", "b"]` |
 | `OBJECT` | Base type for all class instances | (see [Classes and Objects](/src/docs/oslang/guide/classes-and-objects.md)) |
 
