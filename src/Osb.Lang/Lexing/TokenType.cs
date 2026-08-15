@@ -68,6 +68,11 @@ public enum TokenType
     Raise,
     Using,
 
+    // OSLANG 0.4
+    Math,
+    File,
+    Dir,
+
     // Operadores aritméticos
     Plus,
     Minus,

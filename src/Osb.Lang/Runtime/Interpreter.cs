@@ -121,6 +121,34 @@ internal sealed class Interpreter
         throw new OslangRuntimeException(callLocation, $"Unknown function '{name}'.");
     }
 
+    private OslangValue CallNamespaceMethod(string namespaceName, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        if (namespaceName.Equals("MATH", StringComparison.OrdinalIgnoreCase))
+        {
+            return MathNamespace.Call(methodName, args, location);
+        }
+
+        if (namespaceName.Equals("FILE", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_extensions.TryGet($"FILE.{methodName}", out var fileFunc))
+            {
+                return fileFunc(args, location);
+            }
+            throw new OslangRuntimeException(location, $"Unknown FILE method '{methodName}'.");
+        }
+
+        if (namespaceName.Equals("DIR", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_extensions.TryGet($"DIR.{methodName}", out var dirFunc))
+            {
+                return dirFunc(args, location);
+            }
+            throw new OslangRuntimeException(location, $"Unknown DIR method '{methodName}'.");
+        }
+
+        throw new OslangRuntimeException(location, $"Unknown namespace '{namespaceName}'.");
+    }
+
     private OslangValue CallUserFunction(FunctionDecl decl, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
     {
         if (args.Count != decl.Parameters.Count)
@@ -487,26 +515,27 @@ internal sealed class Interpreter
     // Expressões
     // ============================================================
 
-        private OslangValue Eval(Expr expr, Scope scope) => expr switch
-        {
-            NumberLiteralExpr n => new NumberValue(n.Value),
-            StringLiteralExpr s => new StringValue(s.Value),
-            BooleanLiteralExpr b => BooleanValue.Of(b.Value),
-            NullLiteralExpr => OslangValue.Null,
-            ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),
-            IdentifierExpr id => EvalIdentifier(id, scope),
-            IndexExpr ix => EvalIndex(ix, scope),
-            CallExpr call => EvalCall(call, scope),
-            MethodCallExpr call => EvalMethodCall(call, scope),
-            MemberAccessExpr ma => EvalMemberAccess(ma, scope),
-            NewExpr ne => EvalNew(ne, scope),
-            MeExpr => EvalMe(scope),
-            BaseExpr => EvalBase(scope),
-            UnaryExpr u => EvalUnary(u, scope),
-            BinaryExpr b => EvalBinary(b, scope),
-            SwitchExpr s => EvalSwitchExpr(s, scope),
-            _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
-        };
+    private OslangValue Eval(Expr expr, Scope scope) => expr switch
+    {
+        NumberLiteralExpr n => new NumberValue(n.Value),
+        StringLiteralExpr s => new StringValue(s.Value),
+        BooleanLiteralExpr b => BooleanValue.Of(b.Value),
+        NullLiteralExpr => OslangValue.Null,
+        ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),
+        IdentifierExpr id => EvalIdentifier(id, scope),
+        IndexExpr ix => EvalIndex(ix, scope),
+        CallExpr call => EvalCall(call, scope),
+        MethodCallExpr call => EvalMethodCall(call, scope),
+        MemberAccessExpr ma => EvalMemberAccess(ma, scope),
+        NewExpr ne => EvalNew(ne, scope),
+        MeExpr => EvalMe(scope),
+        BaseExpr => EvalBase(scope),
+        UnaryExpr u => EvalUnary(u, scope),
+        BinaryExpr b => EvalBinary(b, scope),
+        SwitchExpr s => EvalSwitchExpr(s, scope),
+        NamespaceExpr ns => EvalNamespace(ns, scope),
+        _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
+    };
 
     private double EvalNumber(Expr expr, Scope scope, string description)
     {
@@ -544,11 +573,107 @@ internal sealed class Interpreter
             if (method is not null)
             {
                 CheckMemberVisibility(method.Visibility, method.Name, id.Location);
-                return OslangValue.Null; // method reference - not callable as value in 0.2
+                return CreateMethodReference(method);
+            }
+        }
+
+        if (_functions.TryGetValue(id.Name, out var funcSet))
+        {
+            var first = funcSet.Overloads.FirstOrDefault();
+            if (first is not null)
+            {
+                return CreateFunctionReference(first);
             }
         }
 
         throw new OslangRuntimeException(id.Location, $"Undefined variable '{id.Name}'.");
+    }
+
+    private OslangValue CreateFunctionReference(FunctionDecl decl)
+    {
+        return new FunctionValue((args, location) =>
+        {
+            if (args.Count != decl.Parameters.Count)
+            {
+                throw new OslangRuntimeException(location, $"Function '{decl.Name}' expects {decl.Parameters.Count} argument(s), got {args.Count}.");
+            }
+
+            var scope = new Scope(_globals);
+            for (var i = 0; i < decl.Parameters.Count; i++)
+            {
+                var param = decl.Parameters[i];
+                var variable = scope.DeclareLocal(param.Name);
+                if (param.TypeName is not null)
+                {
+                    variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
+                }
+                TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+            }
+
+            try
+            {
+                ExecuteBlock(decl.Body, scope, loopDepth: 0);
+            }
+            catch (ReturnSignal ret)
+            {
+                return ret.Value;
+            }
+
+            return OslangValue.Null;
+        });
+    }
+
+    private OslangValue CreateMethodReference(MethodDefinition method)
+    {
+        if (_currentObject is null)
+        {
+            throw new OslangRuntimeException(SourceLocation.Unknown, $"Cannot reference method '{method.Name}' outside of an object context.");
+        }
+
+        var instance = _currentObject;
+        var classDef = instance.ClassDefinition;
+        var declaringClass = FindMethodDeclaringClass(classDef, method.Name);
+
+        return new FunctionValue((args, location) =>
+        {
+            if (args.Count != method.Parameters.Count)
+            {
+                throw new OslangRuntimeException(location, $"Method '{method.Name}' expects {method.Parameters.Count} argument(s), got {args.Count}.");
+            }
+
+            var previousObject = _currentObject;
+            var previousEnclosing = _enclosingClass;
+            _currentObject = instance;
+            _enclosingClass = declaringClass ?? classDef;
+
+            var scope = new Scope(_globals);
+            for (var i = 0; i < method.Parameters.Count; i++)
+            {
+                var param = method.Parameters[i];
+                var variable = scope.DeclareLocal(param.Name);
+                if (param.TypeName is not null)
+                {
+                    variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
+                }
+                TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+            }
+
+            try
+            {
+                ExecuteBlock(method.Body, scope, loopDepth: 0);
+            }
+            catch (ReturnSignal ret)
+            {
+                return ret.Value;
+            }
+            finally
+            {
+                _currentObject = previousObject;
+                _enclosingClass = previousEnclosing;
+            }
+
+            return OslangValue.Null;
+        });
     }
 
     private void CheckMemberVisibility(Visibility memberVisibility, string memberName, SourceLocation location)
@@ -899,6 +1024,17 @@ internal sealed class Interpreter
         return new ObjectValue(_currentObject);
     }
 
+    private OslangValue EvalNamespace(NamespaceExpr ns, Scope scope)
+    {
+        return ns.NamespaceName.ToUpperInvariant() switch
+        {
+            "MATH" => OslangValue.Null, // MATH is a namespace marker, actual methods dispatched in EvalMethodCall
+            "FILE" => OslangValue.Null, // FILE is a namespace marker
+            "DIR" => OslangValue.Null, // DIR is a namespace marker
+            _ => throw new OslangRuntimeException(ns.Location, $"Unknown namespace '{ns.NamespaceName}'."),
+        };
+    }
+
     private OslangValue EvalMemberAccess(MemberAccessExpr expr, Scope scope)
     {
         var obj = Eval(expr.Object, scope);
@@ -928,26 +1064,43 @@ internal sealed class Interpreter
 
     private OslangValue EvalMethodCall(MethodCallExpr expr, Scope scope)
     {
+        if (expr.Object is NamespaceExpr ns)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return CallNamespaceMethod(ns.NamespaceName, expr.MethodName, args, expr.Location);
+        }
+
         var obj = Eval(expr.Object, scope);
-        if (obj is not ObjectValue objectValue)
+
+        if (obj is ObjectValue objectValue)
         {
-            throw new OslangRuntimeException(expr.Location, $"Cannot call method '{expr.MethodName}' on type {obj.TypeName}.");
+            var classDef = expr.Object is BaseExpr && objectValue.Instance.ClassDefinition.BaseClass is not null
+                ? objectValue.Instance.ClassDefinition.BaseClass
+                : objectValue.Instance.ClassDefinition;
+
+            var method = classDef.FindMethod(expr.MethodName);
+            if (method is null)
+            {
+                throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{classDef.Name}'.");
+            }
+
+            var declaringClass = FindMethodDeclaringClass(classDef, expr.MethodName);
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return CallMethod(objectValue.Instance, method, declaringClass, args, expr.Location);
         }
 
-        var classDef = expr.Object is BaseExpr && objectValue.Instance.ClassDefinition.BaseClass is not null
-            ? objectValue.Instance.ClassDefinition.BaseClass
-            : objectValue.Instance.ClassDefinition;
-
-        var method = classDef.FindMethod(expr.MethodName);
-        if (method is null)
+        if (obj is StringValue or NumberValue or BooleanValue or ArrayValue)
         {
-            throw new OslangRuntimeException(expr.Location, $"Method '{expr.MethodName}' not found in class '{classDef.Name}'.");
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return PrimitiveMethodDispatcher.Dispatch(obj, expr.MethodName, args, expr.Location);
         }
 
-        var declaringClass = FindMethodDeclaringClass(classDef, expr.MethodName);
-        
-        var args = expr.Args.Select(a => Eval(a, scope)).ToList();
-        return CallMethod(objectValue.Instance, method, declaringClass, args, expr.Location);
+        if (obj is NullValue)
+        {
+            throw new OslangRuntimeException(expr.Location, $"Cannot call method '{expr.MethodName}' on NULL.");
+        }
+
+        throw new OslangRuntimeException(expr.Location, $"Cannot call method '{expr.MethodName}' on type {obj.TypeName}.");
     }
 
     private ClassDefinition? FindMethodDeclaringClass(ClassDefinition classDef, string methodName)

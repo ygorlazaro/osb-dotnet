@@ -1,3 +1,5 @@
+using Osb.Lang.Diagnostics;
+
 namespace Osb.Lang.Runtime;
 
 /// <summary>
@@ -58,4 +60,13 @@ public sealed class ArrayValue(List<OslangValue> items, RuntimeType? elementType
     public List<OslangValue> Items { get; } = items;
     public RuntimeType? ElementType { get; set; } = elementType;
     public override RuntimeType Type => RuntimeType.Array;
+}
+
+/// <summary>
+/// OSLANG 0.4 function reference, used for callbacks like MAP, FILTER, REDUCE.
+/// </summary>
+public sealed class FunctionValue(Func<IReadOnlyList<OslangValue>, SourceLocation, OslangValue> callback) : OslangValue
+{
+    public Func<IReadOnlyList<OslangValue>, SourceLocation, OslangValue> Callback { get; } = callback;
+    public override RuntimeType Type => RuntimeType.Function;
 }

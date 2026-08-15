@@ -552,10 +552,10 @@ END CLASS";
             var mathSource = @"FUNCTION SQUARE(X NUMBER)
     RETURN X * X
 END FUNCTION";
-            File.WriteAllText(Path.Combine(tempDir, "Math.osl"), mathSource);
+            File.WriteAllText(Path.Combine(tempDir, "Utils.osl"), mathSource);
 
             var mainSource = @"USING Person
-USING Math
+USING Utils
 
 FUNCTION MAIN()
     P = NEW PERSON(""Ygor"")

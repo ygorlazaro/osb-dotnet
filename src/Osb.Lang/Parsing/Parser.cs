@@ -362,8 +362,8 @@ public sealed class Parser
     {
         var start = Current.Location;
         Advance(); // consume USING
-        var moduleTok = Expect(TokenType.Identifier, "Expected module name after USING.");
-        return new UsingDecl(moduleTok.Text, start);
+        var moduleTok = ParseAnyNameToken("Expected module name after USING.");
+        return new UsingDecl(moduleTok, start);
     }
 
     private EventDecl ParseEventDecl()
@@ -452,6 +452,36 @@ public sealed class Parser
         }
 
         return null;
+    }
+
+    private string ParseMemberName()
+    {
+        if (Check(TokenType.Identifier))
+        {
+            return Advance().Text;
+        }
+
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool)
+        {
+            return Advance().Text;
+        }
+
+        throw new SyntaxException(Current.Location, "Expected member name after '.'.");
+    }
+
+    private string ParseAnyNameToken(string errorMessage)
+    {
+        if (Check(TokenType.Identifier))
+        {
+            return Advance().Text;
+        }
+
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir)
+        {
+            return Advance().Text;
+        }
+
+        throw new SyntaxException(Current.Location, errorMessage);
     }
 
     // ============================================================
@@ -566,17 +596,17 @@ public sealed class Parser
             {
                 var loc = Current.Location;
                 Advance(); // consume '.'
-                var memberTok = Expect(TokenType.Identifier, "Expected member name after '.'.");
+                var memberTok = ParseMemberName();
                 
                 if (Check(TokenType.LParen))
                 {
                     Advance(); // consume '('
                     var args = ParseArgList();
-                    expr = new MethodCallExpr(expr, memberTok.Text, args, loc);
+                    expr = new MethodCallExpr(expr, memberTok, args, loc);
                 }
                 else
                 {
-                    expr = new MemberAccessExpr(expr, memberTok.Text, loc);
+                    expr = new MemberAccessExpr(expr, memberTok, loc);
                 }
             }
             else
@@ -960,17 +990,17 @@ public sealed class Parser
             {
                 var loc = Current.Location;
                 Advance(); // consume '.'
-                var memberTok = Expect(TokenType.Identifier, "Expected member name after '.'.");
+                var memberTok = ParseMemberName();
                 
                 if (Check(TokenType.LParen))
                 {
                     Advance(); // consume '('
                     var args = ParseArgList();
-                    expr = new MethodCallExpr(expr, memberTok.Text, args, loc);
+                    expr = new MethodCallExpr(expr, memberTok, args, loc);
                 }
                 else
                 {
-                    expr = new MemberAccessExpr(expr, memberTok.Text, loc);
+                    expr = new MemberAccessExpr(expr, memberTok, loc);
                 }
             }
             else
@@ -1029,6 +1059,15 @@ public sealed class Parser
                 return ParseNewExpression();
             case TokenType.Identifier:
                 return ParseIdentifierOrCall();
+            case TokenType.Math:
+                Advance();
+                return new NamespaceExpr("MATH", tok.Location);
+            case TokenType.File:
+                Advance();
+                return new NamespaceExpr("FILE", tok.Location);
+            case TokenType.Dir:
+                Advance();
+                return new NamespaceExpr("DIR", tok.Location);
         }
 
         if (BuiltinCallKeywords.Contains(tok.Type))

@@ -12,5 +12,6 @@ public enum RuntimeType
     Boolean,
     Array,
     Object,
+    Function,
     Null,
 }

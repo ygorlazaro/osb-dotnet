@@ -267,3 +267,6 @@ public sealed record MeExpr(SourceLocation Location) : Expr(Location);
 
 /// <summary>Referência à instância da classe base dentro de métodos (BASE)</summary>
 public sealed record BaseExpr(SourceLocation Location) : Expr(Location);
+
+/// <summary>OSLANG 0.4 namespace reference: MATH, FILE, or DIR.</summary>
+public sealed record NamespaceExpr(string NamespaceName, SourceLocation Location) : Expr(Location);
