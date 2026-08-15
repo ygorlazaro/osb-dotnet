@@ -1,59 +1,42 @@
+' OSLANG 0.51 - Animal inheritance example
 CLASS Animal
-    
     VAR Name String
 
     CONSTRUCTOR(Name String)
-
         ME.Name = Name
-
     END
 
     PUBLIC GET_NAME()
-
         RETURN ME.Name
-
     END
 END
 
 CLASS Mammal: Animal
-
     VAR Sound String
 
     CONSTRUCTOR(Name String, Sound String)
-
         BASE(Name)
         ME.Sound = Sound
-
     END
 
     PUBLIC GET_SOUND()
-
         RETURN ME.Sound
-
     END
 END
 
 CLASS Dog: Mammal
-
     CONSTRUCTOR(Name String)
-
         BASE(Name, "Woof")
-
     END
 
     PUBLIC GET_SOUND()
-    
         RETURN BASE.GET_SOUND()
     END
-
 END
 
 FUNCTION MAIN()
     PRINT "Exemplo de lidar com classes, usando o conceito de animais"
-
     fifi = new Dog("Fifi")
-
     saida = Fifi.GET_SOUND()
-
     PRINT saida
 END

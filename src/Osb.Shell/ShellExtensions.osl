@@ -1,10 +1,8 @@
+' OSLANG 0.51 - Shell Extensions Demo
 FUNCTION MAIN()
-
-    PRINT "Diretorio atual:"
+    SHOW "Diretorio atual: "
     PRINT PWD()
     PRINT ""
-
-    PRINT "Listagem:"
+    SHOW "Listagem: "
     DIR()
-
 END FUNCTION

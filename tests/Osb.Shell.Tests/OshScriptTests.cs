@@ -382,4 +382,29 @@ public class OshScriptTests
         var result = output.ToString();
         Assert.Contains("Agosto", result, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Execute_TourCommand_RunsSuccessfully()
+    {
+        var env = new OsbEnvironment();
+        env.Users.Add(UniqueUser, "testpass", out _);
+        env.SetCurrentUsername(UniqueUser);
+        var shell = new OsbShell(env);
+
+        var output = new StringWriter();
+        Console.SetOut(output);
+
+        shell.Execute("USER " + UniqueUser + " testpass");
+        shell.Execute("APLIC");
+        var listResult = output.ToString();
+        Console.WriteLine("APLIC LIST OUTPUT: '" + listResult + "'");
+        
+        output = new StringWriter();
+        Console.SetOut(output);
+        shell.Execute("APLIC TOUR");
+        var tourResult = output.ToString();
+        Console.WriteLine("TOUR OUTPUT: '" + tourResult + "'");
+        
+        Assert.Contains("Tour", listResult + tourResult, StringComparison.OrdinalIgnoreCase);
+    }
 }

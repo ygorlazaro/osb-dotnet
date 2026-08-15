@@ -1,4 +1,4 @@
-' OSLANG 0.41 - TODO App Entry Point
+' OSLANG 0.51 - TODO App Entry Point
 USING Todo
 
 FUNCTION MAIN()

@@ -1,6 +1,4 @@
-' OSLANG 0.41 - TODO Command
-' Gerenciador de tarefas
-
+' OSLANG 0.51 - TODO Command
 CLASS TODOAPP
 
     PUBLIC FUNCTION RUN(Args)
@@ -17,7 +15,7 @@ CLASS TODOAPP
             END
             TaskText = Args[1]
             FOR I = 2 TO COUNT(Args) - 1
-                TaskText = TaskText + " " + Args[I]
+                TaskText += " " + Args[I]
             END
             ME.ADD(TaskText)
         ELIF Command = "LIST" THEN
@@ -117,7 +115,7 @@ CLASS TODOAPP
     END FUNCTION
 
     PRIVATE FUNCTION FILE_PATH()
-        Return DIR.CURRENT() + "/.todo.txt"
+        RETURN DIR.CURRENT() + "/.todo.txt"
     END FUNCTION
 
 END CLASS

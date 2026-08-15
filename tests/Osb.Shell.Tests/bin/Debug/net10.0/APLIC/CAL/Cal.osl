@@ -1,4 +1,4 @@
-' OSLANG 0.41 - Calendar Implementation
+' OSLANG 0.51 - Calendar Implementation
 CLASS CALENDARAPP
 
     PUBLIC FUNCTION RUN(Args)
@@ -79,19 +79,19 @@ CLASS CALENDARAPP
         Line = ""
         IF FirstDay > 0 THEN
             FOR I = 1 TO FirstDay
-                Line = Line + "    "
+                Line += "    "
             END
         END
 
         FOR Day = 1 TO DaysInMonth
             IsToday = (Day = TodayDay AND Month = TodayMonth AND Year = TodayYear)
             IF IsToday THEN
-                Line = Line + "[" + ME.PADLEFT(STR(Day), 2) + "]"
+                Line += "[" + STR(Day).PADSTART(2) + "]"
             ELSE
-                Line = Line + " " + ME.PADLEFT(STR(Day), 2) + " "
+                Line += " " + STR(Day).PADSTART(2) + " "
             END
 
-            IF (Day + FirstDay) % 7 = 0 THEN
+            IF (Day + FirstDay) MOD 7 = 0 THEN
                 PRINT Line
                 Line = ""
             END
@@ -103,12 +103,12 @@ CLASS CALENDARAPP
         PRINT ""
 
         IF Month = TodayMonth AND Year = TodayYear THEN
-            TodayWeekdayIndex = (FirstDay + TodayDay - 1) % 7
+            TodayWeekdayIndex = (FirstDay + TodayDay - 1) MOD 7
             TodayWeekday = ME.GETWEEKDAYFULLNAME(TodayWeekdayIndex)
-            Hour = ME.PADLEFT(STR(ME.NOW_HOUR()), 2)
-            Minute = ME.PADLEFT(STR(ME.NOW_MINUTE()), 2)
-            Second = ME.PADLEFT(STR(ME.NOW_SECOND()), 2)
-            PRINT "Hoje: " + TodayWeekday + ", " + ME.PADLEFT(STR(TodayDay), 2) + "/" + ME.PADLEFT(STR(TodayMonth), 2) + "/" + STR(TodayYear) + " " + Hour + ":" + Minute + ":" + Second
+            Hour = STR(ME.NOW_HOUR()).PADSTART(2)
+            Minute = STR(ME.NOW_MINUTE()).PADSTART(2)
+            Second = STR(ME.NOW_SECOND()).PADSTART(2)
+            PRINT "Hoje: " + TodayWeekday + ", " + STR(TodayDay).PADSTART(2) + "/" + STR(TodayMonth).PADSTART(2) + "/" + STR(TodayYear) + " " + Hour + ":" + Minute + ":" + Second
         END
     END FUNCTION
 
@@ -129,7 +129,7 @@ CLASS CALENDARAPP
 
     PRIVATE FUNCTION GETDAYSINMONTH(Month, Year)
         IF Month = 2 THEN
-            IF (Year % 400 = 0) OR ((Year % 4 = 0) AND (Year % 100 <> 0)) THEN
+            IF (Year MOD 400 = 0) OR ((Year MOD 4 = 0) AND (Year MOD 100 <> 0)) THEN
                 RETURN 29
             END
             RETURN 28
@@ -148,25 +148,13 @@ CLASS CALENDARAPP
             Y = Y - 1
         END
         Q = 1
-        K = Y % 100
+        K = Y MOD 100
         J = (Y / 100).FLOOR()
-        H = (Q + ((13 * (M + 1)) / 5).FLOOR() + K + (K / 4).FLOOR() + (J / 4).FLOOR() + 5 * J) % 7
+        H = (Q + ((13 * (M + 1)) / 5).FLOOR() + K + (K / 4).FLOOR() + (J / 4).FLOOR() + 5 * J) MOD 7
         IF H = 0 THEN
             RETURN 6
         END
         RETURN H - 1
-    END FUNCTION
-
-    PRIVATE FUNCTION PADLEFT(Text, Width)
-        Len = COUNT(Text)
-        IF Len >= Width THEN
-            RETURN Text
-        END
-        Pad = ""
-        FOR I = 1 TO Width - Len
-            Pad = Pad + " "
-        END
-        RETURN Pad + Text
     END FUNCTION
 
 END CLASS

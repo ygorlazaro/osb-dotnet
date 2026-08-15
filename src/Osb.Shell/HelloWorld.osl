@@ -1,11 +1,8 @@
+' OSLANG 0.51 - Hello World
 FUNCTION MAIN()
-
     PRINT "Hello, OSB!"
     PRINT ""
-
-    PRINT "Qual é o seu nome?"
+    SHOW "Qual é o seu nome? "
     INPUT Name
-
     PRINT "Ola, " + Name + "!"
-
 END FUNCTION

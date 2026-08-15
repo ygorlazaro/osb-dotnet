@@ -124,7 +124,7 @@ public sealed class Parser
     {
         var start = Current.Location;
         Expect(TokenType.Function, "Expected FUNCTION declaration.");
-        var nameTok = Expect(TokenType.Identifier, "Expected function name.");
+        var nameTok = ParseNameToken("Expected function name.");
 
         Expect(TokenType.LParen, "Expected '(' after function name.");
         var parameters = new List<ParameterDecl>();
@@ -306,7 +306,7 @@ public sealed class Parser
     private MethodDecl ParseMethodDecl(Visibility visibility)
     {
         var start = Current.Location;
-        var nameTok = Expect(TokenType.Identifier, "Expected method name.");
+        var nameTok = ParseNameToken("Expected method name.");
 
         Expect(TokenType.LParen, "Expected '(' after method name.");
         var parameters = new List<ParameterDecl>();
@@ -471,7 +471,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf)
         {
             return Advance().Text;
         }
@@ -486,9 +486,24 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf)
         {
             return Advance().Text;
+        }
+
+        throw new SyntaxException(Current.Location, errorMessage);
+    }
+
+    private Token ParseNameToken(string errorMessage)
+    {
+        if (Check(TokenType.Identifier))
+        {
+            return Advance();
+        }
+
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Print or TokenType.Input or TokenType.Using or TokenType.New or TokenType.Me or TokenType.Base or TokenType.Not or TokenType.And or TokenType.Or or TokenType.Return or TokenType.If or TokenType.For or TokenType.While or TokenType.Do or TokenType.Break or TokenType.Continue or TokenType.Elif or TokenType.Else or TokenType.End or TokenType.Then or TokenType.To or TokenType.Step or TokenType.Switch or TokenType.Case or TokenType.Default or TokenType.Try or TokenType.Catch or TokenType.Class or TokenType.Interface or TokenType.Event or TokenType.Var or TokenType.Global or TokenType.Constructor or TokenType.Virtual or TokenType.Override or TokenType.Event or TokenType.On or TokenType.Raise)
+        {
+            return Advance();
         }
 
         throw new SyntaxException(Current.Location, errorMessage);

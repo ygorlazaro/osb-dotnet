@@ -322,7 +322,6 @@ internal sealed class Interpreter
         {
             case VariableTarget vt:
                 var variable = scope.ResolveForAssignment(vt.Name);
-                Console.WriteLine($"[DEBUG] Assign '{vt.Name}' scope locals={string.Join(",", scope.GetLocals())} value={value}");
                 TypeSystem.Assign(variable, value, vt.Location, $"variable '{vt.Name}'");
                 break;
             case IndexTarget it:

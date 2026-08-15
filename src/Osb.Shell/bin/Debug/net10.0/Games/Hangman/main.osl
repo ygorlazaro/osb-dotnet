@@ -1,4 +1,4 @@
-' OSLANG 0.4 - Hangman Game Entry Point
+' OSLANG 0.51 - Hangman Game Entry Point
 USING HangmanGame
 
 FUNCTION MAIN()

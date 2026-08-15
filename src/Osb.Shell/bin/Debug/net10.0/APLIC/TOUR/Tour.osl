@@ -1,15 +1,14 @@
-' OSLANG 0.4 - Tour do OSB
-' Aplicativo de tour passo a passo
-
+' OSLANG 0.51 - Tour do OSB
 CLASS TOUR
-
     PUBLIC FUNCTION SHOW(UserName)
         IF COUNT(UserName) = 0 THEN
             UserName = "você"
         END
 
         PRINT ""
-        PRINT "Bem-vindo ao Tour do OSB, " + UserName + "!"
+        SHOW "Bem-vindo ao Tour do OSB, "
+        SHOW UserName
+        PRINT "!"
         PRINT "Vamos aprender a usar o sistema passo a passo."
         ME.PAUSE()
 
@@ -65,7 +64,7 @@ CLASS TOUR
             "  PRINT 10*5+3      → exibe 53",
             "  PRINT (2+2)*3     → exibe 12",
             "Operadores suportados: +, -, *, / e parênteses.",
-            "Novo no OSLANG 0.4: MATH.SQRT(), MATH.POW(), MATH.ABS(), etc."
+            "Novo no OSLANG 0.51: MATH.SIN(), MATH.COS(), MATH.TAN(), MATH.PI, **, MOD, arrow functions."
         ])
 
         ME.SHOW_STEP(7, "Pipelines e filtros", [
@@ -88,7 +87,7 @@ CLASS TOUR
             "  DIR /?            → mesma coisa",
             "",
             "Novidades:",
-            "  OSL <arquivo.osl> → executa programas em OSLANG 0.4",
+            "  OSL <arquivo.osl> → executa programas em OSLANG 0.51",
             "  KISS <arquivo>    → editor de texto com syntax highlight",
             "  GAMES             → jogos instalados (ex: HANGMAN)"
         ])
@@ -115,5 +114,4 @@ CLASS TOUR
         PRINT "-----Pressione ENTER para continuar----"
         INPUT Dummy
     END FUNCTION
-
 END CLASS

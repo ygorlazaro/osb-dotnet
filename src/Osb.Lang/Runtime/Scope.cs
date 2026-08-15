@@ -62,12 +62,6 @@ public sealed class Scope
         return _globals.GetValueOrDefault(name);
     }
 
-    /// <summary>Resolve um nome para atribuição implícita, criando uma variável local nova se necessário.</summary>
-    public string GetLocals()
-    {
-        return string.Join(",", _locals.Keys);
-    }
-
     public Variable ResolveForAssignment(string name)
     {
         if (_locals.TryGetValue(name, out var local))
