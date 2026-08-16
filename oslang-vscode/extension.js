@@ -8,7 +8,7 @@ const KEYWORDS = [
   'STEP', 'STR', 'STRING', 'SWITCH', 'CASE', 'DEFAULT', 'THEN', 'TO', 'TRUE',
   'TRY', 'TYPEOF', 'USING', 'VAR', 'VIRTUAL', 'OVERRIDE', 'EVENT', 'ON', 'RAISE',
   'WHILE', 'OBJECT', 'TYPE', 'CLS', 'CLEAR', 'MATH', 'FILE', 'DIR', 'DATE', 'TIME',
-  'SHOW', 'MOD', 'ENUM', 'OSL'
+  'SHOW', 'MOD', 'ENUM', 'OSL', 'OSB', 'JSON', 'CSV', 'XML', 'CNF', 'NET'
 ];
 
 const BUILTINS = [
@@ -16,7 +16,10 @@ const BUILTINS = [
   'LENGTH', 'TOUPPER', 'TOLOWER', 'TRIM', 'SUBSTR', 'CONTAINS', 'REVERSE', 'NORMALIZE',
   'SORT', 'JOIN', 'FIRST', 'LAST', 'INDEXOF', 'REMOVE', 'FLAT', 'PUSH', 'POP',
   'FINDINDEX', 'REPEAT', 'PADSTART', 'PADEND', 'TRUNC', 'SIN', 'COS', 'TAN', 'PI',
-  'RANDOM', 'NOW', 'FORMAT'
+  'RANDOM', 'NOW', 'FORMAT',
+  'PARSE', 'STRINGIFY', 'PRETTY', 'PING', 'DOWN', 'READ', 'WRITE', 'APPEND',
+  'GET', 'SET', 'HAS', 'DELETE', 'KEYS', 'SAVE', 'NAME', 'VALUE', 'ATTRIBUTES',
+  'CHILDREN', 'CHILD', 'KEYS', 'VALUES', 'CONTAINS'
 ];
 
 const MATH_FUNCTIONS = [
@@ -48,6 +51,26 @@ const DIR_METHODS = [
 
 const DATE_METHODS = [
   'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'FORMAT'
+];
+
+const JSON_METHODS = [
+  'PARSE', 'STRINGIFY', 'PRETTY', 'READ', 'WRITE'
+];
+
+const CSV_METHODS = [
+  'PARSE', 'STRINGIFY', 'READ', 'WRITE'
+];
+
+const XML_METHODS = [
+  'PARSE', 'STRINGIFY', 'READ', 'WRITE', 'NAME', 'VALUE', 'ATTRIBUTES', 'CHILDREN', 'CHILD', 'HAS'
+];
+
+const CNF_METHODS = [
+  'READ', 'WRITE', 'GET', 'SET', 'HAS', 'DELETE', 'KEYS', 'SAVE'
+];
+
+const NET_METHODS = [
+  'PING', 'DOWN'
 ];
 
 function getSignatureHelp(methodName) {
@@ -87,12 +110,41 @@ function getSignatureHelp(methodName) {
     'DIR.EXISTS': ['DIR.EXISTS(path)'],
     'DIR.LIST': ['DIR.LIST(path)'],
     'DIR.FILES': ['DIR.FILES(path)'],
-    'DIR.DIRS': ['DIR.DIRS(path)'],
+    'DIRS': ['DIR.DIRS(path)'],
     'DIR.CREATE': ['DIR.CREATE(path)'],
     'DIR.DELETE': ['DIR.DELETE(path)'],
     'DIR.CURRENT': ['DIR.CURRENT()'],
     'DATE.NOW': ['DATE.NOW()'],
-    'DATE.FORMAT': ['DATE.FORMAT(date, pattern)']
+    'DATE.FORMAT': ['DATE.FORMAT(date, pattern)'],
+    'JSON.PARSE': ['JSON.PARSE(text)'],
+    'JSON.STRINGIFY': ['JSON.STRINGIFY(value)', 'JSON.STRINGIFY(value, pretty)'],
+    'JSON.PRETTY': ['JSON.PRETTY(value)'],
+    'JSON.READ': ['JSON.READ(path)'],
+    'JSON.WRITE': ['JSON.WRITE(path, value)'],
+    'CSV.PARSE': ['CSV.PARSE(text)', 'CSV.PARSE(text, hasHeader)'],
+    'CSV.STRINGIFY': ['CSV.STRINGIFY(array)'],
+    'CSV.READ': ['CSV.READ(path)'],
+    'CSV.WRITE': ['CSV.WRITE(path, array)'],
+    'XML.PARSE': ['XML.PARSE(text)'],
+    'XML.STRINGIFY': ['XML.STRINGIFY(node)'],
+    'XML.READ': ['XML.READ(path)'],
+    'XML.WRITE': ['XML.WRITE(path, node)'],
+    'XML.NAME': ['XML.NAME(node)'],
+    'XML.VALUE': ['XML.VALUE(node)'],
+    'XML.ATTRIBUTES': ['XML.ATTRIBUTES(node)'],
+    'XML.CHILDREN': ['XML.CHILDREN(node)'],
+    'XML.CHILD': ['XML.CHILD(node, name)'],
+    'XML.HAS': ['XML.HAS(node, name)'],
+    'CNF.READ': ['CNF.READ(path)'],
+    'CNF.WRITE': ['CNF.WRITE(path, config)'],
+    'CNF.GET': ['CNF.GET(config, key)'],
+    'CNF.SET': ['CNF.SET(config, key, value)'],
+    'CNF.HAS': ['CNF.HAS(config, key)'],
+    'CNF.DELETE': ['CNF.DELETE(config, key)'],
+    'CNF.KEYS': ['CNF.KEYS(config)'],
+    'CNF.SAVE': ['CNF.SAVE(config)', 'CNF.SAVE(config, path)'],
+    'NET.PING': ['NET.PING(host)'],
+    'NET.DOWN': ['NET.DOWN(url)', 'NET.DOWN(url, options)']
   };
   const key = methodName.toUpperCase();
   return signatures[key] || [`${methodName}(...)`];
@@ -165,6 +217,36 @@ class OslangCompletionProvider {
     if (upper.includes('DATE.')) {
       DATE_METHODS.forEach(m => {
         items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'DATE method' }));
+      });
+    }
+
+    if (upper.includes('JSON.') || upper.includes('OSL.JSON')) {
+      JSON_METHODS.forEach(m => {
+        items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'OSL.JSON method' }));
+      });
+    }
+
+    if (upper.includes('CSV.') || upper.includes('OSL.CSV')) {
+      CSV_METHODS.forEach(m => {
+        items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'OSL.CSV method' }));
+      });
+    }
+
+    if (upper.includes('XML.') || upper.includes('OSL.XML')) {
+      XML_METHODS.forEach(m => {
+        items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'OSL.XML method' }));
+      });
+    }
+
+    if (upper.includes('CNF.') || upper.includes('OSL.CNF')) {
+      CNF_METHODS.forEach(m => {
+        items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'OSL.CNF method' }));
+      });
+    }
+
+    if (upper.includes('NET.') || upper.includes('OSB.NET')) {
+      NET_METHODS.forEach(m => {
+        items.push(new vscode.CompletionItem(m, vscode.CompletionItemKind.Method, { detail: 'OSB.NET method' }));
       });
     }
 
@@ -322,7 +404,31 @@ class OslangHoverProvider {
       ['ON', 'ON Event = handler - Registers an event handler'],
       ['NEW', 'NEW ClassName(args) - Creates a new instance'],
       ['BASE', 'BASE(args) - Calls the parent constructor'],
-      ['ME', 'ME - Refers to the current instance inside a class']
+      ['ME', 'ME - Refers to the current instance inside a class'],
+      ['JSON', 'OSL.JSON - JSON serialization and deserialization'],
+      ['CSV', 'OSL.CSV - CSV reading and writing'],
+      ['XML', 'OSL.XML - XML parsing and manipulation'],
+      ['CNF', 'OSL.CNF - OSB configuration file API'],
+      ['NET', 'OSB.NET - HTTP and network operations'],
+      ['PARSE', 'JSON.PARSE(text) / CSV.PARSE(text) / XML.PARSE(text) - Parses data from string'],
+      ['STRINGIFY', 'JSON.STRINGIFY(value) / CSV.STRINGIFY(array) - Converts value to string format'],
+      ['PRETTY', 'JSON.PRETTY(value) - Formats JSON with indentation'],
+      ['PING', 'NET.PING(host) - Tests connectivity to a host'],
+      ['DOWN', 'NET.DOWN(url) / NET.DOWN(url, options) - Performs HTTP GET request'],
+      ['READ', 'JSON.READ(path) / CSV.READ(path) / XML.READ(path) / CNF.READ(path) - Reads from file'],
+      ['WRITE', 'JSON.WRITE(path, value) / CSV.WRITE(path, array) / XML.WRITE(path, node) / CNF.WRITE(path, config) - Writes to file'],
+      ['GET', 'CNF.GET(config, key) - Gets a configuration value'],
+      ['SET', 'CNF.SET(config, key, value) - Sets a configuration value'],
+      ['HAS', 'CNF.HAS(config, key) - Checks if key exists in config'],
+      ['DELETE', 'CNF.DELETE(config, key) - Removes a key from config'],
+      ['KEYS', 'CNF.KEYS(config) - Returns all keys in config'],
+      ['SAVE', 'CNF.SAVE(config) / CNF.SAVE(config, path) - Saves config to file'],
+      ['NAME', 'XML.NAME(node) - Returns the name of an XML node'],
+      ['VALUE', 'XML.VALUE(node) - Returns the value of an XML node'],
+      ['ATTRIBUTES', 'XML.ATTRIBUTES(node) - Returns attributes of an XML node as object'],
+      ['CHILDREN', 'XML.CHILDREN(node) - Returns child nodes of an XML node'],
+      ['CHILD', 'XML.CHILD(node, name) - Returns first child with given name'],
+      ['APPEND', 'FILE.APPEND(path, content) - Appends content to a file']
     ]);
   }
 

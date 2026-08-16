@@ -101,7 +101,7 @@
         },
         {
           "name": "keyword.other.oslang",
-          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL)\\b"
+          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL|OSL|OSB|JSON|CSV|XML|CNF|NET)\\b"
         },
         {
           "name": "storage.modifier.oslang",

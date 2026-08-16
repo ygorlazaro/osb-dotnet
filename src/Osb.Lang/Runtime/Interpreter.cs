@@ -181,10 +181,62 @@ internal sealed class Interpreter
                 return new ModuleValue("OSL.I18N");
             }
 
-            throw new OslangRuntimeException(location, $"Unknown OSL module '{methodName}'. Only OSL.I18N is available in 0.6.");
+            if (methodName.Equals("JSON", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.JSON");
+            }
+
+            if (methodName.Equals("CSV", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.CSV");
+            }
+
+            if (methodName.Equals("XML", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.XML");
+            }
+
+            if (methodName.Equals("CNF", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.CNF");
+            }
+
+            throw new OslangRuntimeException(location, $"Unknown OSL module '{methodName}'. Available: I18N, JSON, CSV, XML, CNF.");
+        }
+
+        if (namespaceName.Equals("OSB", StringComparison.OrdinalIgnoreCase))
+        {
+            if (methodName.Equals("NET", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSB.NET");
+            }
+
+            throw new OslangRuntimeException(location, $"Unknown OSB module '{methodName}'. Available: NET.");
         }
 
         throw new OslangRuntimeException(location, $"Unknown namespace '{namespaceName}'.");
+    }
+
+    private OslangValue CallModuleMethod(ModuleValue module, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var name = module.ModuleName.ToUpperInvariant();
+        switch (name)
+        {
+            case "OSL.I18N":
+                return I18nNamespace.Call(methodName, args, location);
+            case "OSL.JSON":
+                return OslJsonNamespace.Call(methodName, args, location);
+            case "OSL.CSV":
+                return OslCsvNamespace.Call(methodName, args, location);
+            case "OSL.XML":
+                return OslXmlNamespace.Call(methodName, args, location);
+            case "OSL.CNF":
+                return OslCnfNamespace.Call(methodName, args, location);
+            case "OSB.NET":
+                return OsbNetNamespace.Call(methodName, args, location);
+            default:
+                throw new OslangRuntimeException(location, $"Unknown module '{module.ModuleName}'.");
+        }
     }
 
     private OslangValue CallUserFunction(FunctionDecl decl, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
@@ -415,7 +467,7 @@ internal sealed class Interpreter
     {
         var moduleName = usingDecl.ModuleName;
 
-        if (!moduleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase))
+        if (!moduleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase) && !moduleName.StartsWith("OSB.", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -429,6 +481,51 @@ internal sealed class Interpreter
         if (moduleName.Equals("OSL.I18N", StringComparison.OrdinalIgnoreCase))
         {
             var moduleValue = new ModuleValue("OSL.I18N");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.JSON", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.JSON");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.CSV", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.CSV");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.XML", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.XML");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.CNF", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.CNF");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSB.NET", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSB.NET");
             _standardLibraries[shortName] = moduleValue;
             scope.DeclareOrGetGlobal(shortName);
             _globals[shortName] = new Variable { Value = moduleValue };
@@ -1468,6 +1565,7 @@ internal sealed class Interpreter
             "FILE" => OslangValue.Null, // FILE is a namespace marker
             "DIR" => OslangValue.Null, // DIR is a namespace marker
             "OSL" => OslangValue.Null,  // OSL is a namespace marker, actual methods dispatched in EvalMethodCall
+            "OSB" => OslangValue.Null,  // OSB is a namespace marker, actual methods dispatched in EvalMethodCall
             _ => throw new OslangRuntimeException(ns.Location, $"Unknown namespace '{ns.NamespaceName}'."),
         };
     }
@@ -1483,7 +1581,7 @@ internal sealed class Interpreter
 
         if (obj is ModuleValue module)
         {
-            return I18nNamespace.Call(expr.MemberName, [], expr.Location);
+            return CallModuleMethod(module, expr.MemberName, [], expr.Location);
         }
 
         if (obj is EnumTypeValue enumType)
@@ -1510,6 +1608,29 @@ internal sealed class Interpreter
         if (obj is EnumSetValue enumSet)
         {
             return DispatchEnumSet(enumSet, expr.MemberName, [], expr.Location);
+        }
+
+        if (obj is JsonObjectValue jsonObj)
+        {
+            if (jsonObj.Data.TryGetValue(expr.MemberName, out var jsonValue))
+            {
+                return jsonValue;
+            }
+            return OslangValue.Null;
+        }
+
+        if (obj is XmlNodeValue xmlNode)
+        {
+            return xmlNode.GetProperty(expr.MemberName);
+        }
+
+        if (obj is CnfConfigValue cnf)
+        {
+            if (cnf.Data.TryGetValue(expr.MemberName, out var cnfValue))
+            {
+                return new StringValue(cnfValue);
+            }
+            return OslangValue.Null;
         }
 
         if (obj is not ObjectValue objectValue)
@@ -1594,6 +1715,149 @@ internal sealed class Interpreter
         }
     }
 
+    private static OslangValue DispatchJsonObject(JsonObjectValue obj, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "KEYS":
+                EnsureArgCount(args, 0, methodName, location);
+                return new JsonArrayValue(obj.Data.Keys.Select(k => (OslangValue)new StringValue(k)).ToList());
+            case "VALUES":
+                EnsureArgCount(args, 0, methodName, location);
+                return new JsonArrayValue(obj.Data.Values.Select(v => (OslangValue)v).ToList());
+            case "CONTAINS":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                return BooleanValue.Of(obj.Data.ContainsKey(sv.Value));
+            case "COUNT":
+                EnsureArgCount(args, 0, methodName, location);
+                return new NumberValue(obj.Data.Count);
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on JSON object.");
+        }
+    }
+
+    private static OslangValue DispatchJsonArray(JsonArrayValue arr, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "COUNT":
+                EnsureArgCount(args, 0, methodName, location);
+                return new NumberValue(arr.Items.Count);
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on JSON array.");
+        }
+    }
+
+    private static OslangValue DispatchXmlNode(XmlNodeValue node, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "NAME":
+                EnsureArgCount(args, 0, methodName, location);
+                return new StringValue(node.Name);
+            case "VALUE":
+                EnsureArgCount(args, 0, methodName, location);
+                return new StringValue(node.Value ?? "");
+            case "ATTRIBUTES":
+                EnsureArgCount(args, 0, methodName, location);
+                return new JsonObjectValue(node.Attributes.ToDictionary(kv => kv.Key, kv => (OslangValue)new StringValue(kv.Value)));
+            case "CHILDREN":
+                EnsureArgCount(args, 0, methodName, location);
+                return new JsonArrayValue(node.Children.Select(c => (OslangValue)c).ToList());
+            case "CHILD":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                var child = node.Children.FirstOrDefault(c => c.Name.Equals(sv.Value, StringComparison.OrdinalIgnoreCase));
+                return child is not null ? (OslangValue)child : OslangValue.Null;
+            case "HAS":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv2)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                return BooleanValue.Of(node.Children.Any(c => c.Name.Equals(sv2.Value, StringComparison.OrdinalIgnoreCase)));
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on XML node.");
+        }
+    }
+
+    private static OslangValue DispatchCnfConfig(CnfConfigValue cnf, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "GET":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                if (cnf.Data.TryGetValue(sv.Value, out var val))
+                {
+                    return new StringValue(val);
+                }
+                return OslangValue.Null;
+            case "SET":
+                EnsureArgCount(args, 2, methodName, location);
+                if (args[0] is not StringValue key || args[1] is not StringValue value)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects STRING arguments.");
+                }
+                cnf.Data[key.Value] = value.Value;
+                return cnf;
+            case "HAS":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv2)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                return BooleanValue.Of(cnf.Data.ContainsKey(sv2.Value));
+            case "DELETE":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not StringValue sv3)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument.");
+                }
+                cnf.Data.Remove(sv3.Value);
+                return cnf;
+            case "KEYS":
+                EnsureArgCount(args, 0, methodName, location);
+                return new JsonArrayValue(cnf.Data.Keys.Select(k => (OslangValue)new StringValue(k)).ToList());
+            case "SAVE":
+                if (args.Count == 0)
+                {
+                    if (string.IsNullOrEmpty(cnf.Path))
+                    {
+                        throw new OslangRuntimeException(location, "CNF.SAVE() requires a path or a previously loaded config.");
+                    }
+                    OslCnfNamespace.Save([cnf, new StringValue(cnf.Path)], location);
+                    return OslangValue.Null;
+                }
+                if (args.Count == 1)
+                {
+                    if (args[0] is not StringValue path)
+                    {
+                        throw new OslangRuntimeException(location, $"{methodName}() expects a STRING argument for path.");
+                    }
+                    OslCnfNamespace.Save([cnf, path], location);
+                    return OslangValue.Null;
+                }
+                throw new OslangRuntimeException(location, $"{methodName}() expects 0 or 1 arguments.");
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on CNF config.");
+        }
+    }
+
     private OslangValue EvalMethodCall(MethodCallExpr expr, Scope scope)
     {
         if (expr.Object is NamespaceExpr ns)
@@ -1607,7 +1871,7 @@ internal sealed class Interpreter
         if (obj is ModuleValue module)
         {
             var args = expr.Args.Select(a => Eval(a, scope)).ToList();
-            return I18nNamespace.Call(expr.MethodName, args, expr.Location);
+            return CallModuleMethod(module, expr.MethodName, args, expr.Location);
         }
 
         if (obj is EnumValue enumValue)
@@ -1620,6 +1884,30 @@ internal sealed class Interpreter
         {
             var args = expr.Args.Select(a => Eval(a, scope)).ToList();
             return DispatchEnumSet(enumSet, expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is JsonObjectValue jsonObj)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchJsonObject(jsonObj, expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is JsonArrayValue jsonArr)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchJsonArray(jsonArr, expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is XmlNodeValue xmlNode)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchXmlNode(xmlNode, expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is CnfConfigValue cnf)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchCnfConfig(cnf, expr.MethodName, args, expr.Location);
         }
 
         if (obj is ObjectValue objectValue)

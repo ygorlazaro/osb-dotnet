@@ -138,6 +138,18 @@ oslang-vscode/           - extensão VS Code para OSLANG (syntax highlighting, i
 original-src/            - código BASIC original, para referência
 ```
 
+## OSLANG 0.62
+
+A linguagem de script do OSB agora suporta **intercâmbio de dados** e **rede** através de namespaces padrão:
+
+- **OSL.JSON** — serialização, desserialização e manipulação de JSON (`PARSE`, `STRINGIFY`, `PRETTY`, `READ`, `WRITE`)
+- **OSL.CSV** — leitura e escrita de CSV (`PARSE`, `STRINGIFY`, `READ`, `WRITE`)
+- **OSL.XML** — parsing e navegação de XML (`PARSE`, `STRINGIFY`, `READ`, `WRITE`, `NAME`, `VALUE`, `ATTRIBUTES`, `CHILDREN`, `CHILD`, `HAS`)
+- **OSL.CNF** — API de configuração do OSB (`READ`, `WRITE`, `GET`, `SET`, `HAS`, `DELETE`, `KEYS`, `SAVE`)
+- **OSB.NET** — comunicação de rede (`PING`, `DOWN`)
+
+Todos mantêm total compatibilidade com versões anteriores.
+
 ## OSLANG 0.61
 
 A linguagem de script do OSB evoluiu para a versão **0.61**, com novos recursos

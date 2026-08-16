@@ -2309,5 +2309,159 @@ END FUNCTION";
         Execute(source, output);
         Assert.Equal("0" + Environment.NewLine + "medium" + Environment.NewLine + "2" + Environment.NewLine, output.ToString());
     }
+
+    [Fact]
+    public void Json_Parse_ReturnsObjectWithProperties()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.JSON
+
+FUNCTION MAIN()
+    JsonText = ""{\""name\"":\""Ygor\"",\""age\"":40}""
+    Data = JSON.PARSE(JsonText)
+    PRINT Data.name
+    PRINT Data.age
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Ygor" + Environment.NewLine + "40" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Json_Stringify_ProducesValidJson()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.JSON
+
+FUNCTION MAIN()
+    JsonText = ""{\""name\"":\""Ygor\"",\""age\"":40}""
+    Parsed = JSON.PARSE(JsonText)
+    Output = JSON.STRINGIFY(Parsed)
+    PRINT Output
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Contains("\"name\":\"Ygor\"", output.ToString());
+        Assert.Contains("\"age\":40", output.ToString());
+    }
+
+    [Fact]
+    public void Json_Pretty_FormatsJson()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.JSON
+
+FUNCTION MAIN()
+    JsonText = ""{\""name\"":\""Ygor\"",\""age\"":40}""
+    Parsed = JSON.PARSE(JsonText)
+    PrettyOutput = JSON.PRETTY(Parsed)
+    PRINT PrettyOutput
+END FUNCTION";
+
+        Execute(source, output);
+        var result = output.ToString();
+        Assert.Contains("\n", result);
+        Assert.Contains("  ", result);
+    }
+
+    [Fact]
+    public void Csv_Parse_ReturnsArrayOfObjects()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.CSV
+
+FUNCTION MAIN()
+    CsvText = ""name,age\nYgor,40\nJohn,25""
+    Data = CSV.PARSE(CsvText, TRUE)
+    PRINT Data[0].name
+    PRINT Data[1].age
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Ygor" + Environment.NewLine + "25" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Xml_Parse_ReturnsNavigableDocument()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.XML
+
+FUNCTION MAIN()
+    XmlText = ""<user><name>Ygor</name><age>40</age></user>""
+    Doc = XML.PARSE(XmlText)
+    PRINT Doc.NAME()
+    Name = Doc.CHILD(""name"")
+    PRINT Name.VALUE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("user" + Environment.NewLine + "Ygor" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Cnf_ReadGetSetSave_Works()
+    {
+        var output = new StringWriter();
+        var tempPath = Path.Combine(Path.GetTempPath(), "osb-test-" + Guid.NewGuid().ToString("N") + ".cfg");
+        File.WriteAllText(tempPath, "COLOR=RED\nLANG=EN-US\n");
+        try
+        {
+            var source = $@"USING OSL.CNF
+
+FUNCTION MAIN()
+    Config = CNF.READ(""{tempPath}"")
+    IF Config.HAS(""COLOR"") THEN
+        PRINT Config.GET(""COLOR"")
+    END
+    Config.SET(""COLOR"", ""BLUE"")
+    PRINT Config.GET(""COLOR"")
+    Config.SAVE(""{tempPath}"")
+END FUNCTION";
+
+            Execute(source, output);
+            Assert.Contains("RED", output.ToString());
+            Assert.Contains("BLUE", output.ToString());
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+    }
+
+    [Fact]
+    public void Net_Ping_ReturnsResultObject()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSB.NET
+
+FUNCTION MAIN()
+    Result = OSB.NET.PING(""localhost"")
+    PRINT Result.host
+    PRINT Result.success
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("localhost" + Environment.NewLine + "TRUE" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Net_Down_ReturnsResponse()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSB.NET
+
+FUNCTION MAIN()
+    Response = OSB.NET.DOWN(""https://example.com"")
+    PRINT Response.STATUS
+    PRINT Response.BODY
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Contains("200", output.ToString());
+    }
 }
 

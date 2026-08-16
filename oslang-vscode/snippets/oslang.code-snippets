@@ -383,6 +383,143 @@
       "END)"
     ],
     "description": "Iterate over array with FOREACH"
+  },
+  "USING OSL.JSON": {
+    "prefix": "usingjson",
+    "body": [
+      "USING OSL.JSON",
+      "",
+      "Data = JSON.PARSE(\"${1:{ \\\"name\\\": \\\"Ygor\\\" }}\")",
+      "PRINT Data.name"
+    ],
+    "description": "Import and use OSL.JSON"
+  },
+  "USING OSL.CSV": {
+    "prefix": "usingcsv",
+    "body": [
+      "USING OSL.CSV",
+      "",
+      "Data = CSV.PARSE(\"${1:name,age}\")",
+      "PRINT Data[0].name"
+    ],
+    "description": "Import and use OSL.CSV"
+  },
+  "USING OSL.XML": {
+    "prefix": "usingxml",
+    "body": [
+      "USING OSL.XML",
+      "",
+      "Doc = XML.PARSE(\"${1:<user><name>Ygor</name></user>}\")",
+      "PRINT Doc.NAME()"
+    ],
+    "description": "Import and use OSL.XML"
+  },
+  "USING OSL.CNF": {
+    "prefix": "usingcnf",
+    "body": [
+      "USING OSL.CNF",
+      "",
+      "Config = CNF.READ(\"${1:OSB.CFG}\")",
+      "PRINT Config.GET(\"${2:COLOR}\")"
+    ],
+    "description": "Import and use OSL.CNF"
+  },
+  "USING OSB.NET": {
+    "prefix": "usingnet",
+    "body": [
+      "USING OSB.NET",
+      "",
+      "Result = NET.PING(\"${1:google.com}\")",
+      "IF Result.success THEN",
+      "    PRINT \"Online: \" + Result.time",
+      "END"
+    ],
+    "description": "Import and use OSB.NET"
+  },
+  "JSON Parse and Access": {
+    "prefix": "jsonparse",
+    "body": [
+      "USING OSL.JSON",
+      "",
+      "JSON = \"\"\"",
+      "{",
+      "    \\\"name\\\": \\\"${1:Ygor}\\\",",
+      "    \\\"age\\\": ${2:40}",
+      "}",
+      "\"\"\"",
+      "",
+      "Data = JSON.PARSE(JSON)",
+      "PRINT Data.name",
+      "PRINT Data.age"
+    ],
+    "description": "Parse JSON and access properties"
+  },
+  "CSV Parse": {
+    "prefix": "csvparse",
+    "body": [
+      "USING OSL.CSV",
+      "",
+      "CSV = \"\"\"",
+      "name,age",
+      "Ygor,40",
+      "John,25",
+      "\"\"\"",
+      "",
+      "Data = CSV.PARSE(CSV, TRUE)",
+      "FOR Row IN Data",
+      "    PRINT Row.name",
+      "END"
+    ],
+    "description": "Parse CSV with header"
+  },
+  "XML Parse": {
+    "prefix": "xmlparse",
+    "body": [
+      "USING OSL.XML",
+      "",
+      "XML = \"\"\"",
+      "<user>",
+      "    <name>${1:Ygor}</name>",
+      "    <age>${2:40}</age>",
+      "</user>",
+      "\"\"\"",
+      "",
+      "Doc = XML.PARSE(XML)",
+      "Name = Doc.CHILD(\\\"name\\\")",
+      "PRINT Name.VALUE()"
+    ],
+    "description": "Parse XML and navigate nodes"
+  },
+  "HTTP GET": {
+    "prefix": "httpget",
+    "body": [
+      "USING OSB.NET",
+      "",
+      "TRY",
+      "    Response = NET.DOWN(\"${1:https://example.com}\")",
+      "    PRINT Response.STATUS",
+      "    PRINT Response.BODY",
+      "CATCH ERR",
+      "    PRINT \\\"Request failed: \\\" + ERR",
+      "END"
+    ],
+    "description": "Perform HTTP GET with error handling"
+  },
+  "CNF Config": {
+    "prefix": "cnfconfig",
+    "body": [
+      "USING OSL.CNF",
+      "",
+      "Config = CNF.READ(\"${1:OSB.CFG}\")",
+      "",
+      "IF Config.HAS(\\\"${2:COLOR}\\\") THEN",
+      "    PRINT Config.GET(\\\"COLOR\\\")",
+      "END",
+      "",
+      "Config.SET(\\\"COLOR\\\", \\\"${3:BLUE}\\\")",
+      "Config.SAVE()"
+    ],
+    "description": "Read and modify OSB configuration"
   }
 }
 }

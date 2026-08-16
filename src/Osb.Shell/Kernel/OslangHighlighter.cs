@@ -22,7 +22,8 @@ public static class OslangHighlighter
         "GLOBAL", "IF", "INPUT", "INTERFACE", "KISS", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
         "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "STRING", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
         "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING",
-        "MATH", "FILE", "DIR", "DATE", "TIME", "SHOW", "MOD", "TYPEOF", "ENUM", "OSL"
+        "MATH", "FILE", "DIR", "DATE", "TIME", "SHOW", "MOD", "TYPEOF", "ENUM", "OSL", "OSB",
+        "JSON", "CSV", "XML", "CNF", "NET"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)

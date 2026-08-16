@@ -44,7 +44,7 @@ public static class SymbolDiscovery
                     continue;
                 }
 
-                if (usingDecl.ModuleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase))
+                if (usingDecl.ModuleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase) || usingDecl.ModuleName.StartsWith("OSB.", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!table.Modules.ContainsKey(usingDecl.ModuleName))
                     {

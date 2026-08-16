@@ -385,7 +385,7 @@ public sealed class Parser
         while (Check(TokenType.Dot))
         {
             Advance(); // consume '.'
-            var next = Expect(TokenType.Identifier, "Expected identifier after '.' in USING declaration.").Text;
+            var next = ParseAnyNameToken("Expected identifier after '.' in USING declaration.");
             parts.Add(next);
         }
 
@@ -521,7 +521,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Osl or TokenType.Osb)
         {
             return Advance().Text;
         }
@@ -536,7 +536,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Osl)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Osl or TokenType.Osb)
         {
             return Advance().Text;
         }
@@ -1235,6 +1235,9 @@ public sealed class Parser
             case TokenType.Osl:
                 Advance();
                 return new NamespaceExpr("OSL", tok.Location);
+            case TokenType.Osb:
+                Advance();
+                return new NamespaceExpr("OSB", tok.Location);
         }
 
         if (BuiltinCallKeywords.Contains(tok.Type))

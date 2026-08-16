@@ -84,6 +84,9 @@ public enum TokenType
     Enum,
     Pipe,
 
+    // OSLANG 0.62
+    Osb,
+
     // Operadores aritméticos
     Plus,
     Minus,

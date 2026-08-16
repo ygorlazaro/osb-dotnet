@@ -23,6 +23,7 @@ Welcome to the official OSLANG documentation. OSLANG is a modern, interpreted pr
 
 ## Specification
 
+- **[OSLANG 0.62 Specification](/src/Osb.Lang/OSLANG-0.62-SPEC.md)** — Full language specification (OSL.JSON, OSL.CSV, OSL.XML, OSL.CNF, OSB.NET, JSON/CSV/XML/CNF data interchange and HTTP).
 - **[OSLANG 0.61 Specification](/src/Osb.Lang/OSLANG-0.61-SPEC.md)** — Full language specification (ENUM, ENUM SETS, SWITCH, CASE, DEFAULT, BREAK, string interpolation, multiline strings, escape sequences).
 - **[OSLANG 0.6 Specification](/src/Osb.Lang/OSLANG-0.6-SPEC.md)** — Full language specification (SHOW, arrow functions, MOD, **, ++, --, +=, nested arrays, FINDINDEX, FOREACH, CONTAINS, JOIN, PUSH, POP, SORT, FLAT, FLATMAP, MATH.PI, trig functions, NUMBER.TRUNC, STRING.PADSTART/PADEND/REPEAT).
 - **[OSLANG 0.5 Specification](/src/Osb.Lang/OSLANG-0.5-SPEC.md)** — Full language specification (DATE, TIME, ARGS).
@@ -30,6 +31,7 @@ Welcome to the official OSLANG documentation. OSLANG is a modern, interpreted pr
 
 ## Version Notes
 
+- **OSLANG 0.62** adds OSL.JSON (PARSE, STRINGIFY, PRETTY, READ, WRITE), OSL.CSV (PARSE, STRINGIFY, READ, WRITE), OSL.XML (PARSE, STRINGIFY, READ, WRITE, NAME, VALUE, ATTRIBUTES, CHILDREN, CHILD, HAS), OSL.CNF (READ, WRITE, GET, SET, HAS, DELETE, KEYS, SAVE), and OSB.NET (PING, DOWN).
 - **OSLANG 0.61** adds ENUM, ENUM SETS, SWITCH/CASE/DEFAULT, BREAK, string interpolation, multiline strings, escape sequences (`\n`, `\t`, `\\`).
 - **OSLANG 0.6** adds SHOW, arrow functions, MOD, **, postfix ++/--, +=, TYPEOF, nested arrays, array methods (FINDINDEX, FOREACH, CONTAINS, JOIN, PUSH, POP, SORT, FLAT, FLATMAP), MATH.PI, trig functions, NUMBER.TRUNC with decimals, STRING.PADSTART/PADEND/REPEAT.
 - **OSLANG 0.5** adds native `DATE` and `TIME` types, `DATE.*` and `TIME.*` namespaces, and temporal conversions.

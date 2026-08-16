@@ -1,6 +1,6 @@
-# OSLANG 0.61 - VS Code Extension
+# OSLANG 0.62 - VS Code Extension
 
-Syntax highlighting, intellisense, and language support for **OSLANG 0.61**, the scripting language of **OSB 3.0 Lince**.
+Syntax highlighting, intellisense, and language support for **OSLANG 0.62**, the scripting language of **OSB 3.0 Lince**.
 
 ## Features
 
@@ -37,11 +37,12 @@ Syntax highlighting, intellisense, and language support for **OSLANG 0.61**, the
 - **Bracket Matching** and **Auto-Closing** for `()`, `[]`, `{}`, `""`, `''`
 - **Indentation Rules** — automatic indentation for OSLANG blocks
 
-## OSLANG 0.61 Keywords
+## OSLANG 0.62 Keywords
 
+- **Data/Network Namespaces:** `JSON`, `CSV`, `XML`, `CNF`, `OSB`, `NET`
 - **Control Flow:** `AND`, `BREAK`, `CONTINUE`, `DO`, `ELIF`, `ELSE`, `END`, `FOR`, `IF`, `NOT`, `OR`, `RETURN`, `STEP`, `THEN`, `TO`, `WHILE`, `TRY`, `CATCH`, `SWITCH`, `CASE`, `DEFAULT`, `ON`, `RAISE`
 - **Declarations:** `CONSTRUCTOR`, `FUNCTION`, `CLASS`, `INTERFACE`, `VAR`, `GLOBAL`, `USING`, `EVENT`, `ENUM`
-- **Other:** `BASE`, `ME`, `NEW`, `PRINT`, `INPUT`, `CLEAR`, `CLS`, `VIRTUAL`, `OVERRIDE`, `KISS`, `TYPE`, `MATH`, `FILE`, `DIR`, `DATE`, `TIME`, `SHOW`, `MOD`, `TYPEOF`, `SQRT`, `POW`, `FLOOR`, `CEIL`, `COUNT`, `STR`, `BOOL`, `NUMBER`, `STRING`, `BOOLEAN`, `ARRAY`, `OBJECT`, `NULL`, `TRUE`, `FALSE`, `OSL`
+- **Other:** `BASE`, `ME`, `NEW`, `PRINT`, `INPUT`, `CLEAR`, `CLS`, `VIRTUAL`, `OVERRIDE`, `KISS`, `TYPE`, `MATH`, `FILE`, `DIR`, `DATE`, `TIME`, `SHOW`, `MOD`, `TYPEOF`, `SQRT`, `POW`, `FLOOR`, `CEIL`, `COUNT`, `STR`, `BOOL`, `NUMBER`, `STRING`, `BOOLEAN`, `ARRAY`, `OBJECT`, `NULL`, `TRUE`, `FALSE`, `OSL`, `OSB`
 - **Modifiers:** `PUBLIC`, `PRIVATE`, `PROTECTED`, `STATIC`
 
 ## Built-in Functions
@@ -53,6 +54,11 @@ Syntax highlighting, intellisense, and language support for **OSLANG 0.61**, the
 - **FILE:** `EXISTS`, `READ`, `WRITE`, `APPEND`, `DELETE`, `LIST`, `FILES`, `DIRS`, `CREATE`
 - **DIR:** `EXISTS`, `LIST`, `FILES`, `DIRS`, `CREATE`, `DELETE`, `CURRENT`
 - **DATE:** `NOW`, `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `WEEKDAY`, `FORMAT`
+- **OSL.JSON:** `PARSE`, `STRINGIFY`, `PRETTY`, `READ`, `WRITE`
+- **OSL.CSV:** `PARSE`, `STRINGIFY`, `READ`, `WRITE`
+- **OSL.XML:** `PARSE`, `STRINGIFY`, `READ`, `WRITE`, `NAME`, `VALUE`, `ATTRIBUTES`, `CHILDREN`, `CHILD`, `HAS`
+- **OSL.CNF:** `READ`, `WRITE`, `GET`, `SET`, `HAS`, `DELETE`, `KEYS`, `SAVE`
+- **OSB.NET:** `PING`, `DOWN`
 - **Conversion:** `STR`, `NUMBER`, `BOOL`, `TYPEOF`, `TRUNC`
 
 ## Installation
