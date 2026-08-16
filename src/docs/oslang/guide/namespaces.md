@@ -20,7 +20,7 @@ Constants: `MATH.PI`, `MATH.E`.
 
 ### Trigonometric Functions
 
-OSLANG 0.51 adds trigonometric functions. Angles are expressed in radians.
+OSLANG 0.6 adds trigonometric functions. Angles are expressed in radians.
 
 ```osl
 Angle = MATH.PI / 2
@@ -33,7 +33,7 @@ Available: `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`.
 
 ### Truncation
 
-`MATH.TRUNC` truncates a number. OSLANG 0.51 adds decimal-place truncation.
+`MATH.TRUNC` truncates a number. OSLANG 0.6 adds decimal-place truncation.
 
 ```osl
 PRINT MATH.TRUNC(3.9)        ' 3

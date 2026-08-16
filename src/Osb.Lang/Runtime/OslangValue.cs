@@ -70,3 +70,18 @@ public sealed class FunctionValue(Func<IReadOnlyList<OslangValue>, SourceLocatio
     public Func<IReadOnlyList<OslangValue>, SourceLocation, OslangValue> Callback { get; } = callback;
     public override RuntimeType Type => RuntimeType.Function;
 }
+
+/// <summary>
+/// OSLANG 0.6 marker for imported standard-library modules (e.g., OSL.I18N).
+/// Instances of this type are treated as module proxies by the interpreter.
+/// </summary>
+public sealed class ModuleValue : OslangValue
+{
+    public string ModuleName { get; }
+    public override RuntimeType Type => RuntimeType.Object;
+
+    public ModuleValue(string moduleName)
+    {
+        ModuleName = moduleName;
+    }
+}

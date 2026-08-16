@@ -76,7 +76,7 @@ PRINT "Line 2"
 
 ### SHOW Statement
 
-OSLANG 0.51 adds `SHOW`, which outputs text without a trailing newline:
+OSLANG 0.6 adds `SHOW`, which outputs text without a trailing newline:
 
 ```osl
 SHOW "Enter your name: "

@@ -903,5 +903,124 @@ END FUNCTION";
         Execute(source, output);
         Assert.Equal("42000" + Environment.NewLine, output.ToString());
     }
+
+    [Fact]
+    public void Using_OslI18n_RegistersI18nModule()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    PRINT I18N.GET(""hello"")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("hello" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Get_ReturnsTranslatedString()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    PRINT I18N.GET(""boot.welcome"")
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        Assert.Equal("Welcome to OSB" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Get_WithParameters_SubstitutesPlaceholders()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    PRINT I18N.GET(""user.greeting"", ""Ygor"")
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        Assert.Equal("Hello, Ygor!" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Has_ReturnsTrueForExistingKey()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    IF I18N.HAS(""boot.welcome"") THEN
+        PRINT ""YES""
+    END
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        Assert.Equal("YES" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Get_MissingKey_ReturnsKey()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    PRINT I18N.GET(""missing.key"")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("missing.key" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_SetLanguage_ChangesActiveLanguage()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    I18N.SETLANGUAGE(""PT-BR"")
+    PRINT I18N.GET(""boot.welcome"")
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        Assert.Equal("Bem-vindo ao OSB" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Languages_ReturnsAvailableLanguages()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+FUNCTION MAIN()
+    langs = I18N.LANGUAGES()
+    FOR I = 0 TO COUNT(langs) - 1
+        PRINT langs[I]
+    END
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        var result = output.ToString();
+        Assert.Contains("EN-US", result);
+        Assert.Contains("PT-BR", result);
+    }
+
+    [Fact]
+    public void OslI18n_FullyQualified_OslI18nGet_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT OSL.I18N.GET(""boot.welcome"")
+END FUNCTION";
+
+        Execute(source, output, basePath: "I18N");
+        Assert.Equal("Welcome to OSB" + Environment.NewLine, output.ToString());
+    }
 }
 

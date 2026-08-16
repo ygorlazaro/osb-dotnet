@@ -1,0 +1,3 @@
+# Test I18N resources - Portuguese (Brazil)
+boot.welcome=Bem-vindo ao OSB
+user.greeting=Olá, {0}!

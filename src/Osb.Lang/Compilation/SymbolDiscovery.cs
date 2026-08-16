@@ -44,6 +44,16 @@ public static class SymbolDiscovery
                     continue;
                 }
 
+                if (usingDecl.ModuleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!table.Modules.ContainsKey(usingDecl.ModuleName))
+                    {
+                        var emptyProgram = new OslangProgram(new List<FunctionDecl>(), new List<ClassDecl>(), new List<InterfaceDecl>(), new List<UsingDecl>(), new List<EventDecl>());
+                        table.Modules[usingDecl.ModuleName] = new Module(usingDecl.ModuleName, string.Empty, string.Empty, emptyProgram, new List<UsingDecl>(), null);
+                    }
+                    continue;
+                }
+
                 if (!table.Modules.TryGetValue(usingDecl.ModuleName, out var dep))
                 {
                     var resolved = resolver.ResolveAsync(usingDecl.ModuleName).GetAwaiter().GetResult();

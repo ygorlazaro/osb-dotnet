@@ -1,4 +1,4 @@
-' OSLANG 0.51 - Fibonacci
+' OSLANG 0.6 - Fibonacci
 FUNCTION FIBONACCI(QUANTITY)
     A = 0
     B = 1

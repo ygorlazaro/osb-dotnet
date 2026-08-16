@@ -1,4 +1,5 @@
-' OSLANG 0.51 - Hangman Game Module
+' OSLANG 0.6 - Hangman Game Module
+USING OSL.I18N
 CLASS HANGMANGAME
     VAR Words
     VAR Word
@@ -26,7 +27,7 @@ CLASS HANGMANGAME
 
     PUBLIC FUNCTION PLAY()
         IF COUNT(ME.Words) = 0 THEN
-            PRINT I18N("hangman.no_words")
+            PRINT I18N.GET("hangman.no_words")
             RETURN
         END
 
@@ -36,13 +37,13 @@ CLASS HANGMANGAME
         ME.Errors = 0
 
         PRINT ""
-        PRINT I18N("hangman.title")
-        PRINT I18N("hangman.instruction")
+        PRINT I18N.GET("hangman.title")
+        PRINT I18N.GET("hangman.instruction")
         PRINT ""
 
         WHILE ME.Errors < ME.MaxErrors
             CLEAR
-            PRINT I18N("hangman.title")
+            PRINT I18N.GET("hangman.title")
             PRINT ""
             ME.DRAW_STAGE()
             PRINT ""
@@ -59,7 +60,7 @@ CLASS HANGMANGAME
             END
 
             PRINT ""
-            SHOW I18N("hangman.input_prompt")
+            SHOW I18N.GET("hangman.input_prompt")
             INPUT Guess
             IF Guess = "0" OR COUNT(Guess) = 0 THEN
                 RETURN
@@ -81,7 +82,7 @@ CLASS HANGMANGAME
         END
 
         CLEAR
-        PRINT I18N("hangman.title")
+        PRINT I18N.GET("hangman.title")
         PRINT ""
         ME.DRAW_STAGE()
         PRINT ""

@@ -1,4 +1,5 @@
-' OSLANG 0.51 - Animal inheritance example
+' OSLANG 0.6 - Animal inheritance example
+USING OSL.I18N
 CLASS Animal
     VAR Name String
 
@@ -35,7 +36,7 @@ CLASS Dog: Mammal
 END
 
 FUNCTION MAIN()
-    PRINT I18N("animal.example")
+    PRINT I18N.GET("animal.example")
     fifi = new Dog("Fifi")
     saida = Fifi.GET_SOUND()
     PRINT saida

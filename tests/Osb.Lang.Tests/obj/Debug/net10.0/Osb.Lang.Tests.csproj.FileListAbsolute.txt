@@ -90,11 +90,13 @@
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.GeneratedMSBuildEditorConfig.editorconfig
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfoInputs.cache
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.AssemblyInfo.cs
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.CoreCompileInputs.cache
-/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.sourcelink.json
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.DF6948F2.Up2Date
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/refint/Osb.Lang.Tests.dll
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.pdb
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.genruntimeconfig.cache
 /home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/ref/Osb.Lang.Tests.dll
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/I18N/EN-US.I18N
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/bin/Debug/net10.0/I18N/PT-BR.I18N
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.csproj.CoreCompileInputs.cache
+/home/ygor/Downloads/osb-dotnet(6)/tests/Osb.Lang.Tests/obj/Debug/net10.0/Osb.Lang.Tests.sourcelink.json

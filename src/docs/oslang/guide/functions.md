@@ -119,7 +119,7 @@ END FUNCTION
 
 ## Arrow Functions
 
-OSLANG 0.51 introduces arrow functions for concise inline callbacks and closures.
+OSLANG 0.6 introduces arrow functions for concise inline callbacks and closures.
 
 ```osl
 ' Expression body
@@ -176,7 +176,7 @@ END FUNCTION
 
 Supported callback methods: `MAP`, `FILTER`, `ANY`, `SOME`, `ALL`, `REDUCE`.
 
-OSLANG 0.51 adds arrow function callbacks:
+OSLANG 0.6 adds arrow function callbacks:
 
 ```osl
 Numbers = [1, 2, 3, 4, 5, 6]

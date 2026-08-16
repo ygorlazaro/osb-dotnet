@@ -1,4 +1,4 @@
-' OSLANG 0.51 - Template: Classes, Inheritance, Interfaces, USING, SWITCH
+' OSLANG 0.6 - Template: Classes, Inheritance, Interfaces, USING, SWITCH
 USING Shapes
 
 FUNCTION MAIN()

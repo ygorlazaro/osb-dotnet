@@ -43,7 +43,8 @@ public sealed class Compilation
             throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
         }
 
-        var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear);
+        var allUsings = _symbols.Modules.Values.SelectMany(m => m.Program.Usings).ToList();
+        var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear, allUsings);
         return interpreter.Run(args);
     }
 }

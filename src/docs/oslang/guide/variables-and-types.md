@@ -37,7 +37,7 @@ OSLANG provides the following built-in types:
 
 ## Nested Arrays
 
-OSLANG 0.51 supports arrays containing arrays:
+OSLANG 0.6 supports arrays containing arrays:
 
 ```osl
 Matrix = [[1, 2], [3, 4], [5, 6]]
@@ -168,7 +168,7 @@ PRINT Name.REVERSE()        ' "rogY"
 PRINT "Açúcar".NORMALIZE()  ' "ACUCAR"
 ```
 
-OSLANG 0.51 adds:
+OSLANG 0.6 adds:
 
 ```osl
 PRINT "42".PADSTART(5, "0")   ' "00042"
@@ -197,7 +197,7 @@ PRINT Numbers.SORT()        ' [1, 2, 3]
 PRINT Numbers.JOIN(", ")    ' "3, 1, 2"
 ```
 
-OSLANG 0.51 adds:
+OSLANG 0.6 adds:
 
 ```osl
 Numbers = [1, 2, 3, 4]

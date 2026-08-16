@@ -34,7 +34,7 @@ VAR message = "Score: " + 100         ' "Score: 100"
 
 ## Increment and Decrement Operators
 
-OSLANG 0.51 adds postfix increment and decrement operators.
+OSLANG 0.6 adds postfix increment and decrement operators.
 
 | Operator | Description | Example |
 |----------|-------------|---------|

@@ -1,4 +1,5 @@
-' OSLANG 0.51 - Calendar Implementation
+' OSLANG 0.6 - Calendar Implementation
+USING OSL.I18N
 CLASS CALENDARAPP
 
     PUBLIC FUNCTION RUN(Args)
@@ -11,7 +12,7 @@ CLASS CALENDARAPP
             TRY
                 Value = NUMBER(Args[0])
             CATCH ERR
-                PRINT I18N("usage")
+                PRINT I18N.GET("usage")
                 RETURN
             END
             IF Value >= 1 AND Value <= 12 THEN
@@ -68,7 +69,7 @@ CLASS CALENDARAPP
     PRIVATE FUNCTION SHOWMONTH(Month, Year)
         PRINT ""
         PRINT "   " + ME.MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
-        PRINT I18N("weekdays")
+        PRINT I18N.GET("weekdays")
 
         FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
         DaysInMonth = ME.GETDAYSINMONTH(Month, Year)

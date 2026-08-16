@@ -1,99 +1,100 @@
-' OSLANG 0.51 - Tour do OSB
+' OSLANG 0.6 - Tour do OSB
+USING OSL.I18N
 CLASS TOUR
     PUBLIC FUNCTION SHOW(UserName)
         IF COUNT(UserName) = 0 THEN
-            UserName = I18N("tour.default_username")
+            UserName = I18N.GET("tour.default_username")
         END
 
         PRINT ""
         PRINT I18N("tour.welcome", UserName)
-        PRINT I18N("tour.learn")
+        PRINT I18N.GET("tour.learn")
         ME.PAUSE()
 
-        ME.SHOW_STEP(1, I18N("tour.what_is_osb"), [
-            I18N("tour.what_is_osb_1"),
-            I18N("tour.what_is_osb_2"),
-            I18N("tour.what_is_osb_3")
+        ME.SHOW_STEP(1, I18N.GET("tour.what_is_osb"), [
+            I18N.GET("tour.what_is_osb_1"),
+            I18N.GET("tour.what_is_osb_2"),
+            I18N.GET("tour.what_is_osb_3")
         ])
 
-        ME.SHOW_STEP(2, I18N("tour.folders"), [
-            I18N("tour.folders_1"),
-            I18N("tour.folders_examples"),
-            I18N("tour.folders_ex_1"),
-            I18N("tour.folders_ex_2"),
-            I18N("tour.folders_ex_3"),
-            I18N("tour.folders_ex_4"),
-            I18N("tour.folders_ex_5")
+        ME.SHOW_STEP(2, I18N.GET("tour.folders"), [
+            I18N.GET("tour.folders_1"),
+            I18N.GET("tour.folders_examples"),
+            I18N.GET("tour.folders_ex_1"),
+            I18N.GET("tour.folders_ex_2"),
+            I18N.GET("tour.folders_ex_3"),
+            I18N.GET("tour.folders_ex_4"),
+            I18N.GET("tour.folders_ex_5")
         ])
 
-        ME.SHOW_STEP(3, I18N("tour.files"), [
-            I18N("tour.files_1"),
-            I18N("tour.files_examples"),
-            I18N("tour.files_ex_1"),
-            I18N("tour.files_ex_2"),
-            I18N("tour.files_ex_3"),
-            I18N("tour.files_ex_4"),
-            I18N("tour.files_ex_5")
+        ME.SHOW_STEP(3, I18N.GET("tour.files"), [
+            I18N.GET("tour.files_1"),
+            I18N.GET("tour.files_examples"),
+            I18N.GET("tour.files_ex_1"),
+            I18N.GET("tour.files_ex_2"),
+            I18N.GET("tour.files_ex_3"),
+            I18N.GET("tour.files_ex_4"),
+            I18N.GET("tour.files_ex_5")
         ])
 
-        ME.SHOW_STEP(4, I18N("tour.view_files"), [
-            I18N("tour.view_files_1"),
-            I18N("tour.view_files_examples"),
-            I18N("tour.view_files_ex_1"),
-            I18N("tour.view_files_ex_2"),
-            I18N("tour.view_files_ex_3"),
-            I18N("tour.view_files_ex_4")
+        ME.SHOW_STEP(4, I18N.GET("tour.view_files"), [
+            I18N.GET("tour.view_files_1"),
+            I18N.GET("tour.view_files_examples"),
+            I18N.GET("tour.view_files_ex_1"),
+            I18N.GET("tour.view_files_ex_2"),
+            I18N.GET("tour.view_files_ex_3"),
+            I18N.GET("tour.view_files_ex_4")
         ])
 
-        ME.SHOW_STEP(5, I18N("tour.variables"), [
-            I18N("tour.variables_1"),
-            I18N("tour.variables_examples"),
-            I18N("tour.variables_ex_1"),
-            I18N("tour.variables_ex_2"),
-            I18N("tour.variables_ex_3"),
-            I18N("tour.variables_ex_4"),
-            I18N("tour.variables_ex_5")
+        ME.SHOW_STEP(5, I18N.GET("tour.variables"), [
+            I18N.GET("tour.variables_1"),
+            I18N.GET("tour.variables_examples"),
+            I18N.GET("tour.variables_ex_1"),
+            I18N.GET("tour.variables_ex_2"),
+            I18N.GET("tour.variables_ex_3"),
+            I18N.GET("tour.variables_ex_4"),
+            I18N.GET("tour.variables_ex_5")
         ])
 
-        ME.SHOW_STEP(6, I18N("tour.calculator"), [
-            I18N("tour.calculator_1"),
-            I18N("tour.calculator_examples"),
-            I18N("tour.calculator_ex_1"),
-            I18N("tour.calculator_ex_2"),
-            I18N("tour.calculator_ex_3"),
-            I18N("tour.calculator_ops"),
-            I18N("tour.new_in_051")
+        ME.SHOW_STEP(6, I18N.GET("tour.calculator"), [
+            I18N.GET("tour.calculator_1"),
+            I18N.GET("tour.calculator_examples"),
+            I18N.GET("tour.calculator_ex_1"),
+            I18N.GET("tour.calculator_ex_2"),
+            I18N.GET("tour.calculator_ex_3"),
+            I18N.GET("tour.calculator_ops"),
+            I18N.GET("tour.new_in_051")
         ])
 
-        ME.SHOW_STEP(7, I18N("tour.pipes"), [
-            I18N("tour.pipes_1"),
-            I18N("tour.pipes_examples"),
-            I18N("tour.pipes_ex_1"),
-            I18N("tour.pipes_ex_2"),
-            I18N("tour.pipes_ex_3")
+        ME.SHOW_STEP(7, I18N.GET("tour.pipes"), [
+            I18N.GET("tour.pipes_1"),
+            I18N.GET("tour.pipes_examples"),
+            I18N.GET("tour.pipes_ex_1"),
+            I18N.GET("tour.pipes_ex_2"),
+            I18N.GET("tour.pipes_ex_3")
         ])
 
-        ME.SHOW_STEP(8, I18N("tour.apps_help"), [
-            I18N("tour.apps_help_1"),
-            I18N("tour.apps_help_2"),
-            I18N("tour.apps_help_3"),
-            I18N("tour.apps_examples"),
-            I18N("tour.apps_ex_1"),
-            I18N("tour.apps_ex_2"),
-            I18N("tour.apps_ex_3"),
-            I18N("tour.apps_ex_4"),
-            I18N("tour.apps_ex_5"),
+        ME.SHOW_STEP(8, I18N.GET("tour.apps_help"), [
+            I18N.GET("tour.apps_help_1"),
+            I18N.GET("tour.apps_help_2"),
+            I18N.GET("tour.apps_help_3"),
+            I18N.GET("tour.apps_examples"),
+            I18N.GET("tour.apps_ex_1"),
+            I18N.GET("tour.apps_ex_2"),
+            I18N.GET("tour.apps_ex_3"),
+            I18N.GET("tour.apps_ex_4"),
+            I18N.GET("tour.apps_ex_5"),
             "",
-            I18N("tour.apps_new"),
-            I18N("tour.apps_new_1"),
-            I18N("tour.apps_new_2"),
-            I18N("tour.apps_new_3")
+            I18N.GET("tour.apps_new"),
+            I18N.GET("tour.apps_new_1"),
+            I18N.GET("tour.apps_new_2"),
+            I18N.GET("tour.apps_new_3")
         ])
 
         PRINT ""
-        PRINT "=== " + I18N("tour.end") + " ==="
-        PRINT I18N("tour.finished")
-        PRINT I18N("tour.explore")
+        PRINT "=== " + I18N.GET("tour.end") + " ==="
+        PRINT I18N.GET("tour.finished")
+        PRINT I18N.GET("tour.explore")
         PRINT ""
     END FUNCTION
 
@@ -109,7 +110,7 @@ CLASS TOUR
 
     PRIVATE FUNCTION PAUSE()
         PRINT ""
-        PRINT I18N("tour.continue")
+        PRINT I18N.GET("tour.continue")
         INPUT Dummy
     END FUNCTION
 END CLASS

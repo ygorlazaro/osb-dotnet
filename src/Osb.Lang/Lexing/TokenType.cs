@@ -73,9 +73,12 @@ public enum TokenType
     File,
     Dir,
 
-    // OSLANG 0.51
+    // OSLANG 0.6
     Show,
     Mod,
+
+    // OSLANG 0.6 - Standard Library namespace
+    Osl,
 
     // Operadores aritméticos
     Plus,

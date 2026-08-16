@@ -73,7 +73,15 @@ public sealed record ClassDecl(
 // OSLANG 0.3 - USING
 // ============================================================
 
-public sealed record UsingDecl(string ModuleName, SourceLocation Location) : Stmt(Location);
+public sealed record UsingDecl(IReadOnlyList<string> QualifiedName, SourceLocation Location) : Stmt(Location)
+{
+    public string ModuleName => string.Join(".", QualifiedName);
+
+    public UsingDecl(string moduleName, SourceLocation location)
+        : this(new[] { moduleName }, location)
+    {
+    }
+}
 
 // ============================================================
 // OSLANG 0.3 - Events
@@ -147,7 +155,7 @@ public sealed record GlobalDeclStmt(string Name, Expr Value, SourceLocation Loca
 /// <summary>Target = expr, onde Target é uma variável simples ou uma posição de array.</summary>
 public sealed record AssignStmt(AssignTarget Target, Expr Value, SourceLocation Location) : Stmt(Location);
 
-/// <summary>SHOW expr [, expr]* - OSLANG 0.51: output sem quebra de linha.</summary>
+/// <summary>SHOW expr [, expr]* - OSLANG 0.6: output sem quebra de linha.</summary>
 public sealed record ShowStmt(IReadOnlyList<Expr> Expressions, SourceLocation Location) : Stmt(Location);
 
 /// <summary>Uma expressão usada como statement (ex.: chamar HELLO() só pelo efeito colateral).</summary>
@@ -274,11 +282,11 @@ public sealed record BaseExpr(SourceLocation Location) : Expr(Location);
 /// <summary>OSLANG 0.4 namespace reference: MATH, FILE, or DIR.</summary>
 public sealed record NamespaceExpr(string NamespaceName, SourceLocation Location) : Expr(Location);
 
-/// <summary>OSLANG 0.51 arrow function expression body: parameters => expression.</summary>
+/// <summary>OSLANG 0.6 arrow function expression body: parameters => expression.</summary>
 public sealed record ArrowFunctionExpr(IReadOnlyList<string> Parameters, Expr Body, SourceLocation Location) : Expr(Location);
 
-/// <summary>OSLANG 0.51 arrow function block body: parameters => statements END.</summary>
+/// <summary>OSLANG 0.6 arrow function block body: parameters => statements END.</summary>
 public sealed record BlockArrowFunctionExpr(IReadOnlyList<string> Parameters, IReadOnlyList<Stmt> Body, SourceLocation Location) : Expr(Location);
 
-/// <summary>OSLANG 0.51 postfix increment/decrement: operand++ or operand--.</summary>
+/// <summary>OSLANG 0.6 postfix increment/decrement: operand++ or operand--.</summary>
 public sealed record PostfixExpr(string Operator, Expr Operand, SourceLocation Location) : Expr(Location);

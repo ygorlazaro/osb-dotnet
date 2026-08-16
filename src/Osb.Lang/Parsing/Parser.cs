@@ -372,8 +372,19 @@ public sealed class Parser
     {
         var start = Current.Location;
         Advance(); // consume USING
-        var moduleTok = ParseAnyNameToken("Expected module name after USING.");
-        return new UsingDecl(moduleTok, start);
+
+        var parts = new List<string>();
+        var first = ParseAnyNameToken("Expected module name after USING.");
+        parts.Add(first);
+
+        while (Check(TokenType.Dot))
+        {
+            Advance(); // consume '.'
+            var next = Expect(TokenType.Identifier, "Expected identifier after '.' in USING declaration.").Text;
+            parts.Add(next);
+        }
+
+        return new UsingDecl(parts, start);
     }
 
     private EventDecl ParseEventDecl()
@@ -486,7 +497,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Osl)
         {
             return Advance().Text;
         }
@@ -567,6 +578,7 @@ public sealed class Parser
             TokenType.Math => ParseNamespaceLedStatement(TokenType.Math, "MATH"),
             TokenType.File => ParseNamespaceLedStatement(TokenType.File, "FILE"),
             TokenType.Dir => ParseNamespaceLedStatement(TokenType.Dir, "DIR"),
+            TokenType.Osl => ParseNamespaceLedStatement(TokenType.Osl, "OSL"),
             _ => throw new SyntaxException(Current.Location, $"Unexpected token '{Current.Lexeme}' at start of statement."),
         };
     }
@@ -1157,6 +1169,9 @@ public sealed class Parser
             case TokenType.Dir:
                 Advance();
                 return new NamespaceExpr("DIR", tok.Location);
+            case TokenType.Osl:
+                Advance();
+                return new NamespaceExpr("OSL", tok.Location);
         }
 
         if (BuiltinCallKeywords.Contains(tok.Type))

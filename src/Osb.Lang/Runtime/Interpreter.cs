@@ -15,6 +15,8 @@ internal sealed class Interpreter
     private readonly Dictionary<string, Variable> _globals = new();
     private readonly Dictionary<string, ClassDefinition> _classes = new();
     private readonly Dictionary<string, InterfaceDefinition> _interfaces = new();
+    private readonly Dictionary<string, OslangValue> _standardLibraries = new();
+    private readonly List<UsingDecl> _topLevelUsings;
     private readonly ExtensionRegistry _extensions;
     private readonly TextWriter _output;
     private readonly TextReader _input;
@@ -23,12 +25,13 @@ internal sealed class Interpreter
     private ClassDefinition? _enclosingClass;
     private bool _inConstructor;
 
-    public Interpreter(Osb.Lang.Compilation.Compilation compilation, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear)
+    public Interpreter(Osb.Lang.Compilation.Compilation compilation, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear, IReadOnlyList<Ast.UsingDecl>? topLevelUsings = null)
     {
         _extensions = extensions;
         _output = output;
         _input = input;
         _clear = clear;
+        _topLevelUsings = topLevelUsings is null ? [] : new List<UsingDecl>(topLevelUsings);
 
         foreach (var kvp in compilation.Symbols.Functions)
         {
@@ -83,6 +86,12 @@ internal sealed class Interpreter
 
     public OslangValue Run(IReadOnlyList<OslangValue>? args = null)
     {
+        var globalScope = new Scope(_globals);
+        foreach (var usingDecl in _topLevelUsings)
+        {
+            ExecuteUsing(usingDecl, globalScope);
+        }
+
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
 
         if (main.Parameters.Count == 0)
@@ -153,6 +162,16 @@ internal sealed class Interpreter
                 return dirFunc(args, location);
             }
             throw new OslangRuntimeException(location, $"Unknown DIR method '{methodName}'.");
+        }
+
+        if (namespaceName.Equals("OSL", StringComparison.OrdinalIgnoreCase))
+        {
+            if (methodName.Equals("I18N", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.I18N");
+            }
+
+            throw new OslangRuntimeException(location, $"Unknown OSL module '{methodName}'. Only OSL.I18N is available in 0.6.");
         }
 
         throw new OslangRuntimeException(location, $"Unknown namespace '{namespaceName}'.");
@@ -269,6 +288,9 @@ internal sealed class Interpreter
             case SwitchStmt s:
                 ExecuteSwitch(s, scope);
                 break;
+            case UsingDecl u:
+                ExecuteUsing(u, scope);
+                break;
             default:
                 throw new InvalidOperationException($"Unknown statement node {stmt.GetType().Name}.");
         }
@@ -374,6 +396,33 @@ internal sealed class Interpreter
         }
 
         instance.PropertyValues[prop.Name] = value;
+    }
+
+    private void ExecuteUsing(UsingDecl usingDecl, Scope scope)
+    {
+        var moduleName = usingDecl.ModuleName;
+
+        if (!moduleName.StartsWith("OSL.", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var shortName = moduleName.Split('.')[^1];
+        if (_standardLibraries.ContainsKey(shortName))
+        {
+            return;
+        }
+
+        if (moduleName.Equals("OSL.I18N", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.I18N");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        throw new OslangRuntimeException(usingDecl.Location, $"Unknown standard library module '{moduleName}'.");
     }
 
     private void ExecutePrint(PrintStmt p, Scope scope)
@@ -1221,6 +1270,7 @@ internal sealed class Interpreter
             "MATH" => OslangValue.Null, // MATH is a namespace marker, actual methods dispatched in EvalMethodCall
             "FILE" => OslangValue.Null, // FILE is a namespace marker
             "DIR" => OslangValue.Null, // DIR is a namespace marker
+            "OSL" => OslangValue.Null,  // OSL is a namespace marker, actual methods dispatched in EvalMethodCall
             _ => throw new OslangRuntimeException(ns.Location, $"Unknown namespace '{ns.NamespaceName}'."),
         };
     }
@@ -1233,6 +1283,12 @@ internal sealed class Interpreter
         }
 
         var obj = Eval(expr.Object, scope);
+
+        if (obj is ModuleValue module)
+        {
+            return I18nNamespace.Call(expr.MemberName, [], expr.Location);
+        }
+
         if (obj is not ObjectValue objectValue)
         {
             throw new OslangRuntimeException(expr.Location, $"Cannot access member '{expr.MemberName}' on type {obj.TypeName}.");
@@ -1266,6 +1322,12 @@ internal sealed class Interpreter
         }
 
         var obj = Eval(expr.Object, scope);
+
+        if (obj is ModuleValue module)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return I18nNamespace.Call(expr.MethodName, args, expr.Location);
+        }
 
         if (obj is ObjectValue objectValue)
         {

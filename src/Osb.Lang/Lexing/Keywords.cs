@@ -76,6 +76,7 @@ public static class Keywords
         ["DIR"] = TokenType.Dir,
         ["SHOW"] = TokenType.Show,
         ["MOD"] = TokenType.Mod,
+        ["OSL"] = TokenType.Osl,
     };
 
     public static bool TryGetKeyword(string upperText, out TokenType type) => Map.TryGetValue(upperText, out type);
