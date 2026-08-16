@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Tour do OSB Entry Point
+' OSLANG 0.61 - Tour do OSB Entry Point
 USING Tour
 
 FUNCTION MAIN()

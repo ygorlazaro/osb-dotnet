@@ -44,7 +44,8 @@ public sealed class Compilation
         }
 
         var allUsings = _symbols.Modules.Values.SelectMany(m => m.Program.Usings).ToList();
-        var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear, allUsings);
+        var allEnums = _symbols.Enums;
+        var interpreter = new Interpreter(this, extensions ?? new ExtensionRegistry(), output, input, clear, allUsings, allEnums);
         return interpreter.Run(args);
     }
 }

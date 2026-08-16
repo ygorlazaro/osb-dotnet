@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Animal inheritance example
+' OSLANG 0.61 - Animal inheritance example
 USING OSL.I18N
 CLASS Animal
     VAR Name String

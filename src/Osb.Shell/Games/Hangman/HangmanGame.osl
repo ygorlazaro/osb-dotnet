@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Hangman Game Module
+' OSLANG 0.61 - Hangman Game Module
 USING OSL.I18N
 CLASS HANGMANGAME
     VAR Words

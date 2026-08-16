@@ -85,3 +85,49 @@ public sealed class ModuleValue : OslangValue
         ModuleName = moduleName;
     }
 }
+
+public sealed class EnumTypeValue : OslangValue
+{
+    public string EnumName { get; }
+    public override RuntimeType Type => RuntimeType.Object;
+    public override string TypeName => EnumName;
+
+    public EnumTypeValue(string enumName)
+    {
+        EnumName = enumName;
+    }
+}
+
+// ============================================================
+// OSLANG 0.61 - ENUM
+// ============================================================
+
+public sealed class EnumValue(OslangValue underlyingValue, string enumTypeName, string memberName) : OslangValue
+{
+    public OslangValue UnderlyingValue { get; } = underlyingValue;
+    public string EnumTypeName { get; } = enumTypeName;
+    public string MemberName { get; } = memberName;
+    public override RuntimeType Type => RuntimeType.Enum;
+    public override string TypeName => EnumTypeName;
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is not EnumValue other) return false;
+        if (ReferenceEquals(this, other)) return true;
+        return string.Equals(EnumTypeName, other.EnumTypeName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(MemberName, other.MemberName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(EnumTypeName.ToUpperInvariant(), MemberName.ToUpperInvariant());
+    }
+}
+
+public sealed class EnumSetValue(string enumTypeName, HashSet<EnumValue> values) : OslangValue
+{
+    public string EnumTypeName { get; } = enumTypeName;
+    public HashSet<EnumValue> Values { get; } = values;
+    public override RuntimeType Type => RuntimeType.EnumSet;
+    public override string TypeName => $"{enumTypeName}[]";
+}

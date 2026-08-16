@@ -1,12 +1,12 @@
-' OSLANG 0.6 - Template: Classes, Inheritance, Interfaces, USING, SWITCH
+' OSLANG 0.61 - Template: Classes, Inheritance, Interfaces, USING, SWITCH
 USING Shapes
 
 FUNCTION MAIN()
     Circle = NEW Circle(10)
     Rectangle = NEW Rectangle(5, 4)
 
-    PRINT Circle.GET_NAME() + " area: " + Circle.GET_AREA()
-    PRINT Rectangle.GET_NAME() + " area: " + Rectangle.GET_AREA()
+    PRINT "${Circle.GET_NAME()} area: ${Circle.GET_AREA()}"
+    PRINT "${Rectangle.GET_NAME()} area: ${Rectangle.GET_AREA()}"
 
     Value = 2
     Result = SWITCH Value

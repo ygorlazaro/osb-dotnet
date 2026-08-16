@@ -77,6 +77,7 @@ public static class Keywords
         ["SHOW"] = TokenType.Show,
         ["MOD"] = TokenType.Mod,
         ["OSL"] = TokenType.Osl,
+        ["ENUM"] = TokenType.Enum,
     };
 
     public static bool TryGetKeyword(string upperText, out TokenType type) => Map.TryGetValue(upperText, out type);

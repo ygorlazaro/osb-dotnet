@@ -431,6 +431,8 @@ public static class PrimitiveMethodDispatcher
             (BooleanValue a, BooleanValue b) => a.Value == b.Value,
             (ArrayValue a, ArrayValue b) => ReferenceEquals(a, b),
             (ObjectValue a, ObjectValue b) => ReferenceEquals(a.Instance, b.Instance),
+            (EnumValue a, EnumValue b) => a.EnumTypeName == b.EnumTypeName && a.MemberName == b.MemberName,
+            (EnumSetValue a, EnumSetValue b) => a.EnumTypeName == b.EnumTypeName && a.Values.SetEquals(b.Values),
             _ => false,
         };
     }

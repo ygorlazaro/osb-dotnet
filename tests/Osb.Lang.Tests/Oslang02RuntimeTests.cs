@@ -1022,5 +1022,167 @@ END FUNCTION";
         Execute(source, output, basePath: "I18N");
         Assert.Equal("Welcome to OSB" + Environment.NewLine, output.ToString());
     }
+
+    // ============================================================
+    // OSLANG 0.61 - ENUM
+    // ============================================================
+
+    [Fact]
+    public void Enum_Declaration_CreatesTypedValues()
+    {
+        var output = new StringWriter();
+        var source = @"
+ENUM Color
+    RED
+    GREEN
+    BLUE
+END
+
+FUNCTION MAIN()
+    C = Color.RED
+    PRINT TYPEOF(C)
+    PRINT C.NAME()
+    PRINT C.VALUE()
+END FUNCTION";
+
+        Execute(source, output);
+        var result = output.ToString();
+        Assert.Contains("COLOR" + Environment.NewLine, result);
+        Assert.Contains("RED" + Environment.NewLine, result);
+        Assert.Contains("0" + Environment.NewLine, result);
+    }
+
+    [Fact]
+    public void Enum_NumericValues_ArePreserved()
+    {
+        var output = new StringWriter();
+        var source = @"
+ENUM Weekday
+    Sunday = 0
+    Monday = 1
+    Saturday = 6
+END
+
+FUNCTION MAIN()
+    PRINT Weekday.Saturday.VALUE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("6" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void EnumSet_Operator_CreatesSet()
+    {
+        var output = new StringWriter();
+        var source = @"
+ENUM Weekday
+    Saturday = 6
+    Sunday = 0
+    Monday = 1
+END
+
+FUNCTION MAIN()
+    Weekend = Weekday.Saturday | Weekday.Sunday
+    PRINT Weekend.CONTAINS(Weekday.Saturday)
+    PRINT Weekend.COUNT()
+END FUNCTION";
+
+        Execute(source, output);
+        var result = output.ToString();
+        Assert.Contains("TRUE" + Environment.NewLine, result);
+        Assert.Contains("2" + Environment.NewLine, result);
+    }
+
+    [Fact]
+    public void Switch_Statement_SelectsCase()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Day = 2
+    SWITCH Day
+        CASE 1
+            PRINT ""One""
+        CASE 2
+            PRINT ""Two""
+        DEFAULT
+            PRINT ""Other""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Two" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Break_ExitsSwitch()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    X = 1
+    SWITCH X
+        CASE 1
+            PRINT ""Matched""
+            BREAK
+        DEFAULT
+            PRINT ""Default""
+    END
+    PRINT ""After""
+END FUNCTION";
+
+        Execute(source, output);
+        var result = output.ToString();
+        Assert.Contains("Matched" + Environment.NewLine, result);
+        Assert.Contains("After" + Environment.NewLine, result);
+    }
+
+    [Fact]
+    public void StringInterpolation_SubstitutesVariables()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Name = ""Ygor""
+    Age = 40
+    Message = ""Hello ${Name}, you are ${Age} years old.""
+    PRINT Message
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello Ygor, you are 40 years old." + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void MultilineString_PreservesNewlines()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Message = """"""
+Hello
+World
+""""""
+    PRINT Message
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello" + Environment.NewLine + "World" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringEscape_NewlineAndTab_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Message = ""Hello\nWorld\tTab""
+    PRINT Message
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello" + Environment.NewLine + "World\tTab" + Environment.NewLine, output.ToString());
+    }
 }
 

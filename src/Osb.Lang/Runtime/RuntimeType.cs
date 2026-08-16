@@ -14,4 +14,6 @@ public enum RuntimeType
     Object,
     Function,
     Null,
+    Enum,
+    EnumSet,
 }

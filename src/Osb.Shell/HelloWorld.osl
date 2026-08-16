@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Hello World
+' OSLANG 0.61 - Hello World
 USING OSL.I18N
 FUNCTION MAIN()
     PRINT I18N.GET("helloworld.greeting")

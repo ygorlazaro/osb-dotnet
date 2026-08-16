@@ -2,6 +2,8 @@ using Osb.Lang.Ast;
 using Osb.Lang.Compilation;
 using Osb.Lang.Diagnostics;
 using Osb.Lang.Extensibility;
+using Osb.Lang.Lexing;
+using Osb.Lang.Parsing;
 using Osb.Lang.Runtime;
 
 namespace Osb.Lang.Runtime;
@@ -12,11 +14,13 @@ namespace Osb.Lang.Runtime;
 internal sealed class Interpreter
 {
     private readonly Dictionary<string, FunctionOverloadSet> _functions = new();
-    private readonly Dictionary<string, Variable> _globals = new();
+    private readonly Dictionary<string, Variable> _globals = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ClassDefinition> _classes = new();
     private readonly Dictionary<string, InterfaceDefinition> _interfaces = new();
     private readonly Dictionary<string, OslangValue> _standardLibraries = new();
+    private readonly Dictionary<string, List<(string MemberName, OslangValue Value)>> _enums = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<UsingDecl> _topLevelUsings;
+    private readonly List<EnumDecl> _topLevelEnums;
     private readonly ExtensionRegistry _extensions;
     private readonly TextWriter _output;
     private readonly TextReader _input;
@@ -25,13 +29,14 @@ internal sealed class Interpreter
     private ClassDefinition? _enclosingClass;
     private bool _inConstructor;
 
-    public Interpreter(Osb.Lang.Compilation.Compilation compilation, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear, IReadOnlyList<Ast.UsingDecl>? topLevelUsings = null)
+    public Interpreter(Osb.Lang.Compilation.Compilation compilation, ExtensionRegistry extensions, TextWriter output, TextReader input, Action? clear, IReadOnlyList<Ast.UsingDecl>? topLevelUsings = null, IReadOnlyList<Ast.EnumDecl>? topLevelEnums = null)
     {
         _extensions = extensions;
         _output = output;
         _input = input;
         _clear = clear;
         _topLevelUsings = topLevelUsings is null ? [] : new List<UsingDecl>(topLevelUsings);
+        _topLevelEnums = topLevelEnums is null ? [] : new List<EnumDecl>(topLevelEnums);
 
         foreach (var kvp in compilation.Symbols.Functions)
         {
@@ -90,6 +95,11 @@ internal sealed class Interpreter
         foreach (var usingDecl in _topLevelUsings)
         {
             ExecuteUsing(usingDecl, globalScope);
+        }
+
+        foreach (var enumDecl in _topLevelEnums)
+        {
+            ExecuteEnumDecl(enumDecl);
         }
 
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
@@ -215,15 +225,15 @@ internal sealed class Interpreter
     // Statements
     // ============================================================
 
-    private void ExecuteBlock(IReadOnlyList<Stmt> statements, Scope scope, int loopDepth)
+    private void ExecuteBlock(IReadOnlyList<Stmt> statements, Scope scope, int loopDepth, bool inSwitch = false)
     {
         foreach (var stmt in statements)
         {
-            ExecuteStatement(stmt, scope, loopDepth);
+            ExecuteStatement(stmt, scope, loopDepth, inSwitch);
         }
     }
 
-    private void ExecuteStatement(Stmt stmt, Scope scope, int loopDepth)
+    private void ExecuteStatement(Stmt stmt, Scope scope, int loopDepth, bool inSwitch = false)
     {
         switch (stmt)
         {
@@ -264,9 +274,9 @@ internal sealed class Interpreter
                 ExecuteDoWhile(d, scope, loopDepth);
                 break;
             case BreakStmt b:
-                if (loopDepth == 0)
+                if (loopDepth == 0 && !inSwitch)
                 {
-                    throw new OslangRuntimeException(b.Location, "BREAK used outside of a loop.");
+                    throw new OslangRuntimeException(b.Location, "BREAK used outside of a loop or SWITCH.");
                 }
 
                 throw new BreakSignal();
@@ -286,10 +296,13 @@ internal sealed class Interpreter
                 ExecuteBaseCall(b, scope);
                 break;
             case SwitchStmt s:
-                ExecuteSwitch(s, scope);
+                ExecuteSwitch(s, scope, loopDepth);
                 break;
             case UsingDecl u:
                 ExecuteUsing(u, scope);
+                break;
+            case EnumDecl e:
+                ExecuteEnumDecl(e);
                 break;
             default:
                 throw new InvalidOperationException($"Unknown statement node {stmt.GetType().Name}.");
@@ -558,7 +571,7 @@ internal sealed class Interpreter
         }
     }
 
-    private void ExecuteSwitch(SwitchStmt s, Scope scope)
+    private void ExecuteSwitch(SwitchStmt s, Scope scope, int loopDepth)
     {
         var switchValue = Eval(s.Expression, scope);
 
@@ -567,15 +580,64 @@ internal sealed class Interpreter
             var caseValue = Eval(caseClause.Value, scope);
             if (ValuesEqual(switchValue, caseValue))
             {
-                ExecuteBlock(caseClause.Body, scope, loopDepth: 0);
+                try
+                {
+                    ExecuteBlock(caseClause.Body, scope, loopDepth, inSwitch: true);
+                }
+                catch (BreakSignal)
+                {
+                    return;
+                }
+
                 return;
             }
         }
 
         if (s.DefaultCase is not null)
         {
-            ExecuteBlock(s.DefaultCase.Body, scope, loopDepth: 0);
+            try
+            {
+                ExecuteBlock(s.DefaultCase.Body, scope, loopDepth, inSwitch: true);
+            }
+            catch (BreakSignal)
+            {
+                return;
+            }
         }
+    }
+
+    private void ExecuteEnumDecl(EnumDecl e)
+    {
+        var members = new List<(string MemberName, OslangValue Value)>();
+        var underlyingType = (RuntimeType?)null;
+
+        foreach (var member in e.Members)
+        {
+            if (member.Value is null)
+            {
+                var index = members.Count;
+                OslangValue value = underlyingType == RuntimeType.String
+                    ? new StringValue(index.ToString())
+                    : new NumberValue(index);
+                members.Add((member.Name, value));
+            }
+            else
+            {
+                var evaluatedValue = Eval(member.Value, new Scope(_globals));
+                if (underlyingType is null)
+                {
+                    underlyingType = evaluatedValue.Type;
+                }
+                else if (evaluatedValue.Type != underlyingType)
+                {
+                    throw new OslangRuntimeException(member.Location, $"Enum member '{member.Name}' has inconsistent type. Expected {underlyingType}, got {evaluatedValue.Type}.");
+                }
+                members.Add((member.Name, evaluatedValue));
+            }
+        }
+
+        _enums[e.Name] = members;
+        _globals[e.Name] = new Variable { Value = new EnumTypeValue(e.Name) };
     }
 
     // ============================================================
@@ -585,7 +647,7 @@ internal sealed class Interpreter
     private OslangValue Eval(Expr expr, Scope scope) => expr switch
     {
         NumberLiteralExpr n => new NumberValue(n.Value),
-        StringLiteralExpr s => new StringValue(s.Value),
+        StringLiteralExpr s => EvalStringLiteral(s, scope),
         BooleanLiteralExpr b => BooleanValue.Of(b.Value),
         NullLiteralExpr => OslangValue.Null,
         ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),
@@ -604,8 +666,54 @@ internal sealed class Interpreter
         ArrowFunctionExpr a => EvalArrowFunction(a, scope),
         BlockArrowFunctionExpr b => EvalBlockArrowFunction(b, scope),
         PostfixExpr p => EvalPostfix(p, scope),
+        EnumSetExpr es => EvalEnumSet(es, scope),
+        InterpolatedStringExpr ise => EvalInterpolatedString(ise, scope),
         _ => throw new InvalidOperationException($"Unknown expression node {expr.GetType().Name}."),
     };
+
+    private OslangValue EvalStringLiteral(StringLiteralExpr s, Scope scope)
+    {
+        var value = s.Value;
+        var parts = new List<InterpolatedStringPart>();
+        var index = 0;
+
+        while (true)
+        {
+            var start = value.IndexOf("${", index, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                parts.Add(new InterpolatedStringLiteral(value[index..], s.Location));
+                break;
+            }
+
+            parts.Add(new InterpolatedStringLiteral(value[index..start], s.Location));
+
+            var end = value.IndexOf('}', start + 2);
+            if (end < 0)
+            {
+                throw new OslangRuntimeException(s.Location, "Unterminated string interpolation.");
+            }
+
+            var exprText = value[(start + 2)..end];
+            var expr = ParseExpressionFromString(exprText, s.Location);
+            parts.Add(new InterpolatedStringExpression(expr, s.Location));
+            index = end + 1;
+        }
+
+        if (parts.Count == 1 && parts[0] is InterpolatedStringLiteral literal)
+        {
+            return new StringValue(literal.Value);
+        }
+
+        return EvalInterpolatedString(new InterpolatedStringExpr(parts, s.Location), scope);
+    }
+
+    private static Expr ParseExpressionFromString(string exprText, SourceLocation location)
+    {
+        var tokens = new Lexer(exprText).Tokenize().ToList();
+        var parser = new Parser(tokens);
+        return parser.ParseExpression();
+    }
 
     private double EvalNumber(Expr expr, Scope scope, string description)
     {
@@ -657,6 +765,71 @@ internal sealed class Interpreter
         }
 
         throw new OslangRuntimeException(id.Location, $"Undefined variable '{id.Name}'.");
+    }
+
+    private OslangValue EvalEnumSet(EnumSetExpr expr, Scope scope)
+    {
+        var left = Eval(expr.Left, scope);
+        var right = Eval(expr.Right, scope);
+
+        if (left is not EnumValue leftEnum && left is not EnumSetValue leftSet)
+        {
+            throw new OslangRuntimeException(expr.Location, "Enum set operator '|' requires enum values.");
+        }
+
+        if (right is not EnumValue rightEnum && right is not EnumSetValue rightSet)
+        {
+            throw new OslangRuntimeException(expr.Location, "Enum set operator '|' requires enum values.");
+        }
+
+        var leftType = left is EnumValue le ? le.EnumTypeName : ((EnumSetValue)left).EnumTypeName;
+        var rightType = right is EnumValue re ? re.EnumTypeName : ((EnumSetValue)right).EnumTypeName;
+
+        if (!string.Equals(leftType, rightType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new OslangRuntimeException(expr.Location, $"Cannot combine enum values from different types: {leftType} and {rightType}.");
+        }
+
+        var result = new HashSet<EnumValue>();
+
+        if (left is EnumSetValue ls)
+        {
+            result.UnionWith(ls.Values);
+        }
+        else if (left is EnumValue lv)
+        {
+            result.Add(lv);
+        }
+
+        if (right is EnumSetValue rs)
+        {
+            result.UnionWith(rs.Values);
+        }
+        else if (right is EnumValue rv)
+        {
+            result.Add(rv);
+        }
+
+        return new EnumSetValue(leftType, result);
+    }
+
+    private OslangValue EvalInterpolatedString(InterpolatedStringExpr expr, Scope scope)
+    {
+        var result = new System.Text.StringBuilder();
+        foreach (var part in expr.Parts)
+        {
+            switch (part)
+            {
+                case InterpolatedStringLiteral literal:
+                    result.Append(literal.Value);
+                    break;
+                case InterpolatedStringExpression expression:
+                    var value = Eval(expression.Expression, scope);
+                    result.Append(Conversions.ToDisplayString(value, expression.Location));
+                    break;
+            }
+        }
+        return new StringValue(result.ToString());
     }
 
     private OslangValue CreateFunctionReference(FunctionDecl decl)
@@ -1289,6 +1462,32 @@ internal sealed class Interpreter
             return I18nNamespace.Call(expr.MemberName, [], expr.Location);
         }
 
+        if (obj is EnumTypeValue enumType)
+        {
+            if (!_enums.TryGetValue(enumType.EnumName, out var members))
+            {
+                throw new OslangRuntimeException(expr.Location, $"Unknown enum type '{enumType.EnumName}'.");
+            }
+
+            var member = members.FirstOrDefault(m => m.MemberName.Equals(expr.MemberName, StringComparison.OrdinalIgnoreCase));
+            if (member.MemberName is null)
+            {
+                throw new OslangRuntimeException(expr.Location, $"Member '{expr.MemberName}' not found in enum '{enumType.EnumName}'.");
+            }
+
+            return new EnumValue(member.Value, enumType.EnumName, member.MemberName);
+        }
+
+        if (obj is EnumValue enumValue)
+        {
+            return DispatchEnum(enumValue, expr.MemberName, [], expr.Location);
+        }
+
+        if (obj is EnumSetValue enumSet)
+        {
+            return DispatchEnumSet(enumSet, expr.MemberName, [], expr.Location);
+        }
+
         if (obj is not ObjectValue objectValue)
         {
             throw new OslangRuntimeException(expr.Location, $"Cannot access member '{expr.MemberName}' on type {obj.TypeName}.");
@@ -1313,6 +1512,64 @@ internal sealed class Interpreter
         return OslangValue.Null;
     }
 
+    private static OslangValue DispatchEnum(EnumValue enumValue, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "NAME":
+                EnsureArgCount(args, 0, methodName, location);
+                return new StringValue(enumValue.MemberName);
+            case "VALUE":
+                EnsureArgCount(args, 0, methodName, location);
+                return new StringValue(Conversions.ToDisplayString(enumValue.UnderlyingValue, location));
+            case "TOSTRING":
+                EnsureArgCount(args, 0, methodName, location);
+                return new StringValue(Conversions.ToDisplayString(enumValue.UnderlyingValue, location));
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on enum type {enumValue.EnumTypeName}.");
+        }
+    }
+
+    private static OslangValue DispatchEnumSet(EnumSetValue enumSet, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        switch (upper)
+        {
+            case "CONTAINS":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not EnumValue ev)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects an enum value.");
+                }
+                return BooleanValue.Of(enumSet.Values.Contains(ev));
+            case "COUNT":
+                EnsureArgCount(args, 0, methodName, location);
+                return new NumberValue(enumSet.Values.Count);
+            case "FOREACH":
+                EnsureArgCount(args, 1, methodName, location);
+                if (args[0] is not FunctionValue func)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() expects a function argument.");
+                }
+                foreach (var item in enumSet.Values)
+                {
+                    func.Callback([item], location);
+                }
+                return OslangValue.Null;
+            default:
+                throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on enum set.");
+        }
+    }
+
+    private static void EnsureArgCount(IReadOnlyList<OslangValue> args, int expected, string methodName, SourceLocation location)
+    {
+        if (args.Count != expected)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() expects {expected} argument(s), got {args.Count}.");
+        }
+    }
+
     private OslangValue EvalMethodCall(MethodCallExpr expr, Scope scope)
     {
         if (expr.Object is NamespaceExpr ns)
@@ -1327,6 +1584,18 @@ internal sealed class Interpreter
         {
             var args = expr.Args.Select(a => Eval(a, scope)).ToList();
             return I18nNamespace.Call(expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is EnumValue enumValue)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchEnum(enumValue, expr.MethodName, args, expr.Location);
+        }
+
+        if (obj is EnumSetValue enumSet)
+        {
+            var args = expr.Args.Select(a => Eval(a, scope)).ToList();
+            return DispatchEnumSet(enumSet, expr.MethodName, args, expr.Location);
         }
 
         if (obj is ObjectValue objectValue)

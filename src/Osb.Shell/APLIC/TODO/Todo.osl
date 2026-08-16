@@ -1,4 +1,4 @@
-' OSLANG 0.6 - TODO Implementation
+' OSLANG 0.61 - TODO Implementation
 USING OSL.I18N
 CLASS TODOAPP
 
@@ -16,7 +16,7 @@ CLASS TODOAPP
             END
             TaskText = Args[1]
             FOR I = 2 TO COUNT(Args) - 1
-                TaskText += " " + Args[I]
+                TaskText += " ${Args[I]}"
             END
             ME.ADD(TaskText)
         ELIF Command = "LIST" THEN
@@ -61,7 +61,7 @@ CLASS TODOAPP
             ELSE
                 Marker = " [ ]"
             END
-            PRINT STR(I + 1) + Marker + " " + Tasks[I]
+            PRINT "${STR(I + 1)}${Marker} ${Tasks[I]}"
         END
     END FUNCTION
 
@@ -76,7 +76,7 @@ CLASS TODOAPP
             PRINT I18N("todo.already_done", Task)
             RETURN
         END
-        Tasks[Index - 1] = "[x] " + Task
+        Tasks[Index - 1] = "[x] ${Task}"
         ME.SAVE(Tasks)
         PRINT I18N("todo.completed", Task)
     END FUNCTION
@@ -116,7 +116,7 @@ CLASS TODOAPP
     END FUNCTION
 
     PRIVATE FUNCTION FILE_PATH()
-        RETURN DIR.CURRENT() + "/.todo.txt"
+        RETURN "${DIR.CURRENT()}/.todo.txt"
     END FUNCTION
 
 END CLASS

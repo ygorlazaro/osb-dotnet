@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Calendar App Entry Point
+' OSLANG 0.61 - Calendar App Entry Point
 USING Cal
 
 FUNCTION MAIN()

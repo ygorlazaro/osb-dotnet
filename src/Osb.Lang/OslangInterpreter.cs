@@ -25,7 +25,7 @@ namespace Osb.Lang;
 /// </summary>
 public sealed class OslangInterpreter
 {
-    public const string Version = "0.6";
+    public const string Version = "0.61";
 
     private readonly ExtensionRegistry _extensions;
 

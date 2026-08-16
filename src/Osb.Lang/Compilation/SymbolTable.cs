@@ -13,6 +13,7 @@ public sealed class SymbolTable
     public Dictionary<string, InterfaceDefinition> Interfaces { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, EventSymbol> Events { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Module> Modules { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<EnumDecl> Enums { get; } = new();
     public List<OslangDiagnostic> Diagnostics { get; } = new();
     public FunctionDecl? MainFunction { get; private set; }
 

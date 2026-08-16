@@ -1,4 +1,4 @@
-' OSLANG 0.6 - Calendar Implementation
+' OSLANG 0.61 - Calendar Implementation
 USING OSL.I18N
 CLASS CALENDARAPP
 
@@ -68,7 +68,7 @@ CLASS CALENDARAPP
 
     PRIVATE FUNCTION SHOWMONTH(Month, Year)
         PRINT ""
-        PRINT "   " + ME.MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
+        PRINT "   ${ME.MONTHNAME(Month).TOUPPER()} / ${STR(Year)}"
         PRINT I18N.GET("weekdays")
 
         FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
@@ -87,9 +87,9 @@ CLASS CALENDARAPP
         FOR Day = 1 TO DaysInMonth
             IsToday = (Day = TodayDay AND Month = TodayMonth AND Year = TodayYear)
             IF IsToday THEN
-                Line += "[" + STR(Day).PADSTART(2) + "]"
+                Line += "[${STR(Day).PADSTART(2)}]"
             ELSE
-                Line += " " + STR(Day).PADSTART(2) + " "
+                Line += " ${STR(Day).PADSTART(2)} "
             END
 
             IF (Day + FirstDay) MOD 7 = 0 THEN

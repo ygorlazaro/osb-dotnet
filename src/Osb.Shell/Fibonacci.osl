@@ -1,9 +1,9 @@
-' OSLANG 0.6 - Fibonacci
+' OSLANG 0.61 - Fibonacci
 FUNCTION FIBONACCI(QUANTITY)
     A = 0
     B = 1
     FOR I = 1 TO QUANTITY
-        SHOW A + " "
+        SHOW "${A} "
         NEXT = A + B
         A = B
         B = NEXT

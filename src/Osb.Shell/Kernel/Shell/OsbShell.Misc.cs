@@ -292,7 +292,6 @@ public partial class OsbShell
             ? _currentUsername
             : "guest";
         Console.WriteLine();
-        Console.WriteLine(Directory.GetCurrentDirectory());
         Console.Write(ExpandPrompt(_env.Prompt.Layout, promptUser, _env.MachineName));
 
         var buffer = new List<char>();

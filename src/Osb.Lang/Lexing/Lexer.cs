@@ -105,6 +105,10 @@ public sealed class Lexer
 
         if (c == '"')
         {
+            if (Peek() == '"' && Peek(2) == '"')
+            {
+                return ReadTripleString();
+            }
             return ReadString();
         }
 
@@ -251,12 +255,24 @@ public sealed class Lexer
                 break;
             }
 
-            if (c == '\\' && (Peek() == '"' || Peek() == '\\'))
+            if (c == '\\')
             {
                 Advance();
-                var escaped = Advance();
-                sb.Append(escaped);
-                raw.Append('\\').Append(escaped);
+                if (IsAtEnd)
+                {
+                    throw new LexicalException(start, "Unterminated string literal.");
+                }
+                var esc = Advance();
+                var replacement = esc switch
+                {
+                    'n' => '\n',
+                    't' => '\t',
+                    '\\' => '\\',
+                    '"' => '"',
+                    _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
+                };
+                sb.Append(replacement);
+                raw.Append('\\').Append(esc);
                 continue;
             }
 
@@ -265,6 +281,92 @@ public sealed class Lexer
         }
 
         return new Token(TokenType.StringLiteral, raw.ToString(), start, StringValue: sb.ToString());
+    }
+
+    private Token ReadTripleString()
+    {
+        var start = CurrentLocation;
+        Advance(); // first "
+        Advance(); // second "
+        Advance(); // third "
+
+        var sb = new StringBuilder();
+        var raw = new StringBuilder("\"\"\"");
+
+        if (!IsAtEnd && Current == '\n')
+        {
+            Advance();
+            raw.Append('\n');
+        }
+        else if (!IsAtEnd && Current == '\r' && Peek() == '\n')
+        {
+            Advance();
+            Advance();
+            raw.Append("\r\n");
+        }
+
+        while (true)
+        {
+            if (IsAtEnd)
+            {
+                throw new LexicalException(start, "Unterminated multiline string literal.");
+            }
+
+            if (Current == '"' && Peek() == '"' && Peek(2) == '"')
+            {
+                Advance();
+                Advance();
+                Advance();
+                raw.Append("\"\"\"");
+                break;
+            }
+
+            var c = Current;
+            if (c == '\r' && Peek() == '\n')
+            {
+                sb.Append('\n');
+                raw.Append("\r\n");
+                Advance();
+                Advance();
+                continue;
+            }
+
+            if (c == '\n')
+            {
+                sb.Append('\n');
+                raw.Append('\n');
+                Advance();
+                continue;
+            }
+
+            if (c == '\\' && (Peek() == 'n' || Peek() == 't' || Peek() == '\\' || Peek() == '"'))
+            {
+                Advance();
+                var esc = Advance();
+                var replacement = esc switch
+                {
+                    'n' => '\n',
+                    't' => '\t',
+                    '\\' => '\\',
+                    '"' => '"',
+                    _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
+                };
+                sb.Append(replacement);
+                raw.Append('\\').Append(esc);
+                continue;
+            }
+
+            sb.Append(Advance());
+            raw.Append(c);
+        }
+
+        var result = sb.ToString();
+        if (result.EndsWith("\n"))
+        {
+            result = result[..^1];
+        }
+
+        return new Token(TokenType.StringLiteral, raw.ToString(), start, StringValue: result);
     }
 
     private Token ReadOperatorOrPunctuation(SourceLocation start)
@@ -311,6 +413,10 @@ public sealed class Lexer
                 return new Token(TokenType.LBracket, "[", start);
             case ']':
                 return new Token(TokenType.RBracket, "]", start);
+            case '{':
+                return new Token(TokenType.LBrace, "{", start);
+            case '}':
+                return new Token(TokenType.RBrace, "}", start);
             case ',':
                 return new Token(TokenType.Comma, ",", start);
             case ':':
@@ -347,6 +453,8 @@ public sealed class Lexer
                 }
 
                 return new Token(TokenType.Greater, ">", start);
+            case '|':
+                return new Token(TokenType.Pipe, "|", start);
             default:
                 throw new LexicalException(start, $"Unexpected character '{c}'.");
         }

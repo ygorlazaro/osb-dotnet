@@ -87,6 +87,7 @@ public sealed class Parser
         var interfaces = new List<InterfaceDecl>();
         var usings = new List<UsingDecl>();
         var events = new List<EventDecl>();
+        var enums = new List<EnumDecl>();
         SkipNewlines();
         while (!IsAtEnd)
         {
@@ -110,14 +111,18 @@ public sealed class Parser
             {
                 events.Add(ParseEventDecl());
             }
+            else if (Check(TokenType.Enum))
+            {
+                enums.Add(ParseEnumDecl());
+            }
             else
             {
-                throw new SyntaxException(Current.Location, $"Expected USING, FUNCTION, CLASS, INTERFACE, or EVENT at top level. Found '{Current.Lexeme}'.");
+                throw new SyntaxException(Current.Location, $"Expected USING, FUNCTION, CLASS, INTERFACE, EVENT, or ENUM at top level. Found '{Current.Lexeme}'.");
             }
             SkipNewlines();
         }
 
-        return new OslangProgram(functions, classes, interfaces, usings, events);
+        return new OslangProgram(functions, classes, interfaces, usings, events, enums);
     }
 
     private FunctionDecl ParseFunctionDecl()
@@ -408,6 +413,40 @@ public sealed class Parser
         return new EventDecl(nameTok.Text, parameters, start);
     }
 
+    private EnumDecl ParseEnumDecl()
+    {
+        var start = Current.Location;
+        Advance(); // consume ENUM
+        var nameTok = Expect(TokenType.Identifier, "Expected enum name after ENUM.");
+        var members = new List<EnumMember>();
+        SkipNewlines();
+
+        while (!IsAtEnd && !Check(TokenType.End))
+        {
+            if (Check(TokenType.Newline))
+            {
+                Advance();
+                continue;
+            }
+
+            var memberStart = Current.Location;
+            var memberNameTok = Expect(TokenType.Identifier, "Expected enum member name.");
+            Expr? memberValue = null;
+
+            if (Check(TokenType.Equal))
+            {
+                Advance();
+                memberValue = ParseExpression();
+            }
+
+            members.Add(new EnumMember(memberNameTok.Text, memberValue, memberStart));
+            SkipNewlines();
+        }
+
+        Expect(TokenType.End, "Expected END to close ENUM.");
+        return new EnumDecl(nameTok.Text, members, start);
+    }
+
     private Stmt ParseSwitchStatement()
     {
         var start = Current.Location;
@@ -573,6 +612,7 @@ public sealed class Parser
             TokenType.Clear => new ClearStmt(Advance().Location),
             TokenType.Base => ParseBaseCall(),
             TokenType.Switch => ParseSwitchStatement(),
+            TokenType.Enum => ParseEnumDecl(),
             TokenType.Identifier => ParseIdentifierLedStatement(),
             TokenType.Me => ParseMeLedStatement(),
             TokenType.Math => ParseNamespaceLedStatement(TokenType.Math, "MATH"),
@@ -880,7 +920,7 @@ public sealed class Parser
     // Expressões (precedência - seção 24)
     // ============================================================
 
-    private Expr ParseExpression() => ParseOr();
+    public Expr ParseExpression() => ParseOr();
 
     private Expr ParseOr()
     {
@@ -898,13 +938,27 @@ public sealed class Parser
 
     private Expr ParseAnd()
     {
-        var left = ParseComparison();
+        var left = ParseEnumSet();
         while (Check(TokenType.And))
         {
             var loc = Current.Location;
             Advance();
-            var right = ParseComparison();
+            var right = ParseEnumSet();
             left = new BinaryExpr("AND", left, right, loc);
+        }
+
+        return left;
+    }
+
+    private Expr ParseEnumSet()
+    {
+        var left = ParseComparison();
+        while (Check(TokenType.Pipe))
+        {
+            var loc = Current.Location;
+            Advance();
+            var right = ParseComparison();
+            left = new EnumSetExpr(left, right, loc);
         }
 
         return left;
@@ -1135,8 +1189,38 @@ public sealed class Parser
                 Advance();
                 return new NumberLiteralExpr(tok.NumberValue, tok.Location);
             case TokenType.StringLiteral:
+            {
                 Advance();
-                return new StringLiteralExpr(tok.StringValue!, tok.Location);
+                var parts = new List<InterpolatedStringPart>
+                {
+                    new InterpolatedStringLiteral(tok.StringValue!, tok.Location)
+                };
+
+                while (Check(TokenType.LBrace))
+                {
+                    Advance(); // consume {
+                    var expr = ParseExpression();
+                    Expect(TokenType.RBrace, "Expected '}' after interpolation expression.");
+                    parts.Add(new InterpolatedStringExpression(expr, tok.Location));
+
+                    if (Check(TokenType.StringLiteral))
+                    {
+                        Advance();
+                        parts.Add(new InterpolatedStringLiteral(Current.StringValue!, Current.Location));
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (parts.Count == 1)
+                {
+                    return new StringLiteralExpr(tok.StringValue!, tok.Location);
+                }
+
+                return new InterpolatedStringExpr(parts, tok.Location);
+            }
             case TokenType.True:
                 Advance();
                 return new BooleanLiteralExpr(true, tok.Location);

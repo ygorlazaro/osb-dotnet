@@ -48,7 +48,7 @@ public static class SymbolDiscovery
                 {
                     if (!table.Modules.ContainsKey(usingDecl.ModuleName))
                     {
-                        var emptyProgram = new OslangProgram(new List<FunctionDecl>(), new List<ClassDecl>(), new List<InterfaceDecl>(), new List<UsingDecl>(), new List<EventDecl>());
+                        var emptyProgram = new OslangProgram(new List<FunctionDecl>(), new List<ClassDecl>(), new List<InterfaceDecl>(), new List<UsingDecl>(), new List<EventDecl>(), new List<EnumDecl>());
                         table.Modules[usingDecl.ModuleName] = new Module(usingDecl.ModuleName, string.Empty, string.Empty, emptyProgram, new List<UsingDecl>(), null);
                     }
                     continue;
@@ -102,6 +102,17 @@ public static class SymbolDiscovery
 
                 var interfaceDef = new InterfaceDefinition(iface.Name, iface.Members);
                 table.Interfaces[iface.Name] = interfaceDef;
+            }
+
+            foreach (var e in module.Program.Enums)
+            {
+                if (table.Enums.Any(existing => string.Equals(existing.Name, e.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    table.Diagnostics.Add(new OslangDiagnostic(DiagnosticSeverity.Error, e.Location, $"Duplicate enum '{e.Name}'."));
+                    continue;
+                }
+
+                table.Enums.Add(e);
             }
         }
         finally

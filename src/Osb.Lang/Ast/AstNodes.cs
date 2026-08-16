@@ -12,7 +12,8 @@ public sealed record OslangProgram(
     IReadOnlyList<ClassDecl> Classes,
     IReadOnlyList<InterfaceDecl> Interfaces,
     IReadOnlyList<UsingDecl> Usings,
-    IReadOnlyList<EventDecl> Events);
+    IReadOnlyList<EventDecl> Events,
+    IReadOnlyList<EnumDecl> Enums);
 
 /// <summary>
 /// Parâmetro de função. <see cref="TypeName"/> é "NUMBER"/"STRING"/"BOOLEAN" para
@@ -139,6 +140,36 @@ public sealed record OverrideMethodDecl(
 // ============================================================
 
 public sealed record GenericParameter(string Name, SourceLocation Location);
+
+// ============================================================
+// OSLANG 0.61 - ENUM
+// ============================================================
+
+public sealed record EnumMember(string Name, Expr? Value, SourceLocation Location);
+
+public sealed record EnumDecl(
+    string Name,
+    IReadOnlyList<EnumMember> Members,
+    SourceLocation Location) : Stmt(Location);
+
+// ============================================================
+// OSLANG 0.61 - Enum Sets
+// ============================================================
+
+/// <summary>Enum set expression using | operator.</summary>
+public sealed record EnumSetExpr(Expr Left, Expr Right, SourceLocation Location) : Expr(Location);
+
+// ============================================================
+// OSLANG 0.61 - String Interpolation
+// ============================================================
+
+public abstract record InterpolatedStringPart(SourceLocation Location);
+
+public sealed record InterpolatedStringLiteral(string Value, SourceLocation Location) : InterpolatedStringPart(Location);
+
+public sealed record InterpolatedStringExpression(Expr Expression, SourceLocation Location) : InterpolatedStringPart(Location);
+
+public sealed record InterpolatedStringExpr(IReadOnlyList<InterpolatedStringPart> Parts, SourceLocation Location) : Expr(Location);
 
 // ============================================================
 // Statements

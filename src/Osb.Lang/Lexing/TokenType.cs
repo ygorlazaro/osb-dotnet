@@ -80,6 +80,10 @@ public enum TokenType
     // OSLANG 0.6 - Standard Library namespace
     Osl,
 
+    // OSLANG 0.61
+    Enum,
+    Pipe,
+
     // Operadores aritméticos
     Plus,
     Minus,
@@ -106,6 +110,8 @@ public enum TokenType
     RParen,
     LBracket,
     RBracket,
+    LBrace,
+    RBrace,
     Comma,
     Colon,
     Dot,
