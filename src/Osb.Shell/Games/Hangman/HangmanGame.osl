@@ -31,7 +31,7 @@ CLASS HANGMANGAME
             RETURN
         END
 
-        Index = MATH.RANDOM(0, COUNT(ME.Words) - 1)
+        Index = MATH.RANDOM(COUNT(ME.Words))
         ME.Word = ME.Words[Index]
         ME.Guessed = ""
         ME.Errors = 0

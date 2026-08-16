@@ -34,7 +34,7 @@ public static class I18nNamespace
                 return;
             }
 
-            foreach (var file in Directory.GetFiles(i18nDir, "*.I18N"))
+            foreach (var file in Directory.GetFiles(i18nDir, "*.I18N").Concat(Directory.GetFiles(i18nDir, "*.i18n")))
             {
                 var fileName = Path.GetFileNameWithoutExtension(file);
                 var dotIndex = fileName.IndexOf('.');
@@ -195,7 +195,7 @@ public static class I18nNamespace
                 continue;
             }
 
-            foreach (var file in Directory.GetFiles(dir, "*.I18N"))
+            foreach (var file in Directory.GetFiles(dir, "*.I18N").Concat(Directory.GetFiles(dir, "*.i18n")))
             {
                 var lang = Path.GetFileNameWithoutExtension(file);
                 var dotIndex = lang.IndexOf('.');
@@ -357,15 +357,21 @@ public static class I18nNamespace
 
         foreach (var dir in dirs)
         {
-            if (string.IsNullOrEmpty(dir))
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
             {
                 continue;
             }
 
-            var path = Path.Combine(dir, lang + ".I18N");
-            if (File.Exists(path))
+            var upperPath = Path.Combine(dir, lang + ".I18N");
+            if (File.Exists(upperPath))
             {
-                return LoadEntriesFromPath(path, SourceLocation.Unknown);
+                return LoadEntriesFromPath(upperPath, SourceLocation.Unknown);
+            }
+
+            var lowerPath = Path.Combine(dir, lang + ".i18n");
+            if (File.Exists(lowerPath))
+            {
+                return LoadEntriesFromPath(lowerPath, SourceLocation.Unknown);
             }
         }
 

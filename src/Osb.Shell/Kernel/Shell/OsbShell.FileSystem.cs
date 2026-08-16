@@ -28,7 +28,7 @@ public partial class OsbShell
         }
     }
 
-    private static void ListDirectory(string args)
+    private void ListDirectory(string args)
     {
         var upperArgs = args.ToUpperInvariant();
         var wide = upperArgs.Contains("/W") || upperArgs.Contains("-W");
@@ -86,12 +86,25 @@ public partial class OsbShell
             if (wide)
             {
                 var entries = directories.Select(d => $"<{d.Name}>").Concat(files.Select(f => f.Name)).ToArray();
+                var isDir = directories.Select(d => true).Concat(files.Select(f => false)).ToArray();
                 var columnWidth = Math.Max(10, Math.Min(25, Console.WindowWidth / 4));
                 var columns = Math.Max(1, Console.WindowWidth / columnWidth);
+                var focusColor = DosColors.ToConsoleColor(_env.Config.FocusColor);
                 for (var i = 0; i < entries.Length; i += columns)
                 {
-                    var row = entries.Skip(i).Take(columns).Select(e => e.PadRight(columnWidth));
-                    Console.WriteLine(string.Concat(row));
+                    for (var j = i; j < i + columns && j < entries.Length; j++)
+                    {
+                        if (isDir[j])
+                        {
+                            Console.ForegroundColor = focusColor;
+                        }
+                        Console.Write(entries[j].PadRight(columnWidth));
+                        if (isDir[j])
+                        {
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                        }
+                    }
+                    Console.WriteLine();
                 }
                 return;
             }
@@ -101,7 +114,10 @@ public partial class OsbShell
 
             foreach (var d in directories)
             {
+                var previousColor = Console.ForegroundColor;
+                Console.ForegroundColor = DosColors.ToConsoleColor(_env.Config.FocusColor);
                 Console.WriteLine($"  {FormatDate(d.CreationTime),-16}  {FormatDate(d.LastWriteTime),-16}       <DIR>  {d.Name}");
+                Console.ForegroundColor = previousColor;
             }
 
             foreach (var f in files)

@@ -218,6 +218,7 @@ misc.cannot_delete_last=Cannot delete the last user.
 misc.color_table=Color table:
 misc.fore_color_prompt=Enter the letter color: 
 misc.back_color_prompt=Enter the background color: 
+misc.focus_color_prompt=Enter the focus/directory color: 
 misc.invalid_color_range=Invalid value, must be 0 to 15.
 misc.same_colors=Letter color cannot be the same as background color.
 misc.choose_different_colors=Choose different colors.

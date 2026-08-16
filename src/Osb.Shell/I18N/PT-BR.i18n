@@ -214,6 +214,7 @@ misc.cannot_delete_last=Não é possível apagar o último usuário.
 misc.color_table=Tabela de cores:
 misc.fore_color_prompt=Entre com a cor das letras: 
 misc.back_color_prompt=Entre com a cor do fundo: 
+misc.focus_color_prompt=Entre com a cor de destaque (diretórios): 
 misc.invalid_color_range=Valor inválido, deve ser de 0 a 15.
 misc.same_colors=A cor das letras não pode ser igual à cor do fundo.
 misc.choose_different_colors=Escolha cores diferentes.

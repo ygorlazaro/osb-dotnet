@@ -13,12 +13,14 @@ public static class ColorPicker
 
         int letra;
         int fundo;
+        int foco;
         while (true)
         {
             letra = AskColor(I18nService.Get("misc.fore_color_prompt"), env.Config.ForeColor);
             fundo = AskColor(I18nService.Get("misc.back_color_prompt"), env.Config.BackColor);
+            foco = AskColor(I18nService.Get("misc.focus_color_prompt"), env.Config.FocusColor);
 
-            if (letra != fundo)
+            if (letra != fundo && letra != foco && fundo != foco)
             {
                 break;
             }
@@ -31,6 +33,7 @@ public static class ColorPicker
 
         env.Config.ForeColor = letra;
         env.Config.BackColor = fundo;
+        env.Config.FocusColor = foco;
         env.Config.Save(env.ConfigFile);
         env.ApplyColors();
         Console.Clear();

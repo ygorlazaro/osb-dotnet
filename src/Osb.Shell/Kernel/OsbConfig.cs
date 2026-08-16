@@ -7,6 +7,7 @@ public class OsbConfig
 {
     public int ForeColor { get; set; } = 15;
     public int BackColor { get; set; } = 1;
+    public int FocusColor { get; set; } = 14;
     public string SystemDir { get; set; } = "";
     public string Message { get; set; } = "Seja bem-vindo ao OSB 3.0";
 
@@ -28,6 +29,7 @@ public class OsbConfig
             {
                 case "[FORECOLOR]": cfg.ForeColor = ParseInt(Next(), 15); break;
                 case "[BACKCOLOR]": cfg.BackColor = ParseInt(Next(), 1); break;
+                case "[FOCUSCOLOR]": cfg.FocusColor = ParseInt(Next(), 14); break;
                 case "[SYSTEM]": cfg.SystemDir = Next(); break;
                 case "[MESSAGE]": cfg.Message = Next(); break;
             }
@@ -37,7 +39,7 @@ public class OsbConfig
 
     public void Save(string path)
     {
-        var content = $"[ForeColor]\n{ForeColor}\n\n[BackColor]\n{BackColor}\n\n[System]\n{SystemDir}\n\n[Message]\n{Message}\n";
+        var content = $"[ForeColor]\n{ForeColor}\n\n[BackColor]\n{BackColor}\n\n[FocusColor]\n{FocusColor}\n\n[System]\n{SystemDir}\n\n[Message]\n{Message}\n";
         File.WriteAllText(path, content);
     }
 
