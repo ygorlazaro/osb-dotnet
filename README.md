@@ -36,8 +36,10 @@ comandos e o mesmo espírito do original:
 | `HOSTNAME`, `USER` | Portado — `HOSTNAME` exibe/alterar o nome da máquina; `USER` autentica e gerencia contas locais |
 | `DATE`, `TIME` | Portado como somente leitura (mudar a data/hora do SO exige privilégios de admin) |
 | `CAL` | Portado — mês atual, `CAL <mês>`, `CAL <mês> <ano>`, e `CAL <ano>` pro ano inteiro |
-| `APLIC KISS` / `KISS <arquivo>` | Portado — editor de texto de verdade (setas navegam, Ctrl+S salva, ESC sai), com **sintaxe highlighting OSLANG** para arquivos `.osl` e `.oslang` |
-| `GAMES` / `HANGMAN` | Portado — jogo da forca, jogável |
+| `KISS <arquivo>` | Portado — editor de texto de verdade (setas navegam, Ctrl+S salva, ESC sai), com **sintaxe highlighting OSLANG** para arquivos `.osl` e `.oslang` |
+| `TOUR` | Portado — tour passo a passo do OSB |
+| `TODO` | Portado — gerenciador de tarefas |
+| `HANGMAN` | Portado — jogo da forca, jogável |
 | `X` | Portado — carrega o XWIN |
 | `EXIT` | Portado |
 
@@ -223,13 +225,13 @@ O comando `TYPE` agora aplica syntax highlighting OSLANG para arquivos `.osl`,
 | DATE, TIME | Portado (somente leitura) |
 | CAL | Portado — mês, mês+ano, e ano inteiro (`CAL 2015`) |
 | X (chamar o XWIN) | Portado |
-| GAMES → HANGMAN | Portado |
-| GAMES → GERMS (tetris) | **Ainda não migramos** — `.BAS` não sobreviveu em texto |
-| APLIC → CAL | Portado |
-| APLIC → KISS (editor de texto) | Portado — editor com syntax highlighting OSLANG |
-| APLIC → PROG (teste de digitação) | **Ainda não migramos** |
-| APLIC → TODO | Portado |
-| APLIC → TOUR | Portado |
+| CAL | Portado |
+| KISS (editor de texto) | Portado — editor com syntax highlighting OSLANG |
+| TODO | Portado |
+| TOUR | Portado |
+| HANGMAN | Portado |
+| GERMS (tetris) | **Ainda não migramos** — `.BAS` não sobreviveu em texto |
+| PROG (teste de digitação) | **Ainda não migramos** |
 
 ### Osb.Xwin (interface gráfica, agora em modo texto)
 

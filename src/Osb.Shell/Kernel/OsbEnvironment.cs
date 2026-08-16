@@ -65,19 +65,14 @@ public class OsbEnvironment
         WriteIfMissing(Path.Combine(ConfDir, "SYSTEM.CFG"), "[CLOCK]\nTRUE\n\n[MOUSE]\nFALSE\n");
         WriteIfMissing(Path.Combine(ConfDir, "PROMPT.CFG"), PromptConfig.DefaultLayout + Environment.NewLine);
 
-        WriteIfMissing(Path.Combine(ConfDir, "GAMES.CFG"),
-            "HANGMAN\nJogo da forca\n");
-        WriteIfMissing(Path.Combine(ConfDir, "GAMES.EN-US.CFG"),
-            "HANGMAN\nHangman game\n");
-
-        var aplicPath = Path.Combine(ConfDir, "APLIC.CFG");
-        if (!File.Exists(aplicPath))
+        var binPath = Path.Combine(ConfDir, "BIN.CFG");
+        if (!File.Exists(binPath))
         {
-            File.WriteAllText(aplicPath,
-                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\nTODO\nGerenciador de tarefas\n");
+            File.WriteAllText(binPath,
+                "CAL\nCalendário em tempo real\nKISS\nEditor de texto simples\nTOUR\nTour passo a passo do OSB\nTODO\nGerenciador de tarefas\nHANGMAN\nJogo da forca\n");
         }
-        WriteIfMissing(Path.Combine(ConfDir, "APLIC.EN-US.CFG"),
-            "CAL\nReal-time calendar\nKISS\nSimple text editor\nTOUR\nOSB step-by-step tour\nTODO\nTask manager\n");
+        WriteIfMissing(Path.Combine(ConfDir, "BIN.EN-US.CFG"),
+            "CAL\nReal-time calendar\nKISS\nSimple text editor\nTOUR\nOSB step-by-step tour\nTODO\nTask manager\nHANGMAN\nHangman game\n");
 
         var hostnameMissing = !File.Exists(HostnameFile) || string.IsNullOrWhiteSpace(File.ReadAllText(HostnameFile));
         var userConfigMissing = !File.Exists(UserConfigFile) || string.IsNullOrWhiteSpace(File.ReadAllText(UserConfigFile));

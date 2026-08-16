@@ -395,16 +395,10 @@ public class OshScriptTests
         Console.SetOut(output);
 
         shell.Execute("USER " + UniqueUser + " testpass");
-        shell.Execute("APLIC");
-        var listResult = output.ToString();
-        Console.WriteLine("APLIC LIST OUTPUT: '" + listResult + "'");
-        
-        output = new StringWriter();
-        Console.SetOut(output);
-        shell.Execute("APLIC TOUR");
+        shell.Execute("TOUR");
         var tourResult = output.ToString();
         Console.WriteLine("TOUR OUTPUT: '" + tourResult + "'");
         
-        Assert.Contains("Tour", listResult + tourResult, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Tour", tourResult, StringComparison.OrdinalIgnoreCase);
     }
 }

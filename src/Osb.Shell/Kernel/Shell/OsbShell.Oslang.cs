@@ -67,7 +67,7 @@ public partial class OsbShell
 
     private bool TryRunOslCommand(string commandName, string args)
     {
-        var scriptPath = Path.Combine(AppContext.BaseDirectory, "COMMANDS", commandName.ToUpperInvariant(), "main.osl");
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "APPS", commandName.ToUpperInvariant(), "main.osl");
         if (!File.Exists(scriptPath))
         {
             return false;

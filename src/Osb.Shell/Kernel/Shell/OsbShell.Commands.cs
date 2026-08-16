@@ -51,8 +51,6 @@ public partial class OsbShell
         {
             case "ABOUT":
                 About.Show(); handled = true; break;
-            case "APLIC":
-                RunAplic(args); handled = true; break;
             case "CAL":
                 handled = TryRunOslCommand("CAL", args);
                 break;
@@ -77,8 +75,6 @@ public partial class OsbShell
                 DeleteFiles(args); handled = true; break;
             case "EXIT":
                 DoExit(); handled = true; break;
-            case "GAMES":
-                RunGames(args); handled = true; break;
             case "HELP":
                 if (args.Equals("OSL", StringComparison.OrdinalIgnoreCase))
                 {
@@ -166,6 +162,15 @@ public partial class OsbShell
                 }
 
                 handled = TryRunOslCommand(cmdPart, firstSpace < 0 ? "" : raw[(firstSpace + 1)..].Trim());
+                if (!handled)
+                {
+                    var appsPath = Path.Combine(AppContext.BaseDirectory, "APPS", cmdPart.ToUpperInvariant(), "main.osl");
+                    if (File.Exists(appsPath))
+                    {
+                        RunOslScript(appsPath, ParseArgList(firstSpace < 0 ? "" : raw[(firstSpace + 1)..].Trim()));
+                        handled = true;
+                    }
+                }
                 if (!handled)
                 {
                     handled = RunExternal(raw);

@@ -15,7 +15,7 @@ public class TabCompleterTests
     }
 
     [Theory]
-    [InlineData("APL", 3, "APLIC ")]
+    [InlineData("CA", 2, "CAL ")]
     [InlineData("CL", 2, "CLEAR ", "CLS ")]
     [InlineData("H", 1, "HISTORY ", "HOSTNAME ")]
     public void CompletesCommands(string input, int cursor, params string[] expected)

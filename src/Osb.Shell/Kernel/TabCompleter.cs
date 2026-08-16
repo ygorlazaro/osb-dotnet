@@ -6,16 +6,16 @@ namespace Osb.Shell.Kernel;
 /// <summary>
 /// Provedor de autocompletar (TAB) para o OSB Shell.
 /// Suporta autocompletar comandos do sistema, subcomandos/parâmetros
-/// (APLIC, GAMES, USER, HELP) e arquivos/diretórios do sistema de arquivos.
+/// (USER, HELP) e arquivos/diretórios do sistema de arquivos.
 /// </summary>
 public class TabCompleter
 {
     public static readonly string[] CommandVerbs =
     [
-        "ABOUT", "APLIC", "CAL", "CD", "CLEAR", "CLS", "COLOR", "CONFIG", "COPY",
-        "DATE", "DEL", "DIR", "EXIT", "FIND", "GAMES", "HELP", "HISTORY", "HOSTNAME",
+        "ABOUT", "CAL", "CD", "CLEAR", "CLS", "COLOR", "CONFIG", "COPY",
+        "DATE", "DEL", "DIR", "EXIT", "FIND", "HELP", "HISTORY", "HOSTNAME",
         "KISS", "MD", "MOVE", "OSL", "PRINT", "PROMPT", "PWD", "RD", "REN", "SET",
-        "SIZE", "TIME", "TYPE", "USER", "VER"
+        "SIZE", "TIME", "TOUR", "TODO", "TYPE", "USER", "VER"
     ];
 
     private static readonly string[] UserSubcommands = ["ADD", "CHANGE", "DEL", "LIST"];
@@ -111,7 +111,7 @@ public class TabCompleter
             switch (context.Verb)
             {
                 case "APLIC":
-                    var appCfg = Path.Combine(_env.ConfDir, "APLIC.CFG");
+                    var appCfg = Path.Combine(_env.ConfDir, "BIN.CFG");
                     var apps = ConfigFileParser.LoadEntries(appCfg);
                     foreach (var app in apps)
                     {
@@ -123,7 +123,7 @@ public class TabCompleter
                     break;
 
                 case "GAMES":
-                    var gameCfg = Path.Combine(_env.ConfDir, "GAMES.CFG");
+                    var gameCfg = Path.Combine(_env.ConfDir, "BIN.CFG");
                     var games = ConfigFileParser.LoadEntries(gameCfg);
                     foreach (var game in games)
                     {

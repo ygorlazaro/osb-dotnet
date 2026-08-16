@@ -39,7 +39,7 @@ public partial class OsbShell
 
     private void RunAplic(string arg)
     {
-        var cfgPath = GetLocalizedConfigPath("APLIC.CFG");
+        var cfgPath = GetLocalizedConfigPath("APPS.CFG");
         var apps = ConfigFileParser.LoadEntries(cfgPath);
         arg = arg.Trim().ToUpperInvariant();
 
@@ -62,17 +62,17 @@ public partial class OsbShell
 
         switch (entry.Name.ToUpperInvariant())
         {
-            case "CAL": RunOslFile("APLIC/CAL/main.osl"); break;
+            case "CAL": RunOslFile("APPS/CAL/main.osl"); break;
             case "KISS": TextEditor.Run("", _env); break;
-            case "TOUR": RunOslFile("APLIC/TOUR/main.osl"); break;
-            case "TODO": RunOslFile("APLIC/TODO/main.osl"); break;
+            case "TOUR": RunOslFile("APPS/TOUR/main.osl"); break;
+            case "TODO": RunOslFile("APPS/TODO/main.osl"); break;
             default: Console.WriteLine(I18nService.Get("apps.app_not_available", entry.Name)); break;
         }
     }
 
     private void RunGames(string arg)
     {
-        var cfgPath = GetLocalizedConfigPath("GAMES.CFG");
+        var cfgPath = GetLocalizedConfigPath("APPS.CFG");
         var games = ConfigFileParser.LoadEntries(cfgPath);
         arg = arg.Trim().ToUpperInvariant();
 
@@ -99,7 +99,7 @@ public partial class OsbShell
 
         switch (entry.Name.ToUpperInvariant())
         {
-            case "HANGMAN": RunOslFile("Games/Hangman/main.osl"); break;
+            case "HANGMAN": RunOslFile("APPS/HANGMAN/main.osl"); break;
             default: Console.WriteLine(I18nService.Get("apps.game_not_available", entry.Name)); break;
         }
     }

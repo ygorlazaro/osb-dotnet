@@ -17,40 +17,46 @@
     <None Include="CONF\HANGMAN.WDS">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\TOUR\*.osl">
+    <None Include="APPS\CAL\main.osl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\TOUR\I18N\**\*.*">
+    <None Include="APPS\CAL\I18N\EN-US.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\TODO\*.osl">
+    <None Include="APPS\CAL\I18N\PT-BR.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\TODO\I18N\**\*.*">
+    <None Include="APPS\TODO\main.osl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\CAL\*.osl">
+    <None Include="APPS\TODO\I18N\EN-US.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="APLIC\CAL\I18N\**\*.*">
+    <None Include="APPS\TODO\I18N\PT-BR.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="COMMANDS\TODO\*.osl">
+    <None Include="APPS\TOUR\main.osl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="COMMANDS\TODO\I18N\**\*.*">
+    <None Include="APPS\TOUR\Tour.osl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="COMMANDS\CAL\*.osl">
+    <None Include="APPS\TOUR\I18N\EN-US.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="COMMANDS\CAL\I18N\**\*.*">
+    <None Include="APPS\TOUR\I18N\PT-BR.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Games\Hangman\*.osl">
+    <None Include="APPS\HANGMAN\main.osl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Games\Hangman\I18N\**\*.*">
+    <None Include="APPS\HANGMAN\HangmanGame.osl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="APPS\HANGMAN\I18N\EN-US.i18n">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="APPS\HANGMAN\I18N\PT-BR.i18n">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="I18N\**\*.*">

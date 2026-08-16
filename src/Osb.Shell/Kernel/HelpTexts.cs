@@ -91,7 +91,7 @@ public static class HelpTexts
         ]),
         (I18nService.Get("help.category.system"), ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
         ]),
-        (I18nService.Get("help.category.apps"), ["APLIC", "GAMES", "CAL", "KISS", "TOUR", "TODO", "OSL"]),
+        (I18nService.Get("help.category.apps"), ["CAL", "KISS", "TOUR", "TODO", "HANGMAN", "OSL"]),
         (I18nService.Get("help.category.external"), ["."])
     ];
 
