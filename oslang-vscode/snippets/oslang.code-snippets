@@ -217,6 +217,172 @@
       "END FUNCTION"
     ],
     "description": "Override an inherited method"
+  },
+  "Enum Declaration": {
+    "prefix": "enum",
+    "body": [
+      "ENUM ${1:Name}",
+      "    ${2:MEMBER1}",
+      "    ${3:MEMBER2} = ${4:1}",
+      "END"
+    ],
+    "description": "Create an enum declaration"
+  },
+  "EnumSet": {
+    "prefix": "enumset",
+    "body": [
+      "Set = ${1:EnumName}.${2:MEMBER1} | ${1:EnumName}.${3:MEMBER2}"
+    ],
+    "description": "Create an enum set"
+  },
+  "Arrow Function": {
+    "prefix": "arrow",
+    "body": [
+      "${1:Name} = X => $2"
+    ],
+    "description": "Create an arrow function"
+  },
+  "Arrow Function Block": {
+    "prefix": "arrowblock",
+    "body": [
+      "${1:Name} = X =>",
+      "    $2",
+      "    RETURN X",
+      "END"
+    ],
+    "description": "Create an arrow function with block body"
+  },
+  "For Each Loop": {
+    "prefix": "foreach",
+    "body": [
+      "FOR EACH ${1:Item} IN ${2:Array}",
+      "    $0",
+      "END"
+    ],
+    "description": "Create a for each loop"
+  },
+  "Foreach Method": {
+    "prefix": "foreachmethod",
+    "body": [
+      "${1:Array}.FOREACH(${2:Item} =>",
+      "    $3",
+      "END)"
+    ],
+    "description": "Use FOREACH method on array"
+  },
+  "Do While Loop": {
+    "prefix": "dowhile",
+    "body": [
+      "DO",
+      "    $1",
+      "WHILE ${2:condition}"
+    ],
+    "description": "Create a do-while loop"
+  },
+  "Elif": {
+    "prefix": "elif",
+    "body": [
+      "ELIF ${1:condition} THEN",
+      "    $0"
+    ],
+    "description": "Create an elif block"
+  },
+  "Comment": {
+    "prefix": "rem",
+    "body": [
+      "' $0"
+    ],
+    "description": "Add a comment"
+  },
+  "String Interpolation": {
+    "prefix": "interp",
+    "body": [
+      "\"${1:Hello} \${${2:Name}}\""
+    ],
+    "description": "Create a string interpolation"
+  },
+  "MATH Expression": {
+    "prefix": "math",
+    "body": [
+      "MATH.${1:SQRT}($2)"
+    ],
+    "description": "Use a MATH function"
+  },
+  "I18N Get": {
+    "prefix": "i18nget",
+    "body": [
+      "I18N.GET(\"${1:key}\")"
+    ],
+    "description": "Get an I18N translation"
+  },
+  "I18N Set Language": {
+    "prefix": "i18nlang",
+    "body": [
+      "I18N.SETLANGUAGE(\"${1:EN-US}\")"
+    ],
+    "description": "Set the I18N language"
+  },
+  "FILE Read": {
+    "prefix": "fileread",
+    "body": [
+      "FILE.READ(\"${1:path}\")"
+    ],
+    "description": "Read a file"
+  },
+  "DIR List": {
+    "prefix": "dirlist",
+    "body": [
+      "DIR.LIST(\"${1:.}\")"
+    ],
+    "description": "List directory contents"
+  },
+  "DATE NOW": {
+    "prefix": "datenow",
+    "body": [
+      "DATE.NOW()"
+    ],
+    "description": "Get current date and time"
+  },
+  "TRY CATCH with RAISE": {
+    "prefix": "tryraise",
+    "body": [
+      "TRY",
+      "    $1",
+      "CATCH ${2:err}",
+      "    PRINT \"Caught: \" + $2",
+      "END"
+    ],
+    "description": "Create a try-catch block with error printing"
+  },
+  "IMPORT Module": {
+    "prefix": "import",
+    "body": [
+      "USING ${1:ModuleName}"
+    ],
+    "description": "Import a module"
+  },
+  "GLOBAL Variable": {
+    "prefix": "global",
+    "body": [
+      "GLOBAL ${1:Name} = ${2:value}"
+    ],
+    "description": "Declare a global variable"
+  },
+  "Array Literal": {
+    "prefix": "arr",
+    "body": [
+      "[${1:1}, ${2:2}, ${3:3}]"
+    ],
+    "description": "Create an array literal"
+  },
+  "Array Foreach": {
+    "prefix": "arrforeach",
+    "body": [
+      "${1:Array}.FOREACH(${2:Item} =>",
+      "    $3",
+      "END)"
+    ],
+    "description": "Iterate over array with FOREACH"
   }
 }
 }

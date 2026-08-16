@@ -1,26 +1,30 @@
 {
   "comments": {
-    "lineComment": "'"
+    "lineComment": "'",
+    "blockComment": ["REM", ""]
   },
   "brackets": [
     ["(", ")"],
-    ["[", "]"]
+    ["[", "]"],
+    ["{", "}"]
   ],
   "autoClosingPairs": [
     { "open": "'", "close": "'", "notIn": ["string"] },
     { "open": "\"", "close": "\"", "notIn": ["string"] },
     { "open": "(", "close": ")", "notIn": ["string", "comment"] },
-    { "open": "[", "close": "]", "notIn": ["string", "comment"] }
+    { "open": "[", "close": "]", "notIn": ["string", "comment"] },
+    { "open": "{", "close": "}", "notIn": ["string", "comment"] }
   ],
   "surroundingPairs": [
     { "open": "'", "close": "'" },
     { "open": "\"", "close": "\"" },
     { "open": "(", "close": ")" },
-    { "open": "[", "close": "]" }
+    { "open": "[", "close": "]" },
+    { "open": "{", "close": "}" }
   ],
   "wordPattern": "[A-Z][A-Z0-9_]*",
   "indentationRules": {
-    "increaseIndentPattern": "^\\s*(CLASS|INTERFACE|FUNCTION|IF|ELIF|ELSE|FOR|WHILE|DO|TRY|CONSTRUCTOR|PUBLIC|PRIVATE|PROTECTED|RETURN)\\b",
+    "increaseIndentPattern": "^\\s*(CLASS|INTERFACE|FUNCTION|IF|ELIF|ELSE|FOR|WHILE|DO|TRY|CONSTRUCTOR|PUBLIC|PRIVATE|PROTECTED|RETURN|CASE|DEFAULT)\\b",
     "decreaseIndentPattern": "^\\s*END\\b"
   }
 }

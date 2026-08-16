@@ -554,7 +554,8 @@ public partial class OsbShell
             foreach (var line in lines)
             {
                 string text;
-                if (file.EndsWith(".osl", StringComparison.OrdinalIgnoreCase))
+                var fileType = OslangHighlighter.GetFileType(file);
+                if (fileType == "OSLANG" || fileType == "CONFIG" || fileType == "HELP" || fileType == "WORDS")
                 {
                     text = OslangHighlighter.Highlight(line, width);
                 }

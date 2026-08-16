@@ -367,7 +367,8 @@ public static class TextEditor
             var lineIndex = scrollTop + i;
             var rawText = lineIndex < lines.Count ? lines[lineIndex] : "~";
             string text;
-            if (lineIndex < lines.Count && filename.EndsWith(".osl", StringComparison.OrdinalIgnoreCase))
+            var fileType = OslangHighlighter.GetFileType(filename);
+            if (fileType == "OSLANG" || fileType == "CONFIG" || fileType == "HELP" || fileType == "WORDS")
             {
                 text = OslangHighlighter.Highlight(rawText, textWidth);
             }
