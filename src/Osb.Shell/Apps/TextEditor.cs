@@ -18,6 +18,9 @@ public static class TextEditor
     private const string AnsiString = OslangHighlighter.AnsiString;
     private const string AnsiNumber = OslangHighlighter.AnsiNumber;
     private const string AnsiComment = OslangHighlighter.AnsiComment;
+    private const string AnsiOperator = OslangHighlighter.AnsiOperator;
+    private const string AnsiMethod = OslangHighlighter.AnsiMethod;
+    private const string AnsiPunctuation = OslangHighlighter.AnsiPunctuation;
 
     public static void Run(string filenameArg, OsbEnvironment env)
     {
