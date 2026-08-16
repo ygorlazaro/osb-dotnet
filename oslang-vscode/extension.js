@@ -338,36 +338,142 @@ class OslangHoverProvider {
   }
 }
 
-class OslangSignatureProvider {
-  provideSignatureHelp(document, position, token, context) {
-    const linePrefix = document.lineAt(position).text.slice(0, position.character);
-    const upper = linePrefix.toUpperCase();
+class OslangDocumentSymbolProvider {
+  provideDocumentSymbols(document, token) {
+    const text = document.getText();
+    const symbols = [];
+    const lines = text.split('\n');
 
-    const methodMatch = linePrefix.match(/([A-Z_][A-Z0-9_]*)\($/);
-    if (!methodMatch) return null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const upper = line.toUpperCase();
 
-    const methodName = methodMatch[1].toUpperCase();
-    const signatures = getSignatureHelp(methodName);
+      const classMatch = upper.match(/^\s*CLASS\s+([A-Z][A-Z0-9_]*)/);
+      if (classMatch) {
+        const name = line.slice(line.toUpperCase().indexOf('CLASS') + 5).trim().split(/\s+/)[0];
+        const startLine = i;
+        const endLine = this.findEnd(lines, i, 'END');
+        const sym = new vscode.DocumentSymbol(name, 'class', vscode.SymbolKind.Class,
+          new vscode.Position(startLine, 0),
+          new vscode.Position(endLine, lines[endLine].length));
+        sym.children = this.extractMembers(lines, startLine + 1, endLine);
+        symbols.push(sym);
+        i = endLine;
+        continue;
+      }
 
-    if (signatures.length === 0) return null;
+      const interfaceMatch = upper.match(/^\s*INTERFACE\s+([A-Z][A-Z0-9_]*)/);
+      if (interfaceMatch) {
+        const name = line.slice(line.toUpperCase().indexOf('INTERFACE') + 9).trim().split(/\s+/)[0];
+        const startLine = i;
+        const endLine = this.findEnd(lines, i, 'END');
+        const sym = new vscode.DocumentSymbol(name, 'interface', vscode.SymbolKind.Interface,
+          new vscode.Position(startLine, 0),
+          new vscode.Position(endLine, lines[endLine].length));
+        sym.children = this.extractMembers(lines, startLine + 1, endLine);
+        symbols.push(sym);
+        i = endLine;
+        continue;
+      }
 
-    const items = signatures.map(sig => {
-      const parenIndex = sig.indexOf('(');
-      const label = sig.substring(0, parenIndex);
-      const params = sig.substring(parenIndex + 1, sig.length - 1).split(',').map(p => p.trim()).filter(p => p);
+      const enumMatch = upper.match(/^\s*ENUM\s+([A-Z][A-Z0-9_]*)/);
+      if (enumMatch) {
+        const name = line.slice(line.toUpperCase().indexOf('ENUM') + 4).trim().split(/\s+/)[0];
+        const startLine = i;
+        const endLine = this.findEnd(lines, i, 'END');
+        const sym = new vscode.DocumentSymbol(name, 'enum', vscode.SymbolKind.Enum,
+          new vscode.Position(startLine, 0),
+          new vscode.Position(endLine, lines[endLine].length));
+        symbols.push(sym);
+        i = endLine;
+        continue;
+      }
 
-      const parameters = params.map(p => new vscode.ParameterInformation(p, new vscode.MarkdownString(p)));
-      return new vscode.SignatureInformation(label, params.length > 0 ? '' : 'No parameters', ...parameters);
-    });
+      const functionMatch = upper.match(/^\s*FUNCTION\s+([A-Z][A-Z0-9_]*)/);
+      if (functionMatch) {
+        const name = line.slice(line.toUpperCase().indexOf('FUNCTION') + 8).trim().split(/[(\s]+/)[0];
+        const startLine = i;
+        const endLine = this.findEnd(lines, i, 'END');
+        symbols.push(new vscode.DocumentSymbol(name, 'function', vscode.SymbolKind.Function,
+          new vscode.Position(startLine, 0),
+          new vscode.Position(endLine, lines[endLine].length)));
+        i = endLine;
+        continue;
+      }
+    }
 
-    const activeSig = 0;
-    const activeParam = context.activeParameter || 0;
+    return symbols;
+  }
 
-    return {
-      signatures: items,
-      activeSignature: activeSig,
-      activeParameter: activeParam
-    };
+  findEnd(lines, start, keyword) {
+    const upperKeyword = keyword.toUpperCase();
+    for (let i = start + 1; i < lines.length; i++) {
+      if (lines[i].toUpperCase().trim().startsWith(upperKeyword)) {
+        return i;
+      }
+    }
+    return Math.min(start + 1, lines.length - 1);
+  }
+
+  extractMembers(lines, start, end) {
+    const members = [];
+    for (let i = start; i < end; i++) {
+      const line = lines[i];
+      const upper = line.toUpperCase();
+
+      const methodMatch = upper.match(/^\s*(?:PUBLIC|PRIVATE|PROTECTED|VIRTUAL|OVERRIDE)?\s*(FUNCTION|CONSTRUCTOR)\s+([A-Z][A-Z0-9_]*)/);
+      if (methodMatch) {
+        const name = methodMatch[2];
+        members.push(new vscode.DocumentSymbol(name, 'method', vscode.SymbolKind.Method,
+          new vscode.Position(i, 0),
+          new vscode.Position(i, line.length)));
+      }
+
+      const propMatch = upper.match(/^\s*(?:PUBLIC|PRIVATE|PROTECTED)\s+VAR\s+([A-Z][A-Z0-9_]*)/);
+      if (propMatch) {
+        const name = propMatch[1];
+        members.push(new vscode.DocumentSymbol(name, 'property', vscode.SymbolKind.Property,
+          new vscode.Position(i, 0),
+          new vscode.Position(i, line.length)));
+      }
+    }
+    return members;
+  }
+}
+
+class OslangFoldingProvider {
+  provideFoldingRanges(document, token, context) {
+    const ranges = [];
+    const lines = document.getText().split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const upper = lines[i].toUpperCase();
+      const startLine = i;
+
+      if (upper.match(/^\s*(CLASS|INTERFACE|FUNCTION|CONSTRUCTOR|TRY|IF|FOR|WHILE|DO|SWITCH|ENUM)/)) {
+        const endLine = this.findBlockEnd(lines, i);
+        if (endLine > startLine + 1) {
+          ranges.push(new vscode.FoldingRange(startLine, endLine, vscode.FoldingRangeKind.Region));
+        }
+        i = endLine;
+      }
+    }
+
+    return ranges;
+  }
+
+  findBlockEnd(lines, start) {
+    const upperStart = lines[start].toUpperCase();
+    const isFunction = upperStart.includes('FUNCTION');
+    const isConstructor = upperStart.includes('CONSTRUCTOR');
+
+    for (let i = start + 1; i < lines.length; i++) {
+      const upper = lines[i].toUpperCase().trim();
+      if (isFunction && upper === 'END FUNCTION') return i;
+      if (isConstructor && upper === 'END') return i;
+      if (upper === 'END') return i;
+    }
+    return lines.length - 1;
   }
 }
 
@@ -375,6 +481,8 @@ function activate(context) {
   const completionProvider = new OslangCompletionProvider();
   const hoverProvider = new OslangHoverProvider();
   const signatureProvider = new OslangSignatureProvider();
+  const symbolProvider = new OslangDocumentSymbolProvider();
+  const foldingProvider = new OslangFoldingProvider();
   const selector = { language: 'oslang', scheme: 'file' };
 
   context.subscriptions.push(
@@ -387,6 +495,14 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.languages.registerSignatureHelpProvider(selector, signatureProvider, '(', ',')
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerDocumentSymbolProvider(selector, symbolProvider)
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerFoldingRangeProvider(selector, foldingProvider)
   );
 }
 
