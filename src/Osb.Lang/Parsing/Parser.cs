@@ -1198,35 +1198,7 @@ public sealed class Parser
             case TokenType.StringLiteral:
             {
                 Advance();
-                var parts = new List<InterpolatedStringPart>
-                {
-                    new InterpolatedStringLiteral(tok.StringValue!, tok.Location)
-                };
-
-                while (Check(TokenType.LBrace))
-                {
-                    Advance(); // consume {
-                    var expr = ParseExpression();
-                    Expect(TokenType.RBrace, "Expected '}' after interpolation expression.");
-                    parts.Add(new InterpolatedStringExpression(expr, tok.Location));
-
-                    if (Check(TokenType.StringLiteral))
-                    {
-                        Advance();
-                        parts.Add(new InterpolatedStringLiteral(Current.StringValue!, Current.Location));
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (parts.Count == 1)
-                {
-                    return new StringLiteralExpr(tok.StringValue!, tok.Location);
-                }
-
-                return new InterpolatedStringExpr(parts, tok.Location);
+                return new StringLiteralExpr(tok.StringValue!, tok.Location);
             }
             case TokenType.True:
                 Advance();

@@ -2158,5 +2158,156 @@ END FUNCTION";
         Execute(source, output);
         Assert.Equal("3" + Environment.NewLine, output.ToString());
     }
+
+    [Fact]
+    public void EnumValue_Equality_Works()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Color
+    RED
+    GREEN
+    BLUE
+END
+
+FUNCTION MAIN()
+    C = Color.RED
+    IF C = Color.RED THEN
+        PRINT ""matched""
+    ELSE
+        PRINT ""no match""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("matched" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void EnumValue_Inequality_Works()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Color
+    RED
+    GREEN
+    BLUE
+END
+
+FUNCTION MAIN()
+    C = Color.RED
+    IF C = Color.GREEN THEN
+        PRINT ""matched""
+    ELSE
+        PRINT ""no match""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("no match" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Switch_Enum_CaseMatches()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Status
+    PENDING
+    ACTIVE
+    DONE
+END
+
+FUNCTION MAIN()
+    S = Status.ACTIVE
+    SWITCH S
+        CASE Status.PENDING
+            PRINT ""pending""
+        CASE Status.ACTIVE
+            PRINT ""active""
+        CASE Status.DONE
+            PRINT ""done""
+        DEFAULT
+            PRINT ""unknown""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("active" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Switch_EnumSet_Contains_Matches()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Weekday
+    Sunday
+    Monday
+    Tuesday
+    Wednesday
+    Thursday
+    Friday
+    Saturday
+END
+
+FUNCTION MAIN()
+    D = Weekday.Saturday
+    SWITCH D
+        CASE Weekday.Saturday | Weekday.Sunday
+            PRINT ""weekend""
+        CASE Weekday.Monday | Weekday.Tuesday | Weekday.Wednesday | Weekday.Thursday | Weekday.Friday
+            PRINT ""weekday""
+        DEFAULT
+            PRINT ""unknown""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("weekend" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringInterpolation_EscapedDollar_ProducesLiteral()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Message = ""\${Name}""
+    PRINT Message
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("${Name}" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringInterpolation_UnescapedDollar_Interpolates()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Name = ""OSB""
+    Message = ""Hello ${Name}""
+    PRINT Message
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello OSB" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Enum_ImplicitThenExplicitString_ConvertsImplicit()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Priority
+    LOW
+    MEDIUM = ""medium""
+    HIGH
+END
+
+FUNCTION MAIN()
+    PRINT Priority.LOW.VALUE()
+    PRINT Priority.MEDIUM.VALUE()
+    PRINT Priority.HIGH.VALUE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("0" + Environment.NewLine + "medium" + Environment.NewLine + "2" + Environment.NewLine, output.ToString());
+    }
 }
 

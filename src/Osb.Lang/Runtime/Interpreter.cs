@@ -578,7 +578,12 @@ internal sealed class Interpreter
         foreach (var caseClause in s.Cases)
         {
             var caseValue = Eval(caseClause.Value, scope);
-            if (ValuesEqual(switchValue, caseValue))
+            bool matched = (switchValue, caseValue) switch
+            {
+                (EnumValue sv, EnumSetValue ev) => ev.Values.Contains(sv),
+                _ => ValuesEqual(switchValue, caseValue),
+            };
+            if (matched)
             {
                 try
                 {
@@ -627,6 +632,16 @@ internal sealed class Interpreter
                 if (underlyingType is null)
                 {
                     underlyingType = evaluatedValue.Type;
+                    if (underlyingType == RuntimeType.String)
+                    {
+                        for (var i = 0; i < members.Count; i++)
+                        {
+                            if (members[i].Value is NumberValue nv)
+                            {
+                                members[i] = (members[i].MemberName, new StringValue(nv.Value.ToString()));
+                            }
+                        }
+                    }
                 }
                 else if (evaluatedValue.Type != underlyingType)
                 {
@@ -686,6 +701,14 @@ internal sealed class Interpreter
                 break;
             }
 
+            if (start > 0 && value[start - 1] == '\\')
+            {
+                parts.Add(new InterpolatedStringLiteral(value[index..(start - 1)], s.Location));
+                parts.Add(new InterpolatedStringLiteral("${", s.Location));
+                index = start + 2;
+                continue;
+            }
+
             parts.Add(new InterpolatedStringLiteral(value[index..start], s.Location));
 
             var end = value.IndexOf('}', start + 2);
@@ -710,7 +733,7 @@ internal sealed class Interpreter
 
     private static Expr ParseExpressionFromString(string exprText, SourceLocation location)
     {
-        var tokens = new Lexer(exprText).Tokenize().ToList();
+        var tokens = new Lexer(exprText, location.Line, location.Column).Tokenize().ToList();
         var parser = new Parser(tokens);
         return parser.ParseExpression();
     }
@@ -1402,6 +1425,7 @@ internal sealed class Interpreter
             (BooleanValue a, BooleanValue b) => a.Value == b.Value,
             (ArrayValue a, ArrayValue b) => ReferenceEquals(a, b),
             (ObjectValue a, ObjectValue b) => ReferenceEquals(a.Instance, b.Instance),
+            (EnumValue a, EnumValue b) => a.Equals(b),
             _ => false,
         };
     }

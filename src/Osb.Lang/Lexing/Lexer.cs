@@ -36,10 +36,14 @@ public sealed class Lexer
     private int _pos;
     private int _line = 1;
     private int _column = 1;
+    private readonly int _lineOffset;
+    private readonly int _columnOffset;
 
-    public Lexer(string source)
+    public Lexer(string source, int lineOffset = 0, int columnOffset = 0)
     {
         _source = source;
+        _lineOffset = lineOffset;
+        _columnOffset = columnOffset;
     }
 
     /// <summary>Lexa o código-fonte inteiro e retorna a lista de tokens, terminada por um token Eof.</summary>
@@ -62,7 +66,7 @@ public sealed class Lexer
 
     private char Peek(int offset = 1) => _pos + offset < _source.Length ? _source[_pos + offset] : '\0';
 
-    private SourceLocation CurrentLocation => new(_line, _column);
+    private SourceLocation CurrentLocation => new(_line + _lineOffset, _column + _columnOffset);
 
     private char Advance()
     {
@@ -263,16 +267,24 @@ public sealed class Lexer
                     throw new LexicalException(start, "Unterminated string literal.");
                 }
                 var esc = Advance();
-                var replacement = esc switch
+                if (esc == '$')
                 {
-                    'n' => '\n',
-                    't' => '\t',
-                    '\\' => '\\',
-                    '"' => '"',
-                    _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
-                };
-                sb.Append(replacement);
-                raw.Append('\\').Append(esc);
+                    sb.Append('\\').Append('$');
+                    raw.Append('\\').Append('$');
+                }
+                else
+                {
+                    var replacement = esc switch
+                    {
+                        'n' => '\n',
+                        't' => '\t',
+                        '\\' => '\\',
+                        '"' => '"',
+                        _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
+                    };
+                    sb.Append(replacement);
+                    raw.Append('\\').Append(esc);
+                }
                 continue;
             }
 
@@ -339,20 +351,28 @@ public sealed class Lexer
                 continue;
             }
 
-            if (c == '\\' && (Peek() == 'n' || Peek() == 't' || Peek() == '\\' || Peek() == '"'))
+            if (c == '\\' && (Peek() == 'n' || Peek() == 't' || Peek() == '\\' || Peek() == '"' || Peek() == '$'))
             {
                 Advance();
                 var esc = Advance();
-                var replacement = esc switch
+                if (esc == '$')
                 {
-                    'n' => '\n',
-                    't' => '\t',
-                    '\\' => '\\',
-                    '"' => '"',
-                    _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
-                };
-                sb.Append(replacement);
-                raw.Append('\\').Append(esc);
+                    sb.Append('\\').Append('$');
+                    raw.Append('\\').Append('$');
+                }
+                else
+                {
+                    var replacement = esc switch
+                    {
+                        'n' => '\n',
+                        't' => '\t',
+                        '\\' => '\\',
+                        '"' => '"',
+                        _ => throw new LexicalException(start, $"Unknown escape sequence '\\{esc}'.")
+                    };
+                    sb.Append(replacement);
+                    raw.Append('\\').Append(esc);
+                }
                 continue;
             }
 
