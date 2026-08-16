@@ -36,7 +36,7 @@ comandos e o mesmo espírito do original:
 | `HOSTNAME`, `USER` | Portado — `HOSTNAME` exibe/alterar o nome da máquina; `USER` autentica e gerencia contas locais |
 | `DATE`, `TIME` | Portado como somente leitura (mudar a data/hora do SO exige privilégios de admin) |
 | `CAL` | Portado — mês atual, `CAL <mês>`, `CAL <mês> <ano>`, e `CAL <ano>` pro ano inteiro |
-| `APLIC KISS` / `KISS <arquivo>` | Portado — editor de texto de verdade (setas navegam, Ctrl+S salva, ESC sai) |
+| `APLIC KISS` / `KISS <arquivo>` | Portado — editor de texto de verdade (setas navegam, Ctrl+S salva, ESC sai), com **sintaxe highlighting OSLANG** para arquivos `.osl` e `.oslang` |
 | `GAMES` / `HANGMAN` | Portado — jogo da forca, jogável |
 | `X` | Portado — carrega o XWIN |
 | `EXIT` | Portado |
@@ -105,9 +105,10 @@ src/Osb.Shell/
     XwinLauncher.cs     - acha e lança o Osb.Xwin como subprocesso (comando X)
     PathResolver.cs     - resolve caminhos ignorando maiúsculas/minúsculas
     ColorPicker.cs, ConfigUtility.cs, About.cs, HelpTexts.cs, DosColors.cs
+    OslangHighlighter.cs - syntax highlighting ANSI para OSLANG no KISS e TYPE
   Apps/
     Calendar.cs         - porte do CAL.COM (mês, mês+ano, ano inteiro)
-    TextEditor.cs       - porte do KISS (editor de texto)
+    TextEditor.cs       - porte do KISS (editor de texto com syntax highlighting)
   Games/
     Hangman.cs          - porte do HANGMAN.BAS
 
@@ -125,8 +126,78 @@ src/Osb.Xwin/
     LinhasEffect.cs                                        - efeito com LINE (sólidos 3D)
     FogoEffect.cs                                           - efeito com PSET (partículas)
 
+src/Osb.Lang/
+  Lexing/                - lexer OSLANG
+  Parsing/               - parser OSLANG
+  Compilation/           - análise semântica e compilação
+  Runtime/               - interpretador e runtime
+  OSLANG-0.61-SPEC.md    - especificação da linguagem OSLANG 0.61
+
+oslang-vscode/           - extensão VS Code para OSLANG (syntax highlighting, intellisense, document symbols, folding)
+
 original-src/            - código BASIC original, para referência
 ```
+
+## OSLANG 0.61
+
+A linguagem de script do OSB evoluiu para a versão **0.61**, com novos recursos
+mantendo total compatibilidade com versões anteriores:
+
+- **ENUM** — tipos enumerados com valores numéricos ou string
+- **ENUM SETS** — combinação de valores enum com `|`
+- **SWITCH / CASE / DEFAULT** — desvio condicional multi-way
+- **BREAK** — sai de `SWITCH`, `FOR`, `WHILE` e `DO WHILE`
+- **String interpolation** — templates com `${expressao}`
+- **Multiline strings** — strings entre `"""` com indentação automática
+- **Escape sequences** — `\n`, `\t`, `\\` em strings
+- **Arrow functions** — funções lambda com `X => expr`
+- **FOREACH** — iteração de arrays com método ou bloco
+- **MATH** — funções trigonométricas (`SIN`, `COS`, `TAN`), `PI`, `RANDOM`
+- **Array methods** — `FINDINDEX`, `FLAT`, `PUSH`, `POP`, `SORT`, `JOIN`, `CONTAINS`
+- **STRING methods** — `PADSTART`, `PADEND`, `REPEAT`, `NORMALIZE`
+- **DATE/TIME** — tipos nativos `DATE` e `TIME` com `DATE.NOW()` e `DATE.FORMAT()`
+- **I18N** — sistema de internacionalização com `I18N.GET()`, `I18N.SETLANGUAGE()`, etc.
+- **FILE/DIR** — namespaces para manipulação de arquivos e diretórios
+- **TRY/CATCH** — tratamento de erros em runtime
+- **EVENT/ON/RAISE** — sistema de eventos
+- **CLASS/INTERFACE** — programação orientada a objetos com herança, interfaces, construtores
+
+Veja a especificação completa em `src/Osb.Lang/OSLANG-0.61-SPEC.md`.
+
+## Extensões e Ferramentas
+
+### VS Code Extension (oslang-vscode/)
+
+A extensão **OSLANG 1.1.0** para VS Code oferece:
+
+- **Syntax Highlighting** — coloração para `.osl` e `.oslang` com suporte a:
+  - Keywords, tipos, números, strings, comentários
+  - Operadores (aritméticos, comparação, lógicos, arrow `=>`)
+  - Métodos de builtins (MATH, STRING, ARRAY, I18N, FILE, DIR, DATE)
+  - Interpolação de strings `${...}` com highlighting aninhado
+  - Enum sets com `|`
+- **IntelliSense** — autocompletar contextual:
+  - Keywords e builtins
+  - Classes, interfaces, funções, métodos, variáveis e enums do arquivo atual
+  - Métodos de contexto (`MATH.`, `STRING.`, `ARRAY.`, `I18N.`, `FILE.`, `DIR.`, `DATE.`)
+- **Hover** — documentação inline para 60+ funções e keywords
+- **Signature Help** — ajuda de assinatura para funções com múltiplos overloads
+- **Document Symbols** — outline view com classes, interfaces, funções, enums, métodos e propriedades
+- **Code Folding** — dobramento de blocos `CLASS`, `FUNCTION`, `IF`, `FOR`, `WHILE`, `DO`, `SWITCH`, `ENUM`, `TRY`
+- **Snippets** — 40+ snippets para código comum (enum, arrow functions, foreach, try-catch, etc.)
+
+Instalação: copie a pasta `oslang-vscode/` para `~/.vscode/extensions/oslang-vscode/`
+ou use `code --install-extension oslang-vscode/oslang-0.61.vsix`.
+
+### KISS Editor
+
+O editor de texto embutido no OSB agora aplica syntax highlighting OSLANG
+também para arquivos `.cfg`, `.i18n`, `.hlp` e `.wds`, além de `.osl`.
+
+### TYPE Command
+
+O comando `TYPE` agora aplica syntax highlighting OSLANG para arquivos `.osl`,
+`.cfg`, `.i18n`, `.hlp` e `.wds`.
 
 ## Status completo (o que foi portado x o que falta)
 
@@ -143,8 +214,10 @@ original-src/            - código BASIC original, para referência
 | GAMES → HANGMAN | Portado |
 | GAMES → GERMS (tetris) | **Ainda não migramos** — `.BAS` não sobreviveu em texto |
 | APLIC → CAL | Portado |
-| APLIC → KISS (editor de texto) | Portado — editor novo (setas, Ctrl+S, ESC), já que o `.BAS` do KISS original não sobreviveu em texto |
+| APLIC → KISS (editor de texto) | Portado — editor com syntax highlighting OSLANG |
 | APLIC → PROG (teste de digitação) | **Ainda não migramos** |
+| APLIC → TODO | Portado |
+| APLIC → TOUR | Portado |
 
 ### Osb.Xwin (interface gráfica, agora em modo texto)
 

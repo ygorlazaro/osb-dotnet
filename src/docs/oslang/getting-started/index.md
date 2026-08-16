@@ -75,5 +75,5 @@ Hello, OSLANG!
 
 ## Need Help?
 
-- Full specification: [OSLANG 0.5 SPEC](/src/Osb.Lang/OSLANG-0.5-SPEC.md)
+- Full specification: [OSLANG 0.61 SPEC](/src/Osb.Lang/OSLANG-0.61-SPEC.md)
 - Report issues: [GitHub Issues](https://github.com/ygorlazaro/osb-dotnet/issues)
