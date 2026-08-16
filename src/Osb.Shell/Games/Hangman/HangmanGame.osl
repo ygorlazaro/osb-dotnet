@@ -9,7 +9,17 @@ CLASS HANGMANGAME
     VAR Stages
 
     CONSTRUCTOR()
-        ME.Words = FILE.READ("../../CONF/HANGMAN.WDS")
+        Lang = I18N.LANGUAGE()
+        IF Lang = "PT-BR" THEN
+            Path = "../../CONF/HANGMAN-WORDS.PT-BR"
+        ELSE
+            Path = "../../CONF/HANGMAN-WORDS.EN-US"
+        END
+        IF FILE.EXISTS(Path) THEN
+            ME.Words = FILE.READ(Path)
+        ELSE
+            ME.Words = FILE.READ("../../CONF/HANGMAN.WDS")
+        END
         ME.MaxErrors = 7
         ME.Guessed = ""
         ME.Errors = 0

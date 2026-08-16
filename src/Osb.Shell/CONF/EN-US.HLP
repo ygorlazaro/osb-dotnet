@@ -304,14 +304,25 @@ Available placeholders:
 Enter the new layout, for example: %user@%hostname [@] %pwd
 -ENDCOMMAND
 
--RD
-Deletes an empty directory.
-Simple usage: RD <directory name>
+ -RD
+ Deletes an empty directory.
+ Simple usage: RD <directory name>
 
-[@] RD TEMP
--ENDCOMMAND
+ [@] RD TEMP
+ -ENDCOMMAND
 
--REN
+ -RECOVER
+ Recovers a file or directory from the trash (.trash folder).
+ Simple usage: RECOVER <file or directory name>
+
+ [@] RECOVER TEXTO.TXT
+ Recovers TEXTO.TXT from .trash to the current directory
+
+ [@] RECOVER MEUPASTA
+ Recovers MEUPASTA directory from .trash to the current directory
+ -ENDCOMMAND
+
+ -REN
 Renames one or more files, with wildcard support.
 Simple usage: REN <old name> <new name>
 

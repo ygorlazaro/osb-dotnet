@@ -87,7 +87,7 @@ public static class HelpTexts
 
     private static readonly (string Titulo, string[] Comandos)[] Categorias =
     [
-        (I18nService.Get("help.category.files"), ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "MOVE", "FIND", "TYPE", "SIZE", "PWD", "PRINT"
+        (I18nService.Get("help.category.files"), ["DIR", "CD", "MD", "RD", "COPY", "DEL", "REN", "MOVE", "FIND", "TYPE", "SIZE", "PWD", "PRINT", "RECOVER"
         ]),
         (I18nService.Get("help.category.system"), ["CLS", "COLOR", "CONFIG", "DATE", "TIME", "VER", "ABOUT", "EXIT", "HELP", "HISTORY", "HOSTNAME", "USER", "PROMPT", "SET"
         ]),
@@ -102,13 +102,13 @@ public static class HelpTexts
         sb.AppendLine(I18nService.Get("commands.available_commands"));
         sb.AppendLine();
 
-        foreach (var (titulo, comandos) in Categorias)
+        foreach (var (title, commands) in Categorias)
         {
-            sb.AppendLine($"[{titulo}]");
-            foreach (var cmd in comandos)
+            sb.AppendLine($"[{title}]");
+            foreach (var cmd in commands)
             {
-                var resumo = Texts.TryGetValue(cmd, out var texto) ? texto.Split('\n')[0] : string.Empty;
-                sb.AppendLine($"  {cmd,-8}{resumo}");
+                var summary = Texts.TryGetValue(cmd, out var text) ? text.Split('\n')[0] : string.Empty;
+                sb.AppendLine($"  {cmd,-8}{summary}");
             }
             sb.AppendLine();
         }

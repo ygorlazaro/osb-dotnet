@@ -122,6 +122,8 @@ public partial class OsbShell
                 Console.WriteLine(Directory.GetCurrentDirectory()); handled = true; break;
             case "RD":
                 RemoveDirectory(args); handled = true; break;
+            case "RECOVER":
+                RecoverFile(args); handled = true; break;
             case "REN":
                 RenameFile(args); handled = true; break;
             case "RUN":

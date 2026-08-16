@@ -707,6 +707,13 @@ public sealed class Parser
                     expr = new MemberAccessExpr(expr, memberTok, loc);
                 }
             }
+            else if (Check(TokenType.PlusPlus) || Check(TokenType.MinusMinus))
+            {
+                var op = Current.Type == TokenType.PlusPlus ? "++" : "--";
+                var loc = Current.Location;
+                Advance();
+                expr = new PostfixExpr(op, expr, loc);
+            }
             else
             {
                 break;

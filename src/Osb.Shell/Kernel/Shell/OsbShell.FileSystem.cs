@@ -4,6 +4,55 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
 {
+    private static string GetTrashPath()
+    {
+        var trashDir = Path.Combine(Directory.GetCurrentDirectory(), ".trash");
+        if (!Directory.Exists(trashDir))
+        {
+            Directory.CreateDirectory(trashDir);
+        }
+        return trashDir;
+    }
+
+    private static string GetUniqueTrashPath(string trashDir, string fileName)
+    {
+        var trashPath = Path.Combine(trashDir, fileName);
+        if (!File.Exists(trashPath) && !Directory.Exists(trashPath))
+        {
+            return trashPath;
+        }
+
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+        var counter = 1;
+        while (true)
+        {
+            var newName = $"{nameWithoutExt} ({counter}){extension}";
+            trashPath = Path.Combine(trashDir, newName);
+            if (!File.Exists(trashPath) && !Directory.Exists(trashPath))
+            {
+                return trashPath;
+            }
+            counter++;
+        }
+    }
+
+    private static void MoveToTrash(string fullPath)
+    {
+        var trashDir = GetTrashPath();
+        var fileName = Path.GetFileName(fullPath);
+        var trashPath = GetUniqueTrashPath(trashDir, fileName);
+        
+        if (File.Exists(fullPath))
+        {
+            File.Move(fullPath, trashPath);
+        }
+        else if (Directory.Exists(fullPath))
+        {
+            Directory.Move(fullPath, trashPath);
+        }
+    }
+
     private static void ChangeDirectory(string target)
     {
         if (target == "") { HelpTexts.Show("CD"); return; }
@@ -176,7 +225,11 @@ public partial class OsbShell
     private static void RemoveDirectory(string name)
     {
         if (name == "") { HelpTexts.Show("RD"); return; }
-        try { Directory.Delete(PathResolver.Resolve(name)); }
+        try
+        {
+            var fullPath = PathResolver.Resolve(name);
+            MoveToTrash(fullPath);
+        }
         catch (Exception ex) { Console.WriteLine(I18nService.Get("fs.error", ex.Message)); }
     }
 
@@ -216,16 +269,57 @@ public partial class OsbShell
             {
                 var files = Directory.GetFiles(dir, mask, SearchOption.AllDirectories);
                 foreach (var f in files)
-                    File.Delete(f);
+                    MoveToTrash(f);
                 Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_deleted", files.Length));
             }
             else
             {
                 var files = Directory.GetFiles(dir, mask);
                 foreach (var f in files)
-                    File.Delete(f);
+                    MoveToTrash(f);
                 Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_deleted", files.Length));
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(I18nService.Get("fs.error", ex.Message));
+        }
+    }
+
+    private static void RecoverFile(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) { HelpTexts.Show("RECOVER"); return; }
+        
+        var trashDir = GetTrashPath();
+        var sourcePath = Path.Combine(trashDir, fileName);
+        
+        if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
+        {
+            Console.WriteLine(I18nService.Get("fs.recover_not_found", fileName));
+            return;
+        }
+        
+        try
+        {
+            var currentDir = Directory.GetCurrentDirectory();
+            var destPath = Path.Combine(currentDir, fileName);
+            
+            if (File.Exists(destPath) || Directory.Exists(destPath))
+            {
+                Console.WriteLine(I18nService.Get("fs.recover_exists", fileName));
+                return;
+            }
+            
+            if (File.Exists(sourcePath))
+            {
+                File.Move(sourcePath, destPath);
+            }
+            else if (Directory.Exists(sourcePath))
+            {
+                Directory.Move(sourcePath, destPath);
+            }
+            
+            Console.WriteLine(I18nService.Get("fs.recovered", fileName));
         }
         catch (Exception ex)
         {

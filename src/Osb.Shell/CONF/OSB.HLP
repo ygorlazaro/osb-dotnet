@@ -304,14 +304,25 @@ Marcadores disponíveis:
 Digite o novo layout, por exemplo: %user@%hostname [@] %pwd
 -ENDCOMMAND
 
--RD
-Exclui um diretório vazio.
-Modo simples de usar: RD <Nome do diretório>
+ -RD
+ Exclui um diretório vazio.
+ Modo simples de usar: RD <Nome do diretório>
 
-[@] RD TEMP
--ENDCOMMAND
+ [@] RD TEMP
+ -ENDCOMMAND
 
--REN
+ -RECOVER
+ Recupera um arquivo ou diretório da lixeira (pasta .trash).
+ Modo simples de usar: RECOVER <nome do arquivo ou diretório>
+
+ [@] RECOVER TEXTO.TXT
+ Recupera TEXTO.TXT da .trash para o diretório atual
+
+ [@] RECOVER MEUPASTA
+ Recupera o diretório MEUPASTA da .trash para o diretório atual
+ -ENDCOMMAND
+
+ -REN
 Renomeia um ou mais arquivos, com suporte a curingas.
 Modo simples de usar: REN <nome antigo> <nome novo>
 

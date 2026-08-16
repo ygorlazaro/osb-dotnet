@@ -11,16 +11,16 @@ public static class ColorPicker
             Console.WriteLine($"{i,2} - {DosColors.Names[i]}");
         Console.WriteLine();
 
-        int letra;
-        int fundo;
-        int foco;
+        int foreColor;
+        int backColor;
+        int focusColor;
         while (true)
         {
-            letra = AskColor(I18nService.Get("misc.fore_color_prompt"), env.Config.ForeColor);
-            fundo = AskColor(I18nService.Get("misc.back_color_prompt"), env.Config.BackColor);
-            foco = AskColor(I18nService.Get("misc.focus_color_prompt"), env.Config.FocusColor);
+            foreColor = AskColor(I18nService.Get("misc.fore_color_prompt"), env.Config.ForeColor);
+            backColor = AskColor(I18nService.Get("misc.back_color_prompt"), env.Config.BackColor);
+            focusColor = AskColor(I18nService.Get("misc.focus_color_prompt"), env.Config.FocusColor);
 
-            if (letra != fundo && letra != foco && fundo != foco)
+            if (foreColor != backColor && foreColor != focusColor && backColor != focusColor)
             {
                 break;
             }
@@ -31,9 +31,9 @@ public static class ColorPicker
             Console.WriteLine();
         }
 
-        env.Config.ForeColor = letra;
-        env.Config.BackColor = fundo;
-        env.Config.FocusColor = foco;
+        env.Config.ForeColor = foreColor;
+        env.Config.BackColor = backColor;
+        env.Config.FocusColor = focusColor;
         env.Config.Save(env.ConfigFile);
         env.ApplyColors();
         Console.Clear();
