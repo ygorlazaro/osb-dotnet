@@ -104,6 +104,11 @@ internal sealed class Interpreter
 
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
 
+        var argsArray = args != null
+            ? new ArrayValue(args.ToList(), RuntimeType.String)
+            : new ArrayValue([], RuntimeType.String);
+        _globals["ARGS"] = new Variable { Value = argsArray };
+
         if (main.Parameters.Count == 0)
         {
             return CallFunction("MAIN", [], SourceLocation.Unknown);
@@ -111,9 +116,6 @@ internal sealed class Interpreter
 
         if (main.Parameters.Count == 1)
         {
-            var argsArray = args != null
-                ? new ArrayValue(args.ToList(), RuntimeType.String)
-                : new ArrayValue([], RuntimeType.String);
             return CallFunction("MAIN", [argsArray], SourceLocation.Unknown);
         }
 
@@ -201,7 +203,22 @@ internal sealed class Interpreter
                 return new ModuleValue("OSL.CNF");
             }
 
-            throw new OslangRuntimeException(location, $"Unknown OSL module '{methodName}'. Available: I18N, JSON, CSV, XML, CNF.");
+            if (methodName.Equals("CONSOLE", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.CONSOLE");
+            }
+
+            if (methodName.Equals("APP", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.APP");
+            }
+
+            if (methodName.Equals("FILE", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModuleValue("OSL.FILE");
+            }
+
+            throw new OslangRuntimeException(location, $"Unknown OSL module '{methodName}'. Available: I18N, JSON, CSV, XML, CNF, CONSOLE, APP, FILE.");
         }
 
         if (namespaceName.Equals("OSB", StringComparison.OrdinalIgnoreCase))
@@ -215,6 +232,78 @@ internal sealed class Interpreter
         }
 
         throw new OslangRuntimeException(location, $"Unknown namespace '{namespaceName}'.");
+    }
+
+    private OslangValue DispatchConsole(ModuleValue module, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        if (args.Count == 0)
+        {
+            switch (upper)
+            {
+                case "BLACK": return new NumberValue(0);
+                case "BLUE": return new NumberValue(1);
+                case "GREEN": return new NumberValue(2);
+                case "CYAN": return new NumberValue(3);
+                case "RED": return new NumberValue(4);
+                case "MAGENTA": return new NumberValue(5);
+                case "YELLOW": return new NumberValue(6);
+                case "WHITE": return new NumberValue(7);
+                case "BRIGHT_BLACK": return new NumberValue(8);
+                case "BRIGHT_BLUE": return new NumberValue(9);
+                case "BRIGHT_GREEN": return new NumberValue(10);
+                case "BRIGHT_CYAN": return new NumberValue(11);
+                case "BRIGHT_RED": return new NumberValue(12);
+                case "BRIGHT_MAGENTA": return new NumberValue(13);
+                case "BRIGHT_YELLOW": return new NumberValue(14);
+                case "BRIGHT_WHITE": return new NumberValue(15);
+                case "ENTER": return new StringValue("ENTER");
+                case "ESC": return new StringValue("ESC");
+                case "TAB": return new StringValue("TAB");
+                case "BACKSPACE": return new StringValue("BACKSPACE");
+                case "DELETE": return new StringValue("DELETE");
+                case "INSERT": return new StringValue("INSERT");
+                case "SPACE": return new StringValue("SPACE");
+                case "UP": return new StringValue("UP");
+                case "DOWN": return new StringValue("DOWN");
+                case "LEFT": return new StringValue("LEFT");
+                case "RIGHT": return new StringValue("RIGHT");
+                case "HOME": return new StringValue("HOME");
+                case "END": return new StringValue("END");
+                case "PAGEUP": return new StringValue("PAGEUP");
+                case "PAGEDOWN": return new StringValue("PAGEDOWN");
+                case "F1": return new StringValue("F1");
+                case "F2": return new StringValue("F2");
+                case "F3": return new StringValue("F3");
+                case "F4": return new StringValue("F4");
+                case "F5": return new StringValue("F5");
+                case "F6": return new StringValue("F6");
+                case "F7": return new StringValue("F7");
+                case "F8": return new StringValue("F8");
+                case "F9": return new StringValue("F9");
+                case "F10": return new StringValue("F10");
+                case "F11": return new StringValue("F11");
+                case "F12": return new StringValue("F12");
+            }
+        }
+
+        if (_extensions.TryGet($"CONSOLE.{upper}", out var consoleFunc))
+        {
+            return consoleFunc(args, location);
+        }
+
+        throw new OslangRuntimeException(location, $"Unknown OSL.CONSOLE method '{methodName}'.");
+    }
+
+    private OslangValue DispatchApp(ModuleValue module, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
+    {
+        var upper = methodName.ToUpperInvariant();
+        if (_extensions.TryGet($"APP.{upper}", out var appFunc))
+        {
+            return appFunc(args, location);
+        }
+
+        throw new OslangRuntimeException(location, $"Unknown OSL.APP method '{methodName}'.");
     }
 
     private OslangValue CallModuleMethod(ModuleValue module, string methodName, IReadOnlyList<OslangValue> args, SourceLocation location)
@@ -232,6 +321,16 @@ internal sealed class Interpreter
                 return OslXmlNamespace.Call(methodName, args, location);
             case "OSL.CNF":
                 return OslCnfNamespace.Call(methodName, args, location);
+            case "OSL.CONSOLE":
+                return DispatchConsole(module, methodName, args, location);
+            case "OSL.APP":
+                return DispatchApp(module, methodName, args, location);
+            case "OSL.FILE":
+                if (_extensions.TryGet($"FILE.{methodName}", out var fileFunc))
+                {
+                    return fileFunc(args, location);
+                }
+                throw new OslangRuntimeException(location, $"Unknown FILE method '{methodName}'.");
             case "OSB.NET":
                 return OsbNetNamespace.Call(methodName, args, location);
             default:
@@ -526,6 +625,33 @@ internal sealed class Interpreter
         if (moduleName.Equals("OSB.NET", StringComparison.OrdinalIgnoreCase))
         {
             var moduleValue = new ModuleValue("OSB.NET");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.CONSOLE", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.CONSOLE");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.APP", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.APP");
+            _standardLibraries[shortName] = moduleValue;
+            scope.DeclareOrGetGlobal(shortName);
+            _globals[shortName] = new Variable { Value = moduleValue };
+            return;
+        }
+
+        if (moduleName.Equals("OSL.FILE", StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleValue = new ModuleValue("OSL.FILE");
             _standardLibraries[shortName] = moduleValue;
             scope.DeclareOrGetGlobal(shortName);
             _globals[shortName] = new Variable { Value = moduleValue };
@@ -1631,6 +1757,39 @@ internal sealed class Interpreter
                 return new StringValue(cnfValue);
             }
             return OslangValue.Null;
+        }
+
+        if (obj is KeyValue keyValue)
+        {
+            return expr.MemberName.ToUpperInvariant() switch
+            {
+                "KEY" => new StringValue(keyValue.Key),
+                "CHAR" => keyValue.Char is not null ? new StringValue(keyValue.Char) : OslangValue.Null,
+                "CTRL" => BooleanValue.Of(keyValue.Ctrl),
+                "ALT" => BooleanValue.Of(keyValue.Alt),
+                "SHIFT" => BooleanValue.Of(keyValue.Shift),
+                _ => throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found on KEY."),
+            };
+        }
+
+        if (obj is SizeValue sizeValue)
+        {
+            return expr.MemberName.ToUpperInvariant() switch
+            {
+                "WIDTH" => new NumberValue(sizeValue.Width),
+                "HEIGHT" => new NumberValue(sizeValue.Height),
+                _ => throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found on SIZE."),
+            };
+        }
+
+        if (obj is CursorPositionValue cursorValue)
+        {
+            return expr.MemberName.ToUpperInvariant() switch
+            {
+                "ROW" => new NumberValue(cursorValue.Row),
+                "COLUMN" => new NumberValue(cursorValue.Column),
+                _ => throw new OslangRuntimeException(expr.Location, $"Property '{expr.MemberName}' not found on CURSOR."),
+            };
         }
 
         if (obj is not ObjectValue objectValue)

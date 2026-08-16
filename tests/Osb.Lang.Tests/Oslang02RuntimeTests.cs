@@ -2463,5 +2463,182 @@ END FUNCTION";
         Execute(source, output);
         Assert.Contains("200", output.ToString());
     }
+
+    [Fact]
+    public void Console_Namespace_WritesAndColors()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.CONSOLE
+USING OSL.APP
+
+FUNCTION MAIN()
+    OSL.CONSOLE.COLOR(OSL.CONSOLE.WHITE, OSL.CONSOLE.BLUE)
+    OSL.CONSOLE.WRITE(1, 1, ""Hello"")
+    OSL.CONSOLE.CLEAR()
+    OSL.CONSOLE.HIDECURSOR()
+    OSL.CONSOLE.SHOWCURSOR()
+    OSL.CONSOLE.ENTER()
+    OSL.CONSOLE.EXIT()
+    OSL.CONSOLE.ALTERNATE(TRUE)
+    OSL.CONSOLE.ALTERNATE(FALSE)
+    OSL.CONSOLE.BEGINFRAME()
+    OSL.CONSOLE.ENDFRAME()
+    OSL.CONSOLE.FLUSH()
+    OSL.CONSOLE.BEEP()
+    PRINT ""Console OK""
+    OSL.APP.EXIT(0)
+END FUNCTION";
+
+        var extensions = new ExtensionRegistry();
+        extensions.Register("CONSOLE.WHITE", (args, location) => new NumberValue(7));
+        extensions.Register("CONSOLE.BLUE", (args, location) => new NumberValue(1));
+        extensions.Register("CONSOLE.COLOR", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.WRITE", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.CLEAR", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.HIDECURSOR", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.SHOWCURSOR", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.ENTER", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.EXIT", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.ALTERNATE", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.BEGINFRAME", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.ENDFRAME", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.FLUSH", (args, location) => OslangValue.Null);
+        extensions.Register("CONSOLE.BEEP", (args, location) => OslangValue.Null);
+        extensions.Register("APP.EXIT", (args, location) => throw new AppExitException(0));
+        var interpreter = new OslangInterpreter(extensions);
+        var ex = Assert.Throws<AppExitException>(() => interpreter.Execute(source, output));
+        Assert.Equal(0, ex.ExitCode);
+        Assert.Contains("Console OK", output.ToString());
+    }
+
+    [Fact]
+    public void Console_KeyConstants_And_KeyObject()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.CONSOLE
+
+FUNCTION MAIN()
+    Key = OSL.CONSOLE.GETKEY()
+    IF Key.KEY = OSL.CONSOLE.ESC THEN
+        PRINT ""ESC""
+    END
+    IF Key.CHAR <> NULL THEN
+        PRINT ""HasChar""
+    END
+    IF Key.CTRL THEN
+        PRINT ""Ctrl""
+    END
+    IF Key.ALT THEN
+        PRINT ""Alt""
+    END
+    IF Key.SHIFT THEN
+        PRINT ""Shift""
+    END
+    PRINT ""KeyOK""
+END FUNCTION";
+
+        var extensions = new ExtensionRegistry();
+        extensions.Register("CONSOLE.GETKEY", (args, location) => new KeyValue("ESC", null, false, false, false));
+        extensions.Register("CONSOLE.ESC", (args, location) => new StringValue("ESC"));
+        var interpreter = new OslangInterpreter(extensions);
+        interpreter.Execute(source, output, Console.In, Console.Clear, null);
+        Assert.Contains("KeyOK", output.ToString());
+    }
+
+    [Fact]
+    public void App_Exit_ThrowsAppExit()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.APP
+
+FUNCTION MAIN()
+    OSL.APP.EXIT(42)
+END FUNCTION";
+
+        var extensions = new ExtensionRegistry();
+        extensions.Register("APP.EXIT", (args, location) => throw new AppExitException(42));
+        var interpreter = new OslangInterpreter(extensions);
+        Assert.Throws<AppExitException>(() => interpreter.Execute(source, output));
+    }
+
+    [Fact]
+    public void File_ReadTextAndLines_Work()
+    {
+        var output = new StringWriter();
+        var source = @"USING OSL.FILE
+
+FUNCTION MAIN()
+    Content = OSL.FILE.READTEXT(""test.txt"")
+    PRINT Content
+    Lines = OSL.FILE.READLINES(""test.txt"")
+    PRINT COUNT(Lines)
+    IF OSL.FILE.EXISTS(""test.txt"") THEN
+        PRINT ""Exists""
+    END
+    OSL.FILE.WRITETEXT(""out.txt"", ""hello"")
+    OSL.FILE.WRITELINES(""out.txt"", [""a"", ""b""])
+    Size = OSL.FILE.SIZE(""test.txt"")
+    PRINT Size
+    OSL.FILE.DELETE(""out.txt"")
+    OSL.FILE.RENAME(""out.txt"", ""renamed.txt"")
+END FUNCTION";
+
+        var extensions = new ExtensionRegistry();
+        extensions.Register("FILE.READTEXT", (args, location) => new StringValue("hello world"));
+        extensions.Register("FILE.READLINES", (args, location) => new ArrayValue([new StringValue("a"), new StringValue("b")], RuntimeType.String));
+        extensions.Register("FILE.EXISTS", (args, location) => BooleanValue.True);
+        extensions.Register("FILE.WRITETEXT", (args, location) => OslangValue.Null);
+        extensions.Register("FILE.WRITELINES", (args, location) => OslangValue.Null);
+        extensions.Register("FILE.SIZE", (args, location) => new NumberValue(11));
+        extensions.Register("FILE.DELETE", (args, location) => OslangValue.Null);
+        extensions.Register("FILE.RENAME", (args, location) => OslangValue.Null);
+        var interpreter = new OslangInterpreter(extensions);
+        interpreter.Execute(source, output, Console.In, Console.Clear, null);
+        Assert.Contains("hello world", output.ToString());
+        Assert.Contains("2", output.ToString());
+        Assert.Contains("Exists", output.ToString());
+    }
+
+    [Fact]
+    public void Args_GlobalVariable_IsPopulated()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    PRINT COUNT(ARGS)
+    IF COUNT(ARGS) > 0 THEN
+        PRINT ARGS[0]
+    END
+END FUNCTION";
+
+        var extensions = new ExtensionRegistry();
+        var interpreter = new OslangInterpreter(extensions);
+        interpreter.Execute(source, output, Console.In, Console.Clear, null, [new StringValue("first"), new StringValue("second")]);
+        Assert.Contains("2", output.ToString());
+        Assert.Contains("first", output.ToString());
+    }
+
+    [Fact]
+    public void String_LeftRightFindInsertRemove_Work()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    S = ""Hello World""
+    PRINT S.LEFT(5)
+    PRINT S.RIGHT(5)
+    PRINT S.FIND(""World"")
+    S = S.INSERT(6, ""Beautiful "")
+    PRINT S
+    S = S.REMOVE(6, 10)
+    PRINT S
+END FUNCTION";
+
+        Execute(source, output);
+        var lines = output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("Hello", lines[0]);
+        Assert.Equal("World", lines[1]);
+        Assert.Equal("6", lines[2]);
+        Assert.Equal("Hello Beautiful World", lines[3]);
+        Assert.Equal("Hello World", lines[4]);
+    }
 }
 

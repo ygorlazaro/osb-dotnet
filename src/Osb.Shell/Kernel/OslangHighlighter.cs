@@ -23,7 +23,7 @@ public static class OslangHighlighter
         "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "STRING", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
         "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING",
         "MATH", "FILE", "DIR", "DATE", "TIME", "SHOW", "MOD", "TYPEOF", "ENUM", "OSL", "OSB",
-        "JSON", "CSV", "XML", "CNF", "NET"
+        "JSON", "CSV", "XML", "CNF", "NET", "CONSOLE", "APP"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)
@@ -39,7 +39,12 @@ public static class OslangHighlighter
         "FINDINDEX", "REPEAT", "PADSTART", "PADEND", "TRUNC", "SIN", "COS", "TAN", "PI",
         "RANDOM", "NOW", "FORMAT", "EXISTS", "LIST", "FILES", "DIRS", "CREATE", "DELETE",
         "CURRENT", "NAME", "VALUE", "NAME", "KEYS", "GET", "HAS", "SETLANGUAGE", "LANGUAGES",
-        "LANGUAGE", "LOAD", "LOADLANGUAGE", "RELOAD", "UNLOAD", "DEFAULT", "SETDEFAULT", "SETFALLBACK"
+        "LANGUAGE", "LOAD", "LOADLANGUAGE", "RELOAD", "UNLOAD", "DEFAULT", "SETDEFAULT", "SETFALLBACK",
+        "LEFT", "RIGHT", "FIND", "INSERT",
+        "WIDTH", "HEIGHT", "SIZE", "RESIZED", "SETCURSOR", "GETCURSOR", "HIDECURSOR", "SHOWCURSOR",
+        "CLEAR", "CLEARLINE", "CLEARAREA", "WRITE", "COLOR", "RESETCOLOR",
+        "GETKEY", "READKEY", "KEYAVAILABLE", "ENTER", "EXIT", "ALTERNATE",
+        "BEGINFRAME", "ENDFRAME", "FLUSH", "BEEP"
     };
 
     private static readonly HashSet<string> Operators = new(StringComparer.OrdinalIgnoreCase)

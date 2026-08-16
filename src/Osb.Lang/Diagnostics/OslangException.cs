@@ -79,3 +79,17 @@ public sealed class OslangRuntimeException : OslangException
     {
     }
 }
+
+/// <summary>
+/// Sinaliza encerramento solicitado por OSL.APP.EXIT(). Não é um erro:
+/// o host deve restaurar o terminal e sair com o código fornecido.
+/// </summary>
+public sealed class AppExitException : Exception
+{
+    public int ExitCode { get; }
+
+    public AppExitException(int exitCode)
+    {
+        ExitCode = exitCode;
+    }
+}

@@ -101,6 +101,16 @@ public static class PrimitiveMethodDispatcher
                 return DispatchPadEnd(s, args, methodName, location);
             case "REPEAT":
                 return DispatchRepeat(s, args, methodName, location);
+            case "LEFT":
+                return DispatchLeft(s, args, methodName, location);
+            case "RIGHT":
+                return DispatchRight(s, args, methodName, location);
+            case "FIND":
+                return DispatchFind(s, args, methodName, location);
+            case "INSERT":
+                return DispatchInsert(s, args, methodName, location);
+            case "REMOVE":
+                return DispatchRemove(s, args, methodName, location);
             default:
                 throw new OslangRuntimeException(location, $"Unknown method '{methodName}' on STRING.");
         }
@@ -540,5 +550,71 @@ public static class PrimitiveMethodDispatcher
             return new NumberValue(Math.Truncate(n.Value * factor) / factor);
         }
         throw new OslangRuntimeException(location, $"{methodName}() expects 0 or 1 arguments, got {args.Count}.");
+    }
+
+    private static StringValue DispatchLeft(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 1, methodName, location);
+        var count = (int)RequireNumber(args, 0, methodName, location);
+        if (count < 0)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() count must be non-negative.");
+        }
+        if (count > s.Value.Length)
+        {
+            count = s.Value.Length;
+        }
+        return new StringValue(s.Value.Substring(0, count));
+    }
+
+    private static StringValue DispatchRight(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 1, methodName, location);
+        var count = (int)RequireNumber(args, 0, methodName, location);
+        if (count < 0)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() count must be non-negative.");
+        }
+        if (count > s.Value.Length)
+        {
+            count = s.Value.Length;
+        }
+        if (count == 0)
+        {
+            return new StringValue(string.Empty);
+        }
+        return new StringValue(s.Value.Substring(s.Value.Length - count, count));
+    }
+
+    private static NumberValue DispatchFind(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 1, methodName, location);
+        var search = RequireString(args, 0, methodName, location);
+        var index = s.Value.IndexOf(search, StringComparison.Ordinal);
+        return new NumberValue(index >= 0 ? index : -1);
+    }
+
+    private static StringValue DispatchInsert(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 2, methodName, location);
+        var index = (int)RequireNumber(args, 0, methodName, location);
+        var text = RequireString(args, 1, methodName, location);
+        if (index < 0 || index > s.Value.Length)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() index out of range.");
+        }
+        return new StringValue(s.Value.Insert(index, text));
+    }
+
+    private static StringValue DispatchRemove(StringValue s, IReadOnlyList<OslangValue> args, string methodName, SourceLocation location)
+    {
+        EnsureArgCount(args, 2, methodName, location);
+        var start = (int)RequireNumber(args, 0, methodName, location);
+        var length = (int)RequireNumber(args, 1, methodName, location);
+        if (start < 0 || length < 0 || start + length > s.Value.Length)
+        {
+            throw new OslangRuntimeException(location, $"{methodName}() arguments out of range.");
+        }
+        return new StringValue(s.Value.Remove(start, length));
     }
 }

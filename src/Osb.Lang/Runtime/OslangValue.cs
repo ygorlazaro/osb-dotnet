@@ -131,3 +131,48 @@ public sealed class EnumSetValue(string enumTypeName, HashSet<EnumValue> values)
     public override RuntimeType Type => RuntimeType.EnumSet;
     public override string TypeName => $"{enumTypeName}[]";
 }
+
+public sealed class KeyValue : OslangValue
+{
+    public string Key { get; }
+    public string? Char { get; }
+    public bool Ctrl { get; }
+    public bool Alt { get; }
+    public bool Shift { get; }
+    public override RuntimeType Type => RuntimeType.Object;
+
+    public KeyValue(string key, string? charValue, bool ctrl, bool alt, bool shift)
+    {
+        Key = key;
+        Char = charValue;
+        Ctrl = ctrl;
+        Alt = alt;
+        Shift = shift;
+    }
+}
+
+public sealed class SizeValue : OslangValue
+{
+    public int Width { get; }
+    public int Height { get; }
+    public override RuntimeType Type => RuntimeType.Object;
+
+    public SizeValue(int width, int height)
+    {
+        Width = width;
+        Height = height;
+    }
+}
+
+public sealed class CursorPositionValue : OslangValue
+{
+    public int Row { get; }
+    public int Column { get; }
+    public override RuntimeType Type => RuntimeType.Object;
+
+    public CursorPositionValue(int row, int column)
+    {
+        Row = row;
+        Column = column;
+    }
+}

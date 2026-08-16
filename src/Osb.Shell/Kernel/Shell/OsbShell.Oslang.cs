@@ -44,6 +44,8 @@ public partial class OsbShell
         }
 
         var extensions = new ExtensionRegistry();
+        var consoleHost = new ConsoleHost(extensions);
+        extensions.ConsoleHost = consoleHost;
         RegisterOsbShellExtensions(extensions);
         extensions.ForegroundColor = _env.Config.ForeColor;
         extensions.BackgroundColor = _env.Config.BackColor;
@@ -59,9 +61,19 @@ public partial class OsbShell
         {
             Console.WriteLine(ex.ToDisplayString());
         }
+        catch (AppExitException exit)
+        {
+            consoleHost.Restore();
+            Environment.Exit(exit.ExitCode);
+        }
         catch (Exception ex)
         {
+            consoleHost.Restore();
             Console.WriteLine(I18nService.Get("osl.unexpected_error", ex.Message));
+        }
+        finally
+        {
+            consoleHost.Restore();
         }
     }
 
@@ -641,6 +653,91 @@ public partial class OsbShell
             CopyDirectory(resolvedSource, resolvedDest);
             return OslangValue.Null;
         });
+
+        extensions.Register("FILE.READLINES", (args, location) =>
+        {
+            RequireArgCount(args, 1, "FILE.READLINES", location);
+            var path = RequireStringArg(args, 0, "FILE.READLINES", location);
+            var resolvedPath = ResolvePath(path, extensions);
+            if (!File.Exists(resolvedPath))
+            {
+                throw new OslangRuntimeException(location, $"FILE.READLINES() file not found: {path}");
+            }
+            var lines = File.ReadAllLines(resolvedPath)
+                .Select(l => (OslangValue)new StringValue(l))
+                .ToList();
+            return new ArrayValue(lines, RuntimeType.String);
+        });
+
+        extensions.Register("FILE.WRITELINES", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.WRITELINES", location);
+            var path = RequireStringArg(args, 0, "FILE.WRITELINES", location);
+            if (args[1] is not ArrayValue linesArray)
+            {
+                throw new OslangRuntimeException(location, $"FILE.WRITELINES() expects an ARRAY as second argument, got {args[1].TypeName}.");
+            }
+            var resolvedPath = ResolvePath(path, extensions);
+            var lines = linesArray.Items.Select(item => item is StringValue sv ? sv.Value : item.ToString()).ToList();
+            File.WriteAllLines(resolvedPath, lines);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("FILE.RENAME", (args, location) =>
+        {
+            RequireArgCount(args, 2, "FILE.RENAME", location);
+            var source = RequireStringArg(args, 0, "FILE.RENAME", location);
+            var dest = RequireStringArg(args, 1, "FILE.RENAME", location);
+            var resolvedSource = ResolvePath(source, extensions);
+            var resolvedDest = ResolvePath(dest, extensions);
+            if (!File.Exists(resolvedSource))
+            {
+                throw new OslangRuntimeException(location, $"FILE.RENAME() source not found: {source}");
+            }
+            File.Move(resolvedSource, resolvedDest);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("APP.EXIT", (args, location) =>
+        {
+            RequireArgCount(args, 1, "APP.EXIT", location);
+            var code = (int)RequireNumberArg(args, 0, "APP.EXIT", location);
+            throw new AppExitException(code);
+        });
+
+        var consoleHost = extensions.ConsoleHost;
+        if (consoleHost is not null)
+        {
+            RegisterConsoleExtensions(extensions, consoleHost);
+        }
+    }
+
+    private static void RegisterConsoleExtensions(ExtensionRegistry extensions, object consoleHostObj)
+    {
+        extensions.Register("CONSOLE.WIDTH", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("WIDTH", args, location));
+        extensions.Register("CONSOLE.HEIGHT", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("HEIGHT", args, location));
+        extensions.Register("CONSOLE.SIZE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("SIZE", args, location));
+        extensions.Register("CONSOLE.RESIZED", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("RESIZED", args, location));
+        extensions.Register("CONSOLE.SETCURSOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("SETCURSOR", args, location));
+        extensions.Register("CONSOLE.GETCURSOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("GETCURSOR", args, location));
+        extensions.Register("CONSOLE.HIDECURSOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("HIDECURSOR", args, location));
+        extensions.Register("CONSOLE.SHOWCURSOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("SHOWCURSOR", args, location));
+        extensions.Register("CONSOLE.CLEAR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("CLEAR", args, location));
+        extensions.Register("CONSOLE.CLEARLINE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("CLEARLINE", args, location));
+        extensions.Register("CONSOLE.CLEARAREA", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("CLEARAREA", args, location));
+        extensions.Register("CONSOLE.WRITE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("WRITE", args, location));
+        extensions.Register("CONSOLE.COLOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("COLOR", args, location));
+        extensions.Register("CONSOLE.RESETCOLOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("RESETCOLOR", args, location));
+        extensions.Register("CONSOLE.GETKEY", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("GETKEY", args, location));
+        extensions.Register("CONSOLE.READKEY", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("READKEY", args, location));
+        extensions.Register("CONSOLE.KEYAVAILABLE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("KEYAVAILABLE", args, location));
+        extensions.Register("CONSOLE.ENTER", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("ENTER", args, location));
+        extensions.Register("CONSOLE.EXIT", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("EXIT", args, location));
+        extensions.Register("CONSOLE.ALTERNATE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("ALTERNATE", args, location));
+        extensions.Register("CONSOLE.BEGINFRAME", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("BEGINFRAME", args, location));
+        extensions.Register("CONSOLE.ENDFRAME", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("ENDFRAME", args, location));
+        extensions.Register("CONSOLE.FLUSH", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("FLUSH", args, location));
+        extensions.Register("CONSOLE.BEEP", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("BEEP", args, location));
     }
 
     private static string LookupTranslation(string filePath, string key, string fallback)
