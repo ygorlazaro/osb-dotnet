@@ -92,7 +92,7 @@ CLASS TOUR
         ])
 
         PRINT ""
-        PRINT "=== ${I18N.GET("tour.end")} ==="
+        PRINT "=== ${I18N.GET(\"tour.end\")} ==="
         PRINT I18N.GET("tour.finished")
         PRINT I18N.GET("tour.explore")
         PRINT ""
@@ -100,7 +100,7 @@ CLASS TOUR
 
     PRIVATE FUNCTION SHOW_STEP(Num, Tit, Lines)
         PRINT ""
-        PRINT "=== ${I18N("tour.step", STR(Num), Tit)} ==="
+        PRINT "=== ${I18N(\"tour.step\", STR(Num), Tit)} ==="
         PRINT ""
         FOR I = 0 TO COUNT(Lines) - 1
             PRINT Lines[I]

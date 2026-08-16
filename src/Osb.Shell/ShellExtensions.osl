@@ -5,5 +5,5 @@ FUNCTION MAIN()
     PRINT PWD()
     PRINT ""
     SHOW I18N.GET("shell.listing_label")
-    DIR()
+    DIR.LIST(".")
 END FUNCTION

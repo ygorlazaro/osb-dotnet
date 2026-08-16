@@ -19,6 +19,9 @@ FUNCTION MAIN()
     SHOW "How many numbers do you want? "
     INPUT Quantity
     PRINT "NICE!"
+    IF Quantity = "" THEN
+        Quantity = "10"
+    END
     Total = NUMBER(Quantity)
     IF Total <= 0 THEN
         PRINT "Quantity must be greater than zero."
