@@ -28,30 +28,87 @@ public static class I18nNamespace
         try
         {
             var appDir = AppContext.BaseDirectory;
-            var i18nDir = Path.Combine(appDir, "I18N");
-            if (!Directory.Exists(i18nDir))
+            var langEntries = new Dictionary<string, List<KeyValuePair<string, string>>>(StringComparer.OrdinalIgnoreCase);
+
+            void AddEntries(string lang, IEnumerable<KeyValuePair<string, string>> entries)
             {
-                return;
+                if (!langEntries.TryGetValue(lang, out var list))
+                {
+                    list = new List<KeyValuePair<string, string>>();
+                    langEntries[lang] = list;
+                }
+
+                list.AddRange(entries);
             }
 
-            foreach (var file in Directory.GetFiles(i18nDir, "*.I18N").Concat(Directory.GetFiles(i18nDir, "*.i18n")))
+            var i18nDir = Path.Combine(appDir, "I18N");
+            if (Directory.Exists(i18nDir))
             {
-                var fileName = Path.GetFileNameWithoutExtension(file);
-                var dotIndex = fileName.IndexOf('.');
-                var lang = dotIndex >= 0 ? fileName[(dotIndex + 1)..].ToUpperInvariant() : fileName.ToUpperInvariant();
-                if (string.IsNullOrEmpty(lang))
+                foreach (var file in Directory.GetFiles(i18nDir, "*.I18N").Concat(Directory.GetFiles(i18nDir, "*.i18n")))
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(file);
+                    var dotIndex = fileName.IndexOf('.');
+                    var lang = dotIndex >= 0 ? fileName[(dotIndex + 1)..].ToUpperInvariant() : fileName.ToUpperInvariant();
+                    if (string.IsNullOrEmpty(lang))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var entries = LoadEntriesFromPath(file, SourceLocation.Unknown, prefix: null);
+                        AddEntries(lang, entries);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            var subDirs = Directory.GetDirectories(appDir, "I18N", SearchOption.AllDirectories);
+            foreach (var subDir in subDirs)
+            {
+                var prefix = Path.GetFileName(Path.GetDirectoryName(subDir))?.ToLowerInvariant();
+                if (string.IsNullOrEmpty(prefix))
                 {
                     continue;
                 }
 
+                foreach (var file in Directory.GetFiles(subDir, "*.I18N").Concat(Directory.GetFiles(subDir, "*.i18n")))
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(file);
+                    var dotIndex = fileName.IndexOf('.');
+                    var lang = dotIndex >= 0 ? fileName[(dotIndex + 1)..].ToUpperInvariant() : fileName.ToUpperInvariant();
+                    if (string.IsNullOrEmpty(lang))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var entries = LoadEntriesFromPath(file, SourceLocation.Unknown, prefix);
+                        AddEntries(lang, entries);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            foreach (var kvp in langEntries)
+            {
                 try
                 {
-                    var entries = LoadEntriesFromPath(file, SourceLocation.Unknown);
-                    var resource = new I18nResource(lang, entries);
-                    _resources.AddOrUpdate(lang, resource, (_, _) => resource);
+                    var resource = new I18nResource(kvp.Key, kvp.Value);
+                    _resources.AddOrUpdate(kvp.Key, resource, (_, _) => resource);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Console.WriteLine($"[I18N DEBUG] Failed to create resource for {kvp.Key}: {ex.Message}");
+                    foreach (var entry in kvp.Value.Take(5))
+                    {
+                        Console.WriteLine($"[I18N DEBUG]   entry: {entry.Key} = {entry.Value}");
+                    }
                 }
             }
         }
@@ -314,6 +371,15 @@ public static class I18nNamespace
             return template;
         }
 
+        if (!string.IsNullOrEmpty(basePath))
+        {
+            EnsureResourceLoaded(lang, basePath);
+            if (_resources.TryGetValue(lang, out resource) && resource.TryGet(key, out template))
+            {
+                return template;
+            }
+        }
+
         if (!string.IsNullOrEmpty(_fallbackLanguage) && _resources.TryGetValue(_fallbackLanguage, out var fallback) && fallback.TryGet(key, out template))
         {
             return template;
@@ -334,18 +400,29 @@ public static class I18nNamespace
 
     private static void EnsureResourceLoaded(string lang, string? basePath)
     {
-        if (_resources.ContainsKey(lang))
+        var entries = LoadEntriesFromDisk(lang, basePath);
+        if (!entries.Any())
         {
             return;
         }
 
-        var entries = LoadEntriesFromDisk(lang, basePath);
         var resource = new I18nResource(lang, entries);
-        _resources.TryAdd(lang, resource);
+        _resources.AddOrUpdate(lang, resource, (_, _) => resource);
     }
 
     private static IEnumerable<KeyValuePair<string, string>> LoadEntriesFromDisk(string lang, string? basePath)
     {
+        string? prefix = null;
+        if (!string.IsNullOrEmpty(basePath))
+        {
+            var trimmed = basePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var appName = Path.GetFileName(trimmed);
+            if (!string.IsNullOrEmpty(appName))
+            {
+                prefix = appName.ToLowerInvariant();
+            }
+        }
+
         var dirs = new List<string?>();
         if (!string.IsNullOrEmpty(basePath))
         {
@@ -365,20 +442,20 @@ public static class I18nNamespace
             var upperPath = Path.Combine(dir, lang + ".I18N");
             if (File.Exists(upperPath))
             {
-                return LoadEntriesFromPath(upperPath, SourceLocation.Unknown);
+                return LoadEntriesFromPath(upperPath, SourceLocation.Unknown, prefix);
             }
 
             var lowerPath = Path.Combine(dir, lang + ".i18n");
             if (File.Exists(lowerPath))
             {
-                return LoadEntriesFromPath(lowerPath, SourceLocation.Unknown);
+                return LoadEntriesFromPath(lowerPath, SourceLocation.Unknown, prefix);
             }
         }
 
         return [];
     }
 
-    private static IEnumerable<KeyValuePair<string, string>> LoadEntriesFromPath(string path, SourceLocation location)
+    private static IEnumerable<KeyValuePair<string, string>> LoadEntriesFromPath(string path, SourceLocation location, string? prefix = null)
     {
         if (!File.Exists(path))
         {
@@ -404,6 +481,11 @@ public static class I18nNamespace
             if (string.IsNullOrEmpty(key))
             {
                 throw new OslangRuntimeException(location, $"Empty I18N key in '{path}'.");
+            }
+
+            if (!string.IsNullOrEmpty(prefix))
+            {
+                key = $"{prefix}.{key}";
             }
 
             var value = line[(eq + 1)..];
