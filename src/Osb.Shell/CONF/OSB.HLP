@@ -179,6 +179,7 @@ PRINT = Imprime um arquivo
 PROMPT = Personaliza o layout do prompt
 PWD = Exibe o diretório atual
 RD = Remove um diretório vazio
+RECOVER = Recupera um arquivo ou diretório da lixeira
 REN = Renomeia arquivos com suporte a curingas
 SET = Gerencia variáveis de ambiente
 SIZE = Exibe o tamanho de um arquivo

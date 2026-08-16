@@ -179,6 +179,7 @@ PRINT = Print a file
 PROMPT = Customize the prompt layout
 PWD = Display the current directory
 RD = Remove an empty directory
+RECOVER = Recover a file or directory from trash
 REN = Rename files with wildcard support
 SET = Manage environment variables
 SIZE = Display the size of a file

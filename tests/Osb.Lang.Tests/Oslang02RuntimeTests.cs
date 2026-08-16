@@ -10,10 +10,10 @@ namespace Osb.Lang.Tests;
 
 public class Oslang02RuntimeTests
 {
-    private OslangValue Execute(string source, StringWriter? output = null, string? basePath = null)
+    private OslangValue Execute(string source, StringWriter? output = null, TextReader? input = null, string? basePath = null)
     {
         var interpreter = new OslangInterpreter();
-        return interpreter.Execute(source, output ?? new StringWriter(), basePath: basePath);
+        return interpreter.Execute(source, output ?? new StringWriter(), input: input, basePath: basePath);
     }
 
     [Fact]
@@ -1183,6 +1183,980 @@ END FUNCTION";
 
         Execute(source, output);
         Assert.Equal("Hello" + Environment.NewLine + "World\tTab" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void IfStatement_TrueCondition_ExecutesThenBlock()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    IF TRUE THEN
+        PRINT ""Yes""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Yes" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void IfStatement_FalseCondition_ExecutesElseBlock()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    IF FALSE THEN
+        PRINT ""Yes""
+    ELSE
+        PRINT ""No""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("No" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ElifStatement_SecondCondition_ExecutesCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    X = 2
+    IF X = 1 THEN
+        PRINT ""One""
+    ELIF X = 2 THEN
+        PRINT ""Two""
+    ELSE
+        PRINT ""Other""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Two" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void WhileLoop_IteratesCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    I = 1
+    WHILE I <= 3
+        PRINT I
+        I = I + 1
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void DoWhileLoop_ExecutesAtLeastOnce()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    I = 1
+    DO WHILE I <= 3
+        PRINT I
+        I = I + 1
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ForLoop_CountsUpCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    FOR I = 1 TO 3
+        PRINT I
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ForLoop_CountsDownWithStep()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    FOR I = 3 TO 1 STEP -1
+        PRINT I
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine + "2" + Environment.NewLine + "1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void BreakStatement_ExitsLoop()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    FOR I = 1 TO 10
+        IF I = 4 THEN
+            BREAK
+        END
+        PRINT I
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ContinueStatement_SkipsIteration()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    FOR I = 1 TO 5
+        IF I = 3 THEN
+            CONTINUE
+        END
+        PRINT I
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "4" + Environment.NewLine + "5" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ReturnStatement_ExitsFunction()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT TEST()
+    PRINT ""After""
+END FUNCTION
+
+FUNCTION TEST()
+    RETURN 42
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("42" + Environment.NewLine + "After" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void TryCatch_HandlesRuntimeError()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    TRY
+        PRINT 10 / 0
+    CATCH err
+        PRINT ""Caught: "" + err
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Caught: Division by zero." + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NewOperator_CreatesInstance()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS Person
+    PUBLIC VAR Name String
+END CLASS
+
+FUNCTION MAIN()
+    P = NEW Person()
+    P.Name = ""Alice""
+    PRINT P.Name
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Alice" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NullValue_ComparesCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    X = NULL
+    IF X = NULL THEN
+        PRINT ""Null""
+    ELSE
+        PRINT ""Not null""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Null" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void BooleanOperators_AndOr_WorkCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT TRUE AND FALSE
+    PRINT TRUE OR FALSE
+    PRINT NOT TRUE
+    PRINT TRUE AND TRUE
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("FALSE" + Environment.NewLine + "TRUE" + Environment.NewLine + "FALSE" + Environment.NewLine + "TRUE" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ComparisonOperators_WorkCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT 5 = 5
+    PRINT 5 <> 3
+    PRINT 3 < 5
+    PRINT 5 > 3
+    PRINT 3 <= 3
+    PRINT 5 >= 5
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("TRUE" + Environment.NewLine + "TRUE" + Environment.NewLine + "TRUE" + Environment.NewLine + "TRUE" + Environment.NewLine + "TRUE" + Environment.NewLine + "TRUE" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringConcatenation_WithPlus_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Result = ""Hello"" + "" "" + ""World""
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello World" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArithmeticOperators_WorkCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT 10 + 5
+    PRINT 10 - 3
+    PRINT 4 * 7
+    PRINT 20 / 4
+    PRINT 10 % 3
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("15" + Environment.NewLine + "7" + Environment.NewLine + "28" + Environment.NewLine + "5" + Environment.NewLine + "1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void UnaryMinus_NegatesNumber()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT -5
+    PRINT -(-3)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("-5" + Environment.NewLine + "3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void VariableDeclaration_WithType_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    VAR Total NUMBER
+    Total = 42
+    PRINT Total
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("42" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void FunctionParameters_AndReturn_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Result = ADD(3, 4)
+    PRINT Result
+END FUNCTION
+
+FUNCTION ADD(A NUMBER, B NUMBER)
+    RETURN A + B
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("7" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void RecursiveFunction_ComputesFactorial()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT FACTORIAL(5)
+END FUNCTION
+
+FUNCTION FACTORIAL(N NUMBER)
+    IF N <= 1 THEN
+        RETURN 1
+    END
+    RETURN N * FACTORIAL(N - 1)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("120" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringMethods_ToUpperToLowerTrimLengthSubstr_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT ""hello"".TOUPPER()
+    PRINT ""HELLO"".TOLOWER()
+    PRINT ""  hi  "".TRIM()
+    PRINT ""abc"".COUNT()
+    PRINT ""abc"".SUBSTR(0, 2)
+    PRINT ""hello"".CONTAINS(""ell"")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("HELLO" + Environment.NewLine + "hello" + Environment.NewLine + "hi" + Environment.NewLine + "3" + Environment.NewLine + "ab" + Environment.NewLine + "TRUE" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringMethod_Reverse_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT ""hello"".REVERSE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("olleh" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void StringMethod_Normalize_RemovesDiacritics()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT ""Açúcar"".NORMALIZE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("ACUCAR" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayMethods_CountFirstLastSortJoin_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [3, 1, 2]
+    PRINT N.COUNT()
+    PRINT N.FIRST()
+    PRINT N.LAST()
+    PRINT N.SORT().JOIN("","")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine + "3" + Environment.NewLine + "2" + Environment.NewLine + "1,2,3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayMethod_IndexOf_ReturnsCorrectIndex()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [10, 20, 30]
+    PRINT N.INDEXOF(20)
+    PRINT N.INDEXOF(99)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "-1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayMethod_Remove_RemovesFirstOccurrence()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [1, 2, 3, 2]
+    N.REMOVE(2)
+    PRINT N.JOIN("","")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1,2,3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayMethod_Reverse_ReversesInPlace()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [1, 2, 3]
+    N.REVERSE()
+    PRINT N.JOIN("","")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3,2,1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void TypeConversion_StrNumberBool_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT STR(42)
+    PRINT NUMBER(""3.14"")
+    PRINT BOOL(1)
+    PRINT BOOL(0)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("42" + Environment.NewLine + "3.14" + Environment.NewLine + "TRUE" + Environment.NewLine + "FALSE" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void MathSqrt_PowFloorCeil_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT MATH.SQRT(9)
+    PRINT MATH.POW(2, 3)
+    PRINT MATH.FLOOR(3.7)
+    PRINT MATH.CEIL(3.1)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine + "8" + Environment.NewLine + "3" + Environment.NewLine + "4" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void DivisionByZero_ThrowsRuntimeError()
+    {
+        var source = @"
+FUNCTION MAIN()
+    PRINT 10 / 0
+END FUNCTION";
+
+        Assert.Throws<OslangRuntimeException>(() => Execute(source));
+    }
+
+    [Fact]
+    public void ArrayIndexOutOfBounds_ThrowsRuntimeError()
+    {
+        var source = @"
+FUNCTION MAIN()
+    X = [1, 2, 3]
+    PRINT X[5]
+END FUNCTION";
+
+        Assert.Throws<OslangRuntimeException>(() => Execute(source));
+    }
+
+    [Fact]
+    public void UndefinedVariable_ThrowsRuntimeError()
+    {
+        var source = @"
+FUNCTION MAIN()
+    PRINT UndefinedVar
+END FUNCTION";
+
+        Assert.Throws<OslangRuntimeException>(() => Execute(source));
+    }
+
+    [Fact]
+    public void PostfixDecrement_ReturnsOriginalValue()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Counter = 10
+    Value = Counter--
+    PRINT Value
+    PRINT Counter
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("10" + Environment.NewLine + "9" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void PrefixIncrement_SyntaxError()
+    {
+        var source = @"
+FUNCTION MAIN()
+    ++Counter
+END FUNCTION";
+
+        Assert.Throws<SyntaxException>(() => Execute(source));
+    }
+
+    [Fact]
+    public void SwitchExpression_ReturnsValue()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Day = 2
+    Name = SWITCH Day
+        CASE 1 => ""Monday""
+        CASE 2 => ""Tuesday""
+        DEFAULT => ""Unknown""
+    PRINT Name
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Tuesday" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ForEachLoop_IteratesArray()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    Sum = 0
+    Numbers = [1, 2, 3, 4]
+    Numbers.FOREACH(X =>
+        Sum = Sum + X
+    END)
+    PRINT Sum
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("10" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void Comments_AreIgnored()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    REM This is a comment
+    PRINT ""Hello"" REM inline comment
+    ' Another comment
+    PRINT ""World""
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello" + Environment.NewLine + "World" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void CaseInsensitive_Keywords_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+function main()
+    print ""Hello""
+end function";
+
+        Execute(source, output);
+        Assert.Equal("Hello" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NestedFunctionCalls_Work()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT ADD(2, MULTIPLY(3, 4))
+END FUNCTION
+
+FUNCTION ADD(A NUMBER, B NUMBER)
+    RETURN A + B
+END FUNCTION
+
+FUNCTION MULTIPLY(A NUMBER, B NUMBER)
+    RETURN A * B
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("14" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void MemberAccess_OnObject_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS Point
+    PUBLIC VAR X NUMBER
+    PUBLIC VAR Y NUMBER
+END CLASS
+
+FUNCTION MAIN()
+    P = NEW Point()
+    P.X = 10
+    P.Y = 20
+    PRINT P.X
+    PRINT P.Y
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("10" + Environment.NewLine + "20" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void MeKeyword_RefersToCurrentInstance()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS Counter
+    PRIVATE VAR Value NUMBER
+    
+    PUBLIC CONSTRUCTOR()
+        ME.Value = 0
+    END
+    
+    PUBLIC INCREMENT()
+        ME.Value = ME.Value + 1
+    END
+    
+    PUBLIC GET()
+        RETURN ME.Value
+    END
+END CLASS
+
+FUNCTION MAIN()
+    C = NEW Counter()
+    C.INCREMENT()
+    C.INCREMENT()
+    PRINT C.GET()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("2" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void BaseCall_WithArguments_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS Person
+    PUBLIC VAR Name String
+    
+    PUBLIC CONSTRUCTOR(Name String)
+        ME.Name = Name
+    END
+END CLASS
+
+CLASS Employee: Person
+    PUBLIC VAR Id NUMBER
+    
+    PUBLIC CONSTRUCTOR(Name String, Id NUMBER)
+        BASE(Name)
+        ME.Id = Id
+    END
+    
+    PUBLIC DESCRIBE()
+        RETURN ME.Name + "" (#"" + STR(ME.Id) + "")""
+    END
+END CLASS
+
+FUNCTION MAIN()
+    E = NEW Employee(""Alice"", 123)
+    PRINT E.DESCRIBE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Alice (#123)" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void EnumSet_Contains_Works()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Color
+    RED
+    GREEN
+    BLUE
+END
+
+FUNCTION MAIN()
+    C = Color.RED
+    PRINT C.NAME()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("RED" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void DefaultBranch_SwitchExpression_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    X = 99
+    Result = SWITCH X
+        CASE 1 => ""One""
+        CASE 2 => ""Two""
+        DEFAULT => ""Other""
+    PRINT Result
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Other" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NestedArray_Access_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    Matrix = [[1, 2], [3, 4]]
+    PRINT Matrix[0][0]
+    PRINT Matrix[0][1]
+    PRINT Matrix[1][0]
+    PRINT Matrix[1][1]
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "3" + Environment.NewLine + "4" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NumberTrunc_WithDefaultPrecision_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT 3.14159.TRUNC()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void NumberTrunc_WithPrecision_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT 3.14159.TRUNC(2)
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3.14" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayPushPop_WorkCorrectly()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [1, 2]
+    N.PUSH(3)
+    PRINT N.JOIN("","")
+    Last = N.POP()
+    PRINT Last
+    PRINT N.JOIN("","")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1,2,3" + Environment.NewLine + "3" + Environment.NewLine + "1,2" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ArrayFlat_FlattensNestedArrays()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    M = [[1, 2], [3, 4]]
+    F = M.FLAT()
+    PRINT F.JOIN("","")
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1,2,3,4" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ModOperator_KeywordForm_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    PRINT 10 MOD 3
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void InputStatement_ReadsUserInput()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    INPUT Name
+    PRINT Name
+END FUNCTION";
+
+        Execute(source, output, input: new StringReader("Alice"));
+        Assert.Equal("Alice" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void TypeOf_ReturnsClassNameForInstance()
+    {
+        var output = new StringWriter();
+        var source = @"
+CLASS Foo
+END CLASS
+
+FUNCTION MAIN()
+    PRINT TYPEOF(NEW Foo())
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("FOO" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void ShowStatement_NoTrailingNewline()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    SHOW ""Hello ""
+    SHOW ""World""
+    PRINT """"
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Hello World" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void SwitchStatement_WithBreak_Works()
+    {
+        var output = new StringWriter();
+        var source = @"FUNCTION MAIN()
+    X = 2
+    SWITCH X
+        CASE 1
+            PRINT ""One""
+        CASE 2
+            PRINT ""Two""
+        CASE 3
+            PRINT ""Three""
+        DEFAULT
+            PRINT ""Other""
+    END
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("Two" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void EnumDeclaration_WithValues_Works()
+    {
+        var output = new StringWriter();
+        var source = @"ENUM Color
+    RED = 1
+    GREEN = 2
+    BLUE = 4
+END
+
+FUNCTION MAIN()
+    PRINT Color.RED.VALUE()
+    PRINT Color.GREEN.VALUE()
+    PRINT Color.BLUE.VALUE()
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine + "4" + Environment.NewLine, output.ToString());
+    }
+
+    [Fact]
+    public void OslI18n_Keys_ReturnsAllKeys()
+    {
+        var output = new StringWriter();
+        var source = @"
+USING OSL.I18N
+
+FUNCTION MAIN()
+    Keys = I18N.KEYS()
+    PRINT COUNT(Keys)
+END FUNCTION";
+
+        Execute(source, output);
+        var count = int.Parse(output.ToString().Trim());
+        Assert.True(count > 0, $"Expected at least 1 I18N key, got {count}");
+    }
+
+    [Fact]
+    public void ArrayFindIndex_WithLambda_Works()
+    {
+        var output = new StringWriter();
+        var source = @"
+FUNCTION MAIN()
+    N = [1, 2, 3, 4, 5]
+    Idx = N.FINDINDEX(X => X > 3)
+    PRINT Idx
+END FUNCTION";
+
+        Execute(source, output);
+        Assert.Equal("3" + Environment.NewLine, output.ToString());
     }
 }
 
