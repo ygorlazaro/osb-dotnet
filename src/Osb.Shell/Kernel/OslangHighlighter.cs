@@ -12,17 +12,17 @@ public static class OslangHighlighter
     public const string AnsiNumber = "\u001b[95m";
     public const string AnsiComment = "\u001b[90m";
     public const string AnsiOperator = "\u001b[97m";
-    public const string AnsiMethod = "\u001b[38;5;117m";
+    public const string AnsiMethod = "\u001b[94m";
     public const string AnsiPunctuation = "\u001b[37m";
 
     private static readonly HashSet<string> Keywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        "AND", "BASE", "BOOL", "BREAK", "CATCH", "CEIL", "CLASS", "CLEAR", "CLS", "CONSTRUCTOR",
+        "AND", "BASE", "BOOL", "BOOLEAN", "BREAK", "CATCH", "CEIL", "CLASS", "CLEAR", "CLS", "CONSTRUCTOR",
         "CONTINUE", "COUNT", "DO", "ELIF", "ELSE", "END", "FALSE", "FLOOR", "FOR", "FUNCTION",
         "GLOBAL", "IF", "INPUT", "INTERFACE", "KISS", "ME", "NEW", "NOT", "OR", "POW", "PRINT", "PRIVATE",
-        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
+        "PROTECTED", "PUBLIC", "RETURN", "SQRT", "STEP", "STR", "STRING", "THEN", "TO", "TRUE", "TRY", "TYPE", "WHILE",
         "SWITCH", "CASE", "DEFAULT", "VIRTUAL", "OVERRIDE", "EVENT", "ON", "RAISE", "USING",
-        "MATH", "FILE", "DIR", "DATE", "TIME", "SHOW", "MOD", "TYPEOF", "ENUM", "IN", "IS", "AS", "LET"
+        "MATH", "FILE", "DIR", "DATE", "TIME", "SHOW", "MOD", "TYPEOF", "ENUM", "OSL"
     };
 
     private static readonly HashSet<string> Types = new(StringComparer.OrdinalIgnoreCase)
@@ -43,7 +43,7 @@ public static class OslangHighlighter
 
     private static readonly HashSet<string> Operators = new(StringComparer.OrdinalIgnoreCase)
     {
-        "**", "++", "--", "+=", "MOD", "=", "<>", "<", ">", "<=", ">=", "+", "-", "*", "/", "%"
+        "**", "++", "--", "+=", "=>", "%", "*", "/", "+", "-", "=", "<>", "<", ">", "<=", ">=", "MOD"
     };
 
     public static string Highlight(string line, int maxVisibleWidth)
@@ -165,7 +165,7 @@ public static class OslangHighlighter
                 continue;
             }
 
-            if (line[i] == '(' || line[i] == ')' || line[i] == '[' || line[i] == ']' || line[i] == '{' || line[i] == '}' || line[i] == ',')
+            if (line[i] == '(' || line[i] == ')' || line[i] == '[' || line[i] == ']' || line[i] == '{' || line[i] == '}' || line[i] == ',' || line[i] == ':')
             {
                 yield return (line[i..(i + 1)], AnsiPunctuation);
                 i++;
@@ -179,14 +179,20 @@ public static class OslangHighlighter
                 continue;
             }
 
-            if (i + 1 < line.Length && Operators.Contains(line.Substring(i, Math.Min(3, line.Length - i))))
+            if (i + 1 < line.Length)
             {
-                var opLen = 3;
-                if (!Operators.Contains(line.Substring(i, 3))) opLen = 2;
-                if (!Operators.Contains(line.Substring(i, opLen))) opLen = 1;
-                yield return (line[i..(i + opLen)], AnsiOperator);
-                i += opLen;
-                continue;
+                var maxLen = Math.Min(3, line.Length - i);
+                var opLen = maxLen;
+                while (opLen > 0 && !Operators.Contains(line.Substring(i, opLen)))
+                {
+                    opLen--;
+                }
+                if (opLen > 0)
+                {
+                    yield return (line[i..(i + opLen)], AnsiOperator);
+                    i += opLen;
+                    continue;
+                }
             }
 
             yield return (line[i..(i + 1)], AnsiReset);
@@ -200,6 +206,7 @@ public static class OslangHighlighter
         return ext switch
         {
             ".osl" => "OSLANG",
+            ".oslang" => "OSLANG",
             ".cfg" => "CONFIG",
             ".i18n" => "I18N",
             ".hlp" => "HELP",

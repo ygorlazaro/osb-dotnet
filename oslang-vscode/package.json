@@ -30,7 +30,8 @@
           "oslang"
         ],
         "extensions": [
-          ".osl"
+          ".osl",
+          ".oslang"
         ],
         "configuration": "./language-configuration.json"
       }

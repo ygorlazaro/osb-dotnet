@@ -1,7 +1,7 @@
 {
   "scopeName": "source.oslang",
   "name": "OSLANG 0.61",
-  "fileTypes": [".osl"],
+  "fileTypes": [".osl", ".oslang"],
   "patterns": [
     {
       "include": "#comments"
@@ -93,15 +93,15 @@
       "patterns": [
         {
           "name": "keyword.control.oslang",
-          "match": "(?i)\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH|SWITCH|CASE|DEFAULT|ON|RAISE|IN|IS|AS)\\b"
+          "match": "(?i)\\b(AND|BREAK|CONTINUE|DO|ELIF|ELSE|END|FOR|IF|NOT|OR|RETURN|STEP|THEN|TO|WHILE|TRY|CATCH|SWITCH|CASE|DEFAULT|ON|RAISE)\\b"
         },
         {
           "name": "keyword.declaration.oslang",
-          "match": "(?i)\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL|USING|EVENT|ENUM|LET)\\b"
+          "match": "(?i)\\b(CONSTRUCTOR|FUNCTION|CLASS|INTERFACE|VAR|GLOBAL|USING|EVENT|ENUM)\\b"
         },
         {
           "name": "keyword.other.oslang",
-          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL|NUMBER|STRING|BOOLEAN|ARRAY|OBJECT|DATE|TIME)\\b"
+          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL|NUMBER|STRING|BOOLEAN|ARRAY|OBJECT|DATE|TIME|OSL)\\b"
         },
         {
           "name": "storage.modifier.oslang",
@@ -125,7 +125,7 @@
       "patterns": [
         {
           "name": "keyword.operator.arithmetic.oslang",
-          "match": "\\*\\*|\\+\\+|--|\\+=|%|\\*|\\/"
+          "match": "\\*\\*|\\+\\+|--|\\+=|=>|%|\\*|\\/"
         },
         {
           "name": "keyword.operator.comparison.oslang",
@@ -134,6 +134,10 @@
         {
           "name": "keyword.operator.logical.oslang",
           "match": "\\bAND\\b|\\bOR\\b|\\bNOT\\b|\\bMOD\\b"
+        },
+        {
+          "name": "keyword.operator.arrow.oslang",
+          "match": "=>"
         }
       ]
     },

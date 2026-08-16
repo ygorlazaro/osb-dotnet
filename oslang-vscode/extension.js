@@ -8,7 +8,7 @@ const KEYWORDS = [
   'STEP', 'STR', 'STRING', 'SWITCH', 'CASE', 'DEFAULT', 'THEN', 'TO', 'TRUE',
   'TRY', 'TYPEOF', 'USING', 'VAR', 'VIRTUAL', 'OVERRIDE', 'EVENT', 'ON', 'RAISE',
   'WHILE', 'OBJECT', 'TYPE', 'CLS', 'CLEAR', 'MATH', 'FILE', 'DIR', 'DATE', 'TIME',
-  'SHOW', 'MOD', 'ENUM', 'IN', 'IS', 'AS', 'LET', 'RAISE'
+  'SHOW', 'MOD', 'ENUM', 'OSL'
 ];
 
 const BUILTINS = [
@@ -49,70 +49,6 @@ const DIR_METHODS = [
 const DATE_METHODS = [
   'NOW', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'WEEKDAY', 'FORMAT'
 ];
-
-function getMethodHover(methodName) {
-  const docs = {
-    'SQRT': 'MATH.SQRT(x) - Returns the square root of x',
-    'POW': 'MATH.POW(base, exp) - Returns base raised to the power of exp',
-    'FLOOR': 'MATH.FLOOR(x) - Returns the largest integer less than or equal to x',
-    'CEIL': 'MATH.CEIL(x) - Returns the smallest integer greater than or equal to x',
-    'ABS': 'MATH.ABS(x) - Returns the absolute value of x',
-    'SIN': 'MATH.SIN(x) - Returns the sine of x (radians)',
-    'COS': 'MATH.COS(x) - Returns the cosine of x (radians)',
-    'TAN': 'MATH.TAN(x) - Returns the tangent of x (radians)',
-    'PI': 'MATH.PI - Returns the value of PI (3.14159...)',
-    'RANDOM': 'MATH.RANDOM(max) - Returns a random integer from 0 to max-1',
-    'MAX': 'MATH.MAX(a, b) - Returns the larger of two numbers',
-    'MIN': 'MATH.MIN(a, b) - Returns the smaller of two numbers',
-    'LENGTH': 'Returns the length of a string',
-    'TOUPPER': 'Returns the string converted to uppercase',
-    'TOLOWER': 'Returns the string converted to lowercase',
-    'TRIM': 'Returns the string with leading/trailing whitespace removed',
-    'SUBSTR': 'Returns a substring starting at index with optional length',
-    'CONTAINS': 'Returns TRUE if the string contains the given substring',
-    'REVERSE': 'Returns the string reversed',
-    'NORMALIZE': 'Returns the string with diacritics removed',
-    'REPEAT': 'Returns the string repeated n times',
-    'PADSTART': 'Returns the string padded to length with padChar on the left',
-    'PADEND': 'Returns the string padded to length with padChar on the right',
-    'COUNT': 'Returns the number of elements in an array or string',
-    'FIRST': 'Returns the first element of an array',
-    'LAST': 'Returns the last element of an array',
-    'SORT': 'Returns a new sorted array',
-    'JOIN': 'Returns a string with array elements joined by separator',
-    'INDEXOF': 'Returns the index of the first occurrence of value, or -1',
-    'REMOVE': 'Removes the first occurrence of value from the array',
-    'REVERSE': 'Reverses the array in place',
-    'FLAT': 'Returns a new array with all nested arrays flattened',
-    'PUSH': 'Adds an element to the end of the array',
-    'POP': 'Removes and returns the last element of the array',
-    'FINDINDEX': 'Returns the index of the first element matching the predicate',
-    'STR': 'STR(x) - Converts x to a string',
-    'NUMBER': 'NUMBER(s) - Converts s to a number',
-    'BOOL': 'BOOL(x) - Converts x to a boolean',
-    'TYPEOF': 'TYPEOF(x) - Returns the type name of x as a string',
-    'TRUNC': 'TRUNC(x) or TRUNC(x, precision) - Truncates a number',
-    'NOW': 'DATE.NOW() - Returns the current date and time',
-    'FORMAT': 'DATE.FORMAT(d, pattern) - Formats a date using a pattern',
-    'EXISTS': 'FILE.EXISTS(path) or DIR.EXISTS(path) - Checks if file/directory exists',
-    'READ': 'FILE.READ(path) - Reads the entire file as a string',
-    'WRITE': 'FILE.WRITE(path, content) - Writes content to a file',
-    'APPEND': 'FILE.APPEND(path, content) - Appends content to a file',
-    'DELETE': 'FILE.DELETE(path) or DIR.DELETE(path) - Deletes a file or directory',
-    'LIST': 'DIR.LIST(path) - Lists files and directories in path',
-    'FILES': 'DIR.FILES(path) - Lists only files in path',
-    'DIRS': 'DIR.DIRS(path) - Lists only directories in path',
-    'CREATE': 'DIR.CREATE(path) - Creates a directory',
-    'CURRENT': 'DIR.CURRENT() - Returns the current directory path',
-    'GET': 'I18N.GET(key) - Returns the translated string for the given key',
-    'HAS': 'I18N.HAS(key) - Returns TRUE if the key exists in the current language',
-    'KEYS': 'I18N.KEYS() - Returns an array of all available translation keys',
-    'LANGUAGE': 'I18N.LANGUAGE() - Returns the current active language code',
-    'SETLANGUAGE': 'I18N.SETLANGUAGE(lang) - Sets the active language',
-    'LANGUAGES': 'I18N.LANGUAGES() - Returns an array of available language codes'
-  };
-  return docs[methodName.toUpperCase()] || `${methodName} - OSLANG built-in`;
-}
 
 function getSignatureHelp(methodName) {
   const signatures = {
@@ -388,7 +324,6 @@ class OslangHoverProvider {
       ['BASE', 'BASE(args) - Calls the parent constructor'],
       ['ME', 'ME - Refers to the current instance inside a class']
     ]);
-    this.docs = new Map(this.docs);
   }
 
   provideHover(document, position, token) {
