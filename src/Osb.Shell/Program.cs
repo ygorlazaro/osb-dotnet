@@ -5,7 +5,7 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; };
 
 var debugMode = Environment.GetCommandLineArgs().Contains("--debug");
 
-var env = new OsbEnvironment(debugMode);
+var env = new OsbEnvironment(debugMode, Path.Combine(AppContext.BaseDirectory, ".osb"));
 var shell = new OsbShell(env, debugMode);
 
 var argsList = Environment.GetCommandLineArgs().Skip(1).ToArray();

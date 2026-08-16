@@ -2,7 +2,7 @@ namespace Osb.Shell.Kernel;
 
 /// <summary>
 /// OSB environment configuration and paths.
-/// Uses the current working directory as the base for OSB data.
+/// Uses the application base directory as the base for OSB data, making OSB self-sufficient.
 /// </summary>
 public class OsbEnvironment
 {
@@ -20,10 +20,10 @@ public class OsbEnvironment
     public UserManager Users { get; private set; } = null!;
     public bool DebugMode { get; }
 
-    public OsbEnvironment(bool debugMode = false)
+    public OsbEnvironment(bool debugMode = false, string? homeDir = null)
     {
         DebugMode = debugMode;
-        HomeDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
+        HomeDir = homeDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".osb");
         var firstBoot = EnsureInstalled();
         Config = OsbConfig.Load(ConfigFile);
         Prompt = PromptConfig.Load(HomeDir);
