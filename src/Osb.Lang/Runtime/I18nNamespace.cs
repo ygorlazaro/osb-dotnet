@@ -28,17 +28,20 @@ public static class I18nNamespace
         try
         {
             var appDir = AppContext.BaseDirectory;
-            var langEntries = new Dictionary<string, List<KeyValuePair<string, string>>>(StringComparer.OrdinalIgnoreCase);
+            var langEntries = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
 
             void AddEntries(string lang, IEnumerable<KeyValuePair<string, string>> entries)
             {
-                if (!langEntries.TryGetValue(lang, out var list))
+                if (!langEntries.TryGetValue(lang, out var dict))
                 {
-                    list = new List<KeyValuePair<string, string>>();
-                    langEntries[lang] = list;
+                    dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    langEntries[lang] = dict;
                 }
 
-                list.AddRange(entries);
+                foreach (var entry in entries)
+                {
+                    dict[entry.Key] = entry.Value;
+                }
             }
 
             var i18nDir = Path.Combine(appDir, "I18N");
@@ -99,16 +102,11 @@ public static class I18nNamespace
             {
                 try
                 {
-                    var resource = new I18nResource(kvp.Key, kvp.Value);
+                    var resource = new I18nResource(kvp.Key, kvp.Value.Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value)));
                     _resources.AddOrUpdate(kvp.Key, resource, (_, _) => resource);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"[I18N DEBUG] Failed to create resource for {kvp.Key}: {ex.Message}");
-                    foreach (var entry in kvp.Value.Take(5))
-                    {
-                        Console.WriteLine($"[I18N DEBUG]   entry: {entry.Key} = {entry.Value}");
-                    }
                 }
             }
         }

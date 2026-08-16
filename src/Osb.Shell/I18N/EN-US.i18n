@@ -231,7 +231,6 @@ misc.saved_to=Saved to {0}
 misc.error_saving=Error saving: {0}
 misc.unsaved_changes=There are unsaved changes. Exit anyway? (Y/N)
 misc.about_contact=For more information about OSB, contact us.
-misc.about_hint=Type ABOUT for more information
 
 # Calendar
 calendar.usage=Usage: CAL [month] [year]  or  CAL <year>
