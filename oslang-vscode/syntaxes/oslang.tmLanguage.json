@@ -13,10 +13,10 @@
       "include": "#numbers"
     },
     {
-      "include": "#keywords"
+      "include": "#types"
     },
     {
-      "include": "#types"
+      "include": "#keywords"
     },
     {
       "include": "#operators"
@@ -101,7 +101,7 @@
         },
         {
           "name": "keyword.other.oslang",
-          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL|NUMBER|STRING|BOOLEAN|ARRAY|OBJECT|DATE|TIME|OSL)\\b"
+          "match": "(?i)\\b(BASE|ME|NEW|PRINT|INPUT|CLEAR|CLS|VIRTUAL|OVERRIDE|KISS|TYPE|MATH|FILE|DIR|DATE|TIME|SHOW|MOD|TYPEOF|SQRT|POW|FLOOR|CEIL|COUNT|STR|BOOL)\\b"
         },
         {
           "name": "storage.modifier.oslang",
