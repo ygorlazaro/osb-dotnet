@@ -43,19 +43,6 @@ public partial class OsbShell
             return;
         }
 
-        if (command.EndsWith("/?"))
-        {
-            if (verb == "OSL")
-            {
-                RunOslHelp();
-            }
-            else
-            {
-                HelpTexts.Show(raw[..^2].TrimEnd());
-            }
-            return;
-        }
-
         var args = spaceIndex < 0 ? "" : raw[(spaceIndex + 1)..].Trim();
         args = ExpandVariables(args);
 

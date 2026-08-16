@@ -151,10 +151,9 @@ Run the HANGMAN game
  -HELP
 Available commands:
 
-You can chain multiple commands on the same line using the ';' separator (ex: DIR ; VER)
+ You can chain multiple commands on the same line using the ';' separator (ex: DIR ; VER)
 
-<Command>/? = Shows detailed help for the command
-. = Executes an MS-DOS or OSB program
+ . = Executes an MS-DOS or OSB program
 ABOUT = About OSB
 APLIC = Shows the applications included with OSB
 CAL = Simple calendar
@@ -186,11 +185,8 @@ SIZE = Display the size of a file
 TIME = Display the time
 TYPE = Show the contents of a file
 USER = Manage users and authentication
-VER = Display the system version
-For more detailed help, use the command followed by /?
-Example: For more detailed help on the TYPE command
-[@] TYPE/?
--ENDCOMMAND
+ VER = Display the system version
+ -ENDCOMMAND
 
 -KISS
 Edits a text file with line numbering and syntax highlighting for .osl files
@@ -471,11 +467,8 @@ Simple usage: OSL <file.osl>
 [@] OSL FIBONACCI.OSL
 Executes the FIBONACCI.OSL script
 
-[@] OSL /?
-Shows this help
-
-[@] HELP OSL
-Shows this help
+ [@] HELP OSL
+ Shows this help
 
 OSLANG 0.4 is OSB's programming language. It combines the simplicity of BASIC
 with modern object-oriented features. This help summarizes the basic syntax.
@@ -699,6 +692,5 @@ PRIVATE     Access only in the declaring class
 <TAB>          Autocompletes commands and files
 ↑↓             Command history
 ←→             Edit current line
-;              Executes multiple commands
-/command /?    Detailed help
--ENDCOMMAND
+ ;              Executes multiple commands
+ -ENDCOMMAND

@@ -151,10 +151,9 @@ Executar o jogo HANGMAN
  -HELP
 Comandos disponíveis:
 
-Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (ex: DIR ; VER)
+ Você pode encadear múltiplos comandos na mesma linha usando o separador ';' (ex: DIR ; VER)
 
-<Comando>/? = Exibe ajuda detalhada do comando
-. = Executa um programa do MS-DOS ou OSB
+ . = Executa um programa do MS-DOS ou OSB
 ABOUT = Sobre o OSB
 APLIC = Mostra os aplicativos inclusos com OSB
 CAL = Calendário simples
@@ -186,11 +185,8 @@ SIZE = Exibe o tamanho de um arquivo
 TIME = Exibir a hora
 TYPE = Mostra o conteúdo de um arquivo
 USER = Gerencia usuários e autenticação
-VER = Exibe a versão do sistema
-Para uma ajuda mais detalhada, utilize o comando seguido de /?
-Exemplo: Para pedir uma ajuda mais detalhada do comando TYPE
-[@] TYPE/?
--ENDCOMMAND
+ VER = Exibe a versão do sistema
+ -ENDCOMMAND
 
 -KISS
 Edita um arquivo de texto com numeração de linhas e realce de sintaxe para arquivos .osl
@@ -471,11 +467,8 @@ Modo simples de usar: OSL <arquivo.osl>
 [@] OSL FIBONACCI.OSL
 Executa o script FIBONACCI.OSL
 
-[@] OSL /?
-Exibe esta ajuda
-
-[@] HELP OSL
-Exibe esta ajuda
+ [@] HELP OSL
+ Exibe esta ajuda
 
 OSLANG 0.4 é a linguagem de programação do OSB. Ela combina a simplicidade do BASIC
 com recursos de orientação a objetos modernos. Esta ajuda resume a sintaxe básica.
@@ -699,6 +692,5 @@ PRIVATE     Acesso apenas na classe declarante
 <TAB>          Autocompleta comandos e arquivos
 ↑↓             Histórico de comandos
 ←→             Edita linha atual
-;              Executa múltiplos comandos
-/comando /?    Ajuda detalhada
--ENDCOMMAND
+ ;              Executa múltiplos comandos
+ -ENDCOMMAND
