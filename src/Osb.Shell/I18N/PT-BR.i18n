@@ -101,6 +101,7 @@ commands.date_not_supported=(Alterar a data do sistema não é suportado.)
 commands.time=Hora atual: {0}
 commands.time_not_supported=(Alterar a hora do sistema não é suportado.)
 commands.osb_version=OSB 3.0
+commands.oslang_version=OSLANG {0}
 commands.about_hint=Digite ABOUT para mais informações
 commands.history_empty=Nenhum comando no histórico ainda.
 commands.history_no_match=Nenhum comando no histórico começa com '{0}'.

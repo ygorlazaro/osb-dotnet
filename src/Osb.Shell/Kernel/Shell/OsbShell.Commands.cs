@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Linq;
+using Osb.Lang;
 using Osb.Shell.Apps;
 
 namespace Osb.Shell.Kernel;
@@ -147,10 +148,17 @@ public partial class OsbShell
             case "TYPE":
                 TypeFile(args); handled = true; break;
             case "VER":
+            {
+                var upperArgs = args.ToUpperInvariant();
                 Console.WriteLine(I18nService.Get("commands.osb_version"));
+                if (upperArgs.Contains("/V"))
+                {
+                    Console.WriteLine(I18nService.Get("commands.oslang_version", OslangInterpreter.Version));
+                }
                 Console.WriteLine();
                 Console.WriteLine(I18nService.Get("commands.about_hint"));
                 handled = true; break;
+            }
             default:
             {
                 var firstSpace = raw.IndexOf(' ');
