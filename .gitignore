@@ -1,0 +1,52 @@
+# .NET build artifacts
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+*.snk
+*.pidb
+*.svclog
+*.tlog
+*.log
+*.vspscc
+*.vsscc
+*.ncrunchsolution
+*.ncrunchproject
+*.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+
+# OSB runtime data (will be local only)
+.osb/
+*.osbconfig
+
+# Test results
+TestResults/
+coverage.opencover.xml
+coverage.json
+coverage.cobertura.xml
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+# Build output
+publish/
+out/
+dist/

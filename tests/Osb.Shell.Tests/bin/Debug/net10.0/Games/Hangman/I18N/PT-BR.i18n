@@ -1,9 +1,0 @@
-# Hangman Game - Portuguese (Brazil)
-no_words=Nenhuma palavra disponivel para o jogo HANGMAN.
-title=*** JOGO DA FORCA ***
-instruction=Tente adivinhar a palavra letra por letra.
-errors=Erros: {0}/{1}
-guessed=Letras ja tentadas: {0}
-won=Voce ganhou! A palavra era: {0}
-input_prompt=Digite uma letra (ou 0 para sair):
-lost=Voce perdeu! A palavra era: {0}

@@ -173,6 +173,7 @@ fs.copied=Copiado: {0}
 fs.files_copied={0} arquivo(s) copiado(s).
 fs.lines={0} linhas
 fs.moved=Movido: {0} -> {1}
+fs.files_moved={0} arquivo(s) movido(s).
 fs.matches_found={0} resultado(s) encontrado(s):
 fs.variable_not_defined=Variável '{0}' não definida.
 fs.variable_removed=Variável '{0}' removida.

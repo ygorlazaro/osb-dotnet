@@ -537,17 +537,40 @@ public partial class OsbShell
         
         try
         {
-            var resolvedSource = PathResolver.Resolve(source);
+            var sourceDir = Path.GetDirectoryName(source) ?? ".";
+            var sourcePattern = Path.GetFileName(source);
             var resolvedDest = PathResolver.Resolve(dest);
-            
-            if (Directory.Exists(resolvedDest))
+
+            if (sourcePattern.Contains("*") || sourcePattern.Contains("?"))
             {
-                var fileName = Path.GetFileName(resolvedSource);
-                resolvedDest = Path.Combine(resolvedDest, fileName);
+                var files = Directory.GetFiles(sourceDir, sourcePattern);
+                if (files.Length == 0)
+                {
+                    Console.WriteLine(I18nService.Get("fs.no_files_found"));
+                    return;
+                }
+
+                var targetIsDir = Directory.Exists(resolvedDest);
+                foreach (var file in files)
+                {
+                    var fileName = Path.GetFileName(file);
+                    var targetPath = targetIsDir ? Path.Combine(resolvedDest, fileName) : resolvedDest;
+                    File.Move(file, targetPath);
+                    Console.WriteLine($"{I18nService.Get("fs.moved", fileName, targetPath)}");
+                }
+                Console.WriteLine($"{files.Length} " + I18nService.Get("fs.files_moved", files.Length));
             }
-            
-            File.Move(resolvedSource, resolvedDest);
-            Console.WriteLine(I18nService.Get("fs.moved", source, dest));
+            else
+            {
+                var resolvedSource = PathResolver.Resolve(source);
+                if (Directory.Exists(resolvedDest))
+                {
+                    var fileName = Path.GetFileName(resolvedSource);
+                    resolvedDest = Path.Combine(resolvedDest, fileName);
+                }
+                File.Move(resolvedSource, resolvedDest);
+                Console.WriteLine(I18nService.Get("fs.moved", source, dest));
+            }
         }
         catch (Exception ex)
         {

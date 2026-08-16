@@ -2,7 +2,7 @@ namespace Osb.Shell.Kernel;
 
 /// <summary>
 /// OSB environment configuration and paths.
-/// Uses ~/.osb as the home directory with a CONF subfolder for configuration files.
+/// Uses the current working directory as the base for OSB data.
 /// </summary>
 public class OsbEnvironment
 {

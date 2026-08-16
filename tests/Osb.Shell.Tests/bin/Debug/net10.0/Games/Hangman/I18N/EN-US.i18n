@@ -1,9 +1,0 @@
-# Hangman Game - English (US)
-no_words=No words available for Hangman game.
-title=*** HANGMAN GAME ***
-instruction=Try to guess the word letter by letter.
-errors=Errors: {0}/{1}
-guessed=Letters tried: {0}
-won=You won! The word was: {0}
-input_prompt=Enter a letter (or 0 to exit):
-lost=You lost! The word was: {0}

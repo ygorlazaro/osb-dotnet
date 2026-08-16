@@ -1,7 +1,0 @@
-' OSLANG 0.6 - Calendar App Entry Point
-USING Cal
-
-FUNCTION MAIN()
-    App = NEW CALENDARAPP()
-    App.RUN([])
-END FUNCTION
