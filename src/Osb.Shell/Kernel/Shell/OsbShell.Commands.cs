@@ -61,7 +61,7 @@ public partial class OsbShell
             case "COLOR":
                 ColorPicker.Run(_env); handled = true; break;
             case "CONFIG":
-                ConfigUtility.Run(_env); handled = true; break;
+                handled = TryRunOslCommand("CONFIG", args); handled = true; break;
             case "COPY":
                 CopyFile(args); handled = true; break;
             case "DATE":

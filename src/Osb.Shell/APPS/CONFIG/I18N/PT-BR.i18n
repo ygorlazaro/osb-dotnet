@@ -1,0 +1,18 @@
+config.title=*** Configuração do OSB ***
+config.boot_message=1 - Mensagem de boot: {0}
+config.prompt_layout=2 - Layout do prompt: {0}
+config.language=3 - Idioma: {0}
+config.exit=0 - Sair sem alterar
+config.choice=Escolha uma opção para alterar:
+config.new_boot_message=Nova mensagem de boot:
+config.available_markers=Marcadores disponíveis:
+config.marker_user=  %user     = nome do usuário autenticado (ou guest)
+config.marker_hostname=  %hostname = nome da máquina
+config.marker_pwd=  %pwd      = diretório atual
+config.marker_date=  %d        = data atual (dd/MM/yyyy)
+config.marker_time=  %t        = hora atual (HH:mm:ss)
+config.marker_br=  %br       = quebra de linha
+config.new_layout_prompt=Novo layout (ESC para cancelar, ENTER para confirmar):
+config.available_languages=Idiomas disponíveis: PT-BR, EN-US
+config.language_prompt=Digite o código do idioma (PT-BR ou EN-US):
+config.language_current={0}

@@ -45,7 +45,7 @@ public partial class OsbShell
         var extensions = new ExtensionRegistry();
         var consoleHost = new ConsoleHost(extensions);
         extensions.ConsoleHost = consoleHost;
-        RegisterOsbShellExtensions(extensions);
+        RegisterOsbShellExtensions(extensions, _env);
         extensions.ForegroundColor = _env.Config.ForeColor;
         extensions.BackgroundColor = _env.Config.BackColor;
         var interpreter = new OslangInterpreter(extensions);
@@ -148,7 +148,7 @@ public partial class OsbShell
     /// expressões com valor útil, então NULL é a escolha mais simples (seção 55:
     /// "prefer simplicity").
     /// </summary>
-    private static void RegisterOsbShellExtensions(ExtensionRegistry extensions)
+    private void RegisterOsbShellExtensions(ExtensionRegistry extensions, OsbEnvironment env)
     {
         extensions.Register("FOREGROUND_COLOR", (args, location) =>
         {
@@ -166,6 +166,82 @@ public partial class OsbShell
         {
             RequireArgCount(args, 0, "PWD", location);
             return new StringValue(Directory.GetCurrentDirectory());
+        });
+
+        extensions.Register("CFG_GET", (args, location) =>
+        {
+            RequireArgCount(args, 1, "CFG_GET", location);
+            var key = RequireStringArg(args, 0, "CFG_GET", location).ToUpperInvariant();
+            var cfg = env.Config;
+            return key switch
+            {
+                "FORECOLOR" => new NumberValue(cfg.ForeColor),
+                "BACKCOLOR" => new NumberValue(cfg.BackColor),
+                "FOCUSCOLOR" => new NumberValue(cfg.FocusColor),
+                "MESSAGE" => new StringValue(cfg.Message),
+                _ => throw new OslangRuntimeException(location, $"Unknown config key '{key}'."),
+            };
+        });
+
+        extensions.Register("CFG_SET", (args, location) =>
+        {
+            RequireArgCount(args, 2, "CFG_SET", location);
+            var key = RequireStringArg(args, 0, "CFG_SET", location).ToUpperInvariant();
+            var value = args[1];
+            var cfg = env.Config;
+            switch (key)
+            {
+                case "FORECOLOR":
+                    cfg.ForeColor = value is NumberValue nf ? (int)nf.Value : throw new OslangRuntimeException(location, "CFG_SET FORECOLOR expects a NUMBER.");
+                    break;
+                case "BACKCOLOR":
+                    cfg.BackColor = value is NumberValue nb ? (int)nb.Value : throw new OslangRuntimeException(location, "CFG_SET BACKCOLOR expects a NUMBER.");
+                    break;
+                case "FOCUSCOLOR":
+                    cfg.FocusColor = value is NumberValue nfc ? (int)nfc.Value : throw new OslangRuntimeException(location, "CFG_SET FOCUSCOLOR expects a NUMBER.");
+                    break;
+                case "MESSAGE":
+                    cfg.Message = value is StringValue sv ? sv.Value : value.ToString();
+                    break;
+                default:
+                    throw new OslangRuntimeException(location, $"Unknown config key '{key}'.");
+            }
+            return OslangValue.Null;
+        });
+
+        extensions.Register("CFG_GET_PROMPT", (args, location) =>
+        {
+            RequireArgCount(args, 0, "CFG_GET_PROMPT", location);
+            return new StringValue(env.Prompt.Layout);
+        });
+
+        extensions.Register("CFG_SET_PROMPT", (args, location) =>
+        {
+            RequireArgCount(args, 1, "CFG_SET_PROMPT", location);
+            var layout = RequireStringArg(args, 0, "CFG_SET_PROMPT", location);
+            env.Prompt.Layout = layout;
+            return OslangValue.Null;
+        });
+
+        extensions.Register("SETLANGUAGE", (args, location) =>
+        {
+            RequireArgCount(args, 1, "SETLANGUAGE", location);
+            var lang = RequireStringArg(args, 0, "SETLANGUAGE", location).ToUpperInvariant();
+            if (lang != "PT-BR" && lang != "EN-US")
+            {
+                throw new OslangRuntimeException(location, "SETLANGUAGE expects PT-BR or EN-US.");
+            }
+            I18nService.SetLanguage(lang);
+            Environment.SetEnvironmentVariable("LANGUAGE", lang);
+            return OslangValue.Null;
+        });
+
+        extensions.Register("CFG_SAVE", (args, location) =>
+        {
+            RequireArgCount(args, 0, "CFG_SAVE", location);
+            env.Config.Save(env.ConfigFile);
+            env.Prompt.Save(env.HomeDir);
+            return OslangValue.Null;
         });
 
         extensions.Register("NOW", (args, location) =>

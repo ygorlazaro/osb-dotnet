@@ -62,7 +62,7 @@ CLASS KISS
         OSL.CONSOLE.SHOWCURSOR()
         OSL.CONSOLE.ALTERNATE(FALSE)
         OSL.CONSOLE.EXIT()
-    END FUNCTION
+    END
 
     PRIVATE FUNCTION LOAD()
         IF LEFT(ME.Path, 1) <> "/" THEN
@@ -78,7 +78,7 @@ CLASS KISS
         ELSE
             ME.Lines = [""]
         END
-    END FUNCTION
+    END
 
     PRIVATE FUNCTION SAVE()
         IF ME.Path = "" THEN
@@ -103,7 +103,7 @@ CLASS KISS
         OSL.FILE.WRITELINES(FullPath, ME.Lines)
         ME.Modified = FALSE
         ME.Status = "Saved"
-    END FUNCTION
+    END
 
     PRIVATE FUNCTION RENDER()
         Size = OSL.CONSOLE.SIZE()
@@ -117,7 +117,7 @@ CLASS KISS
         ME.RenderContent()
         ME.RenderStatus()
         OSL.CONSOLE.ENDFRAME()
-    END FUNCTION
+    END
 
     PRIVATE FUNCTION RENDERCONTENT()
         Ext = RIGHT(ME.Filename, 4)
@@ -147,7 +147,7 @@ CLASS KISS
                 OSL.CONSOLE.WRITE(i + 1, ME.LineNumberWidth + 1, Text)
             END
         END
-    END FUNCTION
+    END
 
     PRIVATE FUNCTION RENDERSTATUS()
         Title = ME.Filename
@@ -178,141 +178,142 @@ CLASS KISS
             OSL.CONSOLE.SETCURSOR(ScreenRow + 1, ColPos)
             OSL.CONSOLE.SHOWCURSOR()
         END
-    END FUNCTION
+    END
+
+    PRIVATE FUNCTION EnsureVisible()
+        IF ME.Row < ME.ScrollTop THEN
+            ME.ScrollTop = ME.Row
+        ELSE IF ME.Row >= ME.ScrollTop + ME.VisibleRows THEN
+            ME.ScrollTop = ME.Row - ME.VisibleRows + 1
+        END
+        IF ME.ScrollTop < 0 THEN
+            ME.ScrollTop = 0
+        END
+        IF ME.ScrollTop > COUNT(ME.Lines) - ME.VisibleRows THEN
+            ME.ScrollTop = MATH.MAX(0, COUNT(ME.Lines) - ME.VisibleRows)
+        END
+    END
+    END
 
     PRIVATE FUNCTION HANDLEKEY(Key)
-        IF Key.CTRL AND Key.KEY = "S" THEN
-            ME.SAVE()
-            RETURN
-        END
-
-        IF Key.CTRL AND Key.KEY = "Q" THEN
-            IF ME.Modified THEN
-                IF NOT ME.CONFIRMDISCARD() THEN
+        SWITCH Key.KEY
+            CASE "S"
+                IF Key.CTRL THEN
+                    ME.SAVE()
                     RETURN
                 END
-            END
-            ME.Running = FALSE
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.ESC THEN
-            IF ME.Modified THEN
-                IF NOT ME.CONFIRMDISCARD() THEN
+            CASE "Q"
+                IF Key.CTRL THEN
+                    IF ME.Modified THEN
+                        IF NOT ME.CONFIRMDISCARD() THEN
+                            RETURN
+                        END
+                    END
+                    ME.Running = FALSE
                     RETURN
                 END
-            END
-            ME.Running = FALSE
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.UP THEN
-            IF ME.Row > 0 THEN
-                ME.Row = ME.Row - 1
-            END
-            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.DOWN THEN
-            IF ME.Row < COUNT(ME.Lines) - 1 THEN
-                ME.Row = ME.Row + 1
-            END
-            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.LEFT THEN
-            IF ME.Col > 0 THEN
-                ME.Col = ME.Col - 1
-            ELIF ME.Row > 0 THEN
-                ME.Row = ME.Row - 1
+            CASE "ESC"
+                IF ME.Modified THEN
+                    IF NOT ME.CONFIRMDISCARD() THEN
+                        RETURN
+                    END
+                END
+                ME.Running = FALSE
+                RETURN
+            CASE "UP"
+                IF ME.Row > 0 THEN
+                    ME.Row = ME.Row - 1
+                    ME.EnsureVisible()
+                END
+                ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+                RETURN
+            CASE "DOWN"
+                IF ME.Row < COUNT(ME.Lines) - 1 THEN
+                    ME.Row = ME.Row + 1
+                    ME.EnsureVisible()
+                END
+                ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+                RETURN
+            CASE "LEFT"
+                IF ME.Col > 0 THEN
+                    ME.Col = ME.Col - 1
+                ELIF ME.Row > 0 THEN
+                    ME.Row = ME.Row - 1
+                    ME.Col = COUNT(ME.Lines[ME.Row])
+                    ME.EnsureVisible()
+                END
+                RETURN
+            CASE "RIGHT"
+                IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
+                    ME.Col = ME.Col + 1
+                ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
+                    ME.Row = ME.Row + 1
+                    ME.Col = 0
+                    ME.EnsureVisible()
+                END
+                RETURN
+            CASE "HOME"
+                ME.Col = 0
+                RETURN
+            CASE "END"
                 ME.Col = COUNT(ME.Lines[ME.Row])
-            END
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.RIGHT THEN
-            IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
-                ME.Col = ME.Col + 1
-            ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
+                RETURN
+            CASE "PAGEUP"
+                ME.Row = MATH.MAX(0, ME.Row - ME.VisibleRows)
+                ME.ScrollTop = MATH.MAX(0, ME.ScrollTop - ME.VisibleRows)
+                ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+                RETURN
+            CASE "PAGEDOWN"
+                ME.Row = MATH.MIN(COUNT(ME.Lines) - 1, ME.Row + ME.VisibleRows)
+                ME.ScrollTop = MATH.MIN(COUNT(ME.Lines) - ME.VisibleRows, ME.ScrollTop + ME.VisibleRows)
+                IF ME.ScrollTop < 0 THEN
+                    ME.ScrollTop = 0
+                END
+                ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+                RETURN
+            CASE "ENTER"
+                Line = ME.Lines[ME.Row]
+                ME.Lines = ME.Lines.INSERTAT(ME.Row + 1, RIGHT(Line, COUNT(Line) - ME.Col))
+                ME.Lines[ME.Row] = LEFT(Line, ME.Col)
                 ME.Row = ME.Row + 1
                 ME.Col = 0
-            END
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.HOME THEN
-            ME.Col = 0
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.END THEN
-            ME.Col = COUNT(ME.Lines[ME.Row])
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.PAGEUP THEN
-            ME.Row = MATH.MAX(0, ME.Row - ME.VisibleRows)
-            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.PAGEDOWN THEN
-            ME.Row = MATH.MIN(COUNT(ME.Lines) - 1, ME.Row + ME.VisibleRows)
-            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.ENTER THEN
-            Line = ME.Lines[ME.Row]
-            ME.Lines = ME.Lines.INSERTAT(ME.Row + 1, RIGHT(Line, COUNT(Line) - ME.Col))
-            ME.Lines[ME.Row] = LEFT(Line, ME.Col)
-            ME.Row = ME.Row + 1
-            ME.Col = 0
-            ME.Modified = TRUE
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.BACKSPACE THEN
-            IF ME.Col > 0 THEN
-                ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col - 1, 1)
-                ME.Col = ME.Col - 1
                 ME.Modified = TRUE
-            ELIF ME.Row > 0 THEN
-                ME.Col = COUNT(ME.Lines[ME.Row - 1])
-                ME.Lines[ME.Row - 1] = ME.Lines[ME.Row - 1] + ME.Lines[ME.Row]
-                ME.Lines = ME.Lines.REMOVEAT(ME.Row)
-                ME.Row = ME.Row - 1
+                RETURN
+            CASE "BACKSPACE"
+                IF ME.Col > 0 THEN
+                    ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col - 1, 1)
+                    ME.Col = ME.Col - 1
+                    ME.Modified = TRUE
+                ELIF ME.Row > 0 THEN
+                    ME.Col = COUNT(ME.Lines[ME.Row - 1])
+                    ME.Lines[ME.Row - 1] = ME.Lines[ME.Row - 1] + ME.Lines[ME.Row]
+                    ME.Lines = ME.Lines.REMOVEAT(ME.Row)
+                    ME.Row = ME.Row - 1
+                    ME.Modified = TRUE
+                END
+                RETURN
+            CASE "DELETE"
+                IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
+                    ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col, 1)
+                    ME.Modified = TRUE
+                ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
+                    ME.Lines[ME.Row] = ME.Lines[ME.Row] + ME.Lines[ME.Row + 1]
+                    ME.Lines = ME.Lines.REMOVEAT(ME.Row + 1)
+                    ME.Modified = TRUE
+                END
+                RETURN
+            CASE "TAB"
+                ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, "    ")
+                ME.Col = ME.Col + 4
                 ME.Modified = TRUE
-            END
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.DELETE THEN
-            IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
-                ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col, 1)
-                ME.Modified = TRUE
-            ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
-                ME.Lines[ME.Row] = ME.Lines[ME.Row] + ME.Lines[ME.Row + 1]
-                ME.Lines = ME.Lines.REMOVEAT(ME.Row + 1)
-                ME.Modified = TRUE
-            END
-            RETURN
-        END
-
-        IF Key.KEY = OSL.CONSOLE.TAB THEN
-            ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, "    ")
-            ME.Col = ME.Col + 4
-            ME.Modified = TRUE
-            RETURN
-        END
-
-        IF Key.CHAR <> NULL THEN
-            ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, Key.CHAR)
-            ME.Col = ME.Col + 1
-            ME.Modified = TRUE
-            RETURN
+                RETURN
+            DEFAULT
+                IF Key.CHAR <> NULL THEN
+                    ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, Key.CHAR)
+                    ME.Col = ME.Col + 1
+                    ME.Modified = TRUE
+                    RETURN
+                END
         END
     END
 
@@ -325,7 +326,7 @@ CLASS KISS
         RETURN TOUPPER(Answer) = "Y"
     END
 
-END CLASS
+END
 
 FUNCTION MAIN()
     App = NEW KISS()

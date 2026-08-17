@@ -1,0 +1,173 @@
+USING OSL.I18N
+USING OSL.CONSOLE
+
+CLASS CONFIGAPP
+
+    PRIVATE FUNCTION RUN(Args)
+        OSL.CONSOLE.ENTER()
+        OSL.CONSOLE.ALTERNATE(TRUE)
+        OSL.CONSOLE.CLEAR()
+
+        TRY
+            ME.MainLoop()
+        CATCH ERR
+            OSL.CONSOLE.SHOWCURSOR()
+            OSL.CONSOLE.ALTERNATE(FALSE)
+            OSL.CONSOLE.EXIT()
+            PRINT "Error: " + ERR
+            RETURN
+        END
+
+        OSL.CONSOLE.SHOWCURSOR()
+        OSL.CONSOLE.ALTERNATE(FALSE)
+        OSL.CONSOLE.EXIT()
+    END
+
+    PRIVATE FUNCTION MainLoop()
+        WHILE TRUE
+            OSL.CONSOLE.CLEAR()
+            Title = OSL.I18N.GET("config.title")
+            OSL.CONSOLE.WRITE(1, 1, Title)
+
+            CurrentMsg = CFG_GET("MESSAGE")
+            CurrentLayout = CFG_GET_PROMPT()
+            CurrentLang = OSL.I18N.GET("config.language", OSL.I18N.GET("config.language_current"))
+
+            OSL.CONSOLE.WRITE(3, 1, OSL.I18N.GET("config.boot_message", CurrentMsg))
+            OSL.CONSOLE.WRITE(4, 1, OSL.I18N.GET("config.prompt_layout", CurrentLayout))
+            OSL.CONSOLE.WRITE(5, 1, OSL.I18N.GET("config.language", CurrentLang))
+            OSL.CONSOLE.WRITE(6, 1, OSL.I18N.GET("config.exit"))
+            OSL.CONSOLE.WRITE(8, 1, OSL.I18N.GET("config.choice"))
+
+            OSL.CONSOLE.SETCURSOR(9, 1)
+            OSL.CONSOLE.SHOWCURSOR()
+            INPUT Choice
+            OSL.CONSOLE.HIDECURSOR()
+
+            Choice = TRIM(Choice)
+
+            IF Choice = "1" THEN
+                ME.ChangeBootMessage()
+            ELIF Choice = "2" THEN
+                ME.ChangePromptLayout()
+            ELIF Choice = "3" THEN
+                ME.ChangeLanguage()
+            ELIF Choice = "0" THEN
+                CFG_SAVE()
+                RETURN
+            END
+        END
+    END
+
+    PRIVATE FUNCTION ChangeBootMessage()
+        OSL.CONSOLE.CLEAR()
+        OSL.CONSOLE.WRITE(1, 1, OSL.I18N.GET("config.new_boot_message"))
+        OSL.CONSOLE.SETCURSOR(2, 1)
+        OSL.CONSOLE.SHOWCURSOR()
+        INPUT NewMsg
+        OSL.CONSOLE.HIDECURSOR()
+
+        IF TRIM(NewMsg) <> "" THEN
+            CFG_SET("MESSAGE", TRIM(NewMsg))
+        END
+    END
+
+    PRIVATE FUNCTION ChangePromptLayout()
+        OSL.CONSOLE.CLEAR()
+        OSL.CONSOLE.WRITE(1, 1, OSL.I18N.GET("config.available_markers"))
+        OSL.CONSOLE.WRITE(2, 1, OSL.I18N.GET("config.marker_user"))
+        OSL.CONSOLE.WRITE(3, 1, OSL.I18N.GET("config.marker_hostname"))
+        OSL.CONSOLE.WRITE(4, 1, OSL.I18N.GET("config.marker_pwd"))
+        OSL.CONSOLE.WRITE(5, 1, OSL.I18N.GET("config.marker_date"))
+        OSL.CONSOLE.WRITE(6, 1, OSL.I18N.GET("config.marker_time"))
+        OSL.CONSOLE.WRITE(7, 1, OSL.I18N.GET("config.marker_br"))
+        OSL.CONSOLE.WRITE(9, 1, OSL.I18N.GET("config.new_layout_prompt"))
+
+        CurrentLayout = CFG_GET_PROMPT()
+        OSL.CONSOLE.WRITE(10, 1, CurrentLayout)
+        OSL.CONSOLE.SETCURSOR(10, COUNT(CurrentLayout) + 1)
+        OSL.CONSOLE.SHOWCURSOR()
+
+        Buffer = CurrentLayout
+        Cursor = COUNT(Buffer)
+
+        WHILE TRUE
+            Key = OSL.CONSOLE.GETKEY()
+
+            IF Key.KEY = "ENTER" THEN
+                OSL.CONSOLE.HIDECURSOR()
+                CFG_SET_PROMPT(Buffer)
+                RETURN
+            END
+
+            IF Key.KEY = "ESC" THEN
+                OSL.CONSOLE.HIDECURSOR()
+                RETURN
+            END
+
+            IF Key.KEY = "LEFT" AND Cursor > 0 THEN
+                Cursor = Cursor - 1
+                OSL.CONSOLE.SETCURSOR(10, Cursor + 1)
+            END
+
+            IF Key.KEY = "RIGHT" AND Cursor < COUNT(Buffer) THEN
+                Cursor = Cursor + 1
+                OSL.CONSOLE.SETCURSOR(10, Cursor + 1)
+            END
+
+            IF Key.KEY = "HOME" AND Cursor > 0 THEN
+                OSL.CONSOLE.SETCURSOR(10, 1)
+                Cursor = 0
+            END
+
+            IF Key.KEY = "END" AND Cursor < COUNT(Buffer) THEN
+                OSL.CONSOLE.SETCURSOR(10, COUNT(Buffer) + 1)
+                Cursor = COUNT(Buffer)
+            END
+
+            IF Key.KEY = "BACKSPACE" AND Cursor > 0 THEN
+                Buffer = REMOVE(Buffer, Cursor - 1, 1)
+                Cursor = Cursor - 1
+                RedrawPromptLine(Buffer, Cursor)
+            END
+
+            IF Key.KEY = "DELETE" AND Cursor < COUNT(Buffer) THEN
+                Buffer = REMOVE(Buffer, Cursor, 1)
+                RedrawPromptLine(Buffer, Cursor)
+            END
+
+            IF Key.CHAR <> NULL AND Key.CHAR <> "" THEN
+                Buffer = INSERT(Buffer, Cursor, Key.CHAR)
+                Cursor = Cursor + 1
+                RedrawPromptLine(Buffer, Cursor)
+            END
+        END
+    END
+
+    PRIVATE FUNCTION RedrawPromptLine(Text, CursorPos)
+        OSL.CONSOLE.SETCURSOR(10, 1)
+        OSL.CONSOLE.WRITE(10, 1, Text + " ")
+        OSL.CONSOLE.SETCURSOR(10, CursorPos + 1)
+    END
+
+    PRIVATE FUNCTION ChangeLanguage()
+        OSL.CONSOLE.CLEAR()
+        OSL.CONSOLE.WRITE(1, 1, OSL.I18N.GET("config.available_languages"))
+        OSL.CONSOLE.WRITE(2, 1, OSL.I18N.GET("config.language_prompt"))
+        OSL.CONSOLE.SETCURSOR(3, 1)
+        OSL.CONSOLE.SHOWCURSOR()
+        INPUT Lang
+        OSL.CONSOLE.HIDECURSOR()
+
+        Lang = TRIM(UCASE(Lang))
+        IF Lang = "PT-BR" OR Lang = "EN-US" THEN
+            SETLANGUAGE(Lang)
+        END
+    END
+
+END
+
+FUNCTION MAIN()
+    App = NEW CONFIGAPP()
+    App.RUN(ARGS)
+END
