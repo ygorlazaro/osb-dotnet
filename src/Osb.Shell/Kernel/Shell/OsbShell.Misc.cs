@@ -33,21 +33,6 @@ public partial class OsbShell
         }
     }
 
-    private void PreparePromptArea()
-    {
-        var height = Console.WindowHeight;
-        if (height < 2) return;
-
-        var promptRow = height - 2;
-        if (Console.CursorTop != promptRow || Console.CursorLeft != 0)
-        {
-            Console.SetCursorPosition(0, promptRow);
-        }
-
-        Console.Write(new string(' ', Console.WindowWidth));
-        Console.SetCursorPosition(0, promptRow);
-    }
-
     private void LoadHistory()
     {
         try
@@ -322,8 +307,6 @@ public partial class OsbShell
         var promptUser = _isAuthenticated && !string.IsNullOrWhiteSpace(_currentUsername)
             ? _currentUsername
             : "guest";
-
-        PreparePromptArea();
         Console.Write(ExpandPrompt(_env.Prompt.Layout, promptUser, _env.MachineName));
 
         var buffer = new List<char>();
