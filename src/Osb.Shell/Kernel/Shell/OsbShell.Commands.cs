@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Linq;
 using Osb.Lang;
-using Osb.Shell.Apps;
 
 namespace Osb.Shell.Kernel;
 
@@ -90,7 +89,8 @@ public partial class OsbShell
             case "HOSTNAME":
                 HandleHostname(args); handled = true; break;
             case "KISS":
-                TextEditor.Run(args, _env); handled = true; break;
+                handled = TryRunOslCommand("KISS", args);
+                break;
             case "MD":
                 MakeDirectory(args); handled = true; break;
             case "MOVE":

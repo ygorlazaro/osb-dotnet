@@ -1,0 +1,333 @@
+USING OSL.CONSOLE
+USING OSL.FILE
+USING OSL.APP
+
+CLASS KISS
+
+    PRIVATE VAR Lines
+    PRIVATE VAR Filename
+    PRIVATE VAR Path
+    PRIVATE VAR Row
+    PRIVATE VAR Col
+    PRIVATE VAR ScrollTop
+    PRIVATE VAR Modified
+    PRIVATE VAR Running
+    PRIVATE VAR Status
+    PRIVATE VAR Width
+    PRIVATE VAR Height
+    PRIVATE VAR VisibleRows
+    PRIVATE VAR LineNumberWidth
+    PRIVATE VAR TextWidth
+
+    PUBLIC FUNCTION RUN(Args)
+        ME.Row = 0
+        ME.Col = 0
+        ME.ScrollTop = 0
+        ME.Modified = FALSE
+        ME.Running = TRUE
+        ME.Status = ""
+
+        IF COUNT(Args) > 0 THEN
+            ME.Filename = Args[0]
+            ME.Path = Args[0]
+            ME.Load()
+        ELSE
+            ME.Lines = [""]
+            ME.Filename = ""
+            ME.Path = ""
+        END
+
+        OSL.CONSOLE.ENTER()
+        OSL.CONSOLE.ALTERNATE(TRUE)
+        OSL.CONSOLE.HIDECURSOR()
+
+        TRY
+            ME.Running = TRUE
+            ME.Render()
+            WHILE ME.Running
+                Key = OSL.CONSOLE.GETKEY()
+                ME.HandleKey(Key)
+                IF ME.Running THEN
+                    ME.Render()
+                END
+            END
+        CATCH ERR
+            OSL.CONSOLE.SHOWCURSOR()
+            OSL.CONSOLE.ALTERNATE(FALSE)
+            OSL.CONSOLE.EXIT()
+            PRINT ERR
+            RETURN
+        END
+
+        OSL.CONSOLE.SHOWCURSOR()
+        OSL.CONSOLE.ALTERNATE(FALSE)
+        OSL.CONSOLE.EXIT()
+    END FUNCTION
+
+    PRIVATE FUNCTION LOAD()
+        IF LEFT(ME.Path, 1) <> "/" THEN
+            FullPath = PWD() + "/" + ME.Path
+        ELSE
+            FullPath = ME.Path
+        END
+        IF OSL.FILE.EXISTS(FullPath) THEN
+            ME.Lines = OSL.FILE.READLINES(FullPath)
+            IF COUNT(ME.Lines) = 0 THEN
+                ME.Lines = [""]
+            END
+        ELSE
+            ME.Lines = [""]
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION SAVE()
+        IF ME.Path = "" THEN
+            OSL.CONSOLE.SHOWCURSOR()
+            OSL.CONSOLE.SETCURSOR(ME.Height, 1)
+            SHOW "Save as: "
+            INPUT TempFilename
+            OSL.CONSOLE.HIDECURSOR()
+            IF TempFilename = "" THEN
+                ME.Status = "Save cancelled"
+                RETURN
+            END
+            ME.Filename = TempFilename
+            ME.Path = TempFilename
+        END
+
+        IF LEFT(ME.Path, 1) <> "/" THEN
+            FullPath = PWD() + "/" + ME.Path
+        ELSE
+            FullPath = ME.Path
+        END
+        OSL.FILE.WRITELINES(FullPath, ME.Lines)
+        ME.Modified = FALSE
+        ME.Status = "Saved"
+    END FUNCTION
+
+    PRIVATE FUNCTION RENDER()
+        Size = OSL.CONSOLE.SIZE()
+        ME.Width = Size.WIDTH
+        ME.Height = Size.HEIGHT
+        ME.VisibleRows = ME.Height - 2
+        ME.LineNumberWidth = MATH.MAX(4, COUNT(STR(COUNT(ME.Lines))) + 1)
+        ME.TextWidth = ME.Width - ME.LineNumberWidth
+
+        OSL.CONSOLE.BEGINFRAME()
+        ME.RenderContent()
+        ME.RenderStatus()
+        OSL.CONSOLE.ENDFRAME()
+    END FUNCTION
+
+    PRIVATE FUNCTION RENDERCONTENT()
+        Ext = RIGHT(ME.Filename, 4)
+        UseHighlight = (Ext = ".osl" OR RIGHT(ME.Filename, 7) = ".oslang")
+        FOR i = 0 TO ME.VisibleRows - 1
+            LineIndex = ME.ScrollTop + i
+            IF LineIndex < COUNT(ME.Lines) THEN
+                RawText = ME.Lines[LineIndex]
+                IF COUNT(RawText) > ME.TextWidth THEN
+                    Text = LEFT(RawText, ME.TextWidth)
+                ELSE
+                    Text = RawText + REPEAT(" ", ME.TextWidth - COUNT(RawText))
+                END
+            ELSE
+                Text = REPEAT(" ", ME.TextWidth)
+            END
+
+            IF LineIndex < COUNT(ME.Lines) THEN
+                LineNumber = STR(LineIndex + 1)
+            ELSE
+                LineNumber = "~"
+            END
+            OSL.CONSOLE.WRITE(i + 1, 1, LineNumber + " ")
+            IF UseHighlight THEN
+                OSL.CONSOLE.WRITE(i + 1, ME.LineNumberWidth + 1, OSL.APP.HIGHLIGHT(Text, ME.TextWidth))
+            ELSE
+                OSL.CONSOLE.WRITE(i + 1, ME.LineNumberWidth + 1, Text)
+            END
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION RENDERSTATUS()
+        Title = ME.Filename
+        IF Title = "" THEN
+            Title = "(untitled)"
+        END
+        IF ME.Modified THEN
+            Title = Title + " [modified]"
+        END
+        Header = " KISS - " + Title + " "
+        IF COUNT(Header) > ME.Width THEN
+            Header = LEFT(Header, ME.Width)
+        END
+        OSL.CONSOLE.WRITE(ME.Height - 1, 1, Header)
+
+        Help = ME.Status
+        IF Help = "" THEN
+            Help = "[ Ctrl+S / Save ]   [ ESC / Exit ]"
+        END
+        IF COUNT(Help) > ME.Width THEN
+            Help = LEFT(Help, ME.Width)
+        END
+        OSL.CONSOLE.WRITE(ME.Height, 1, Help)
+
+        ScreenRow = ME.Row - ME.ScrollTop
+        IF ScreenRow >= 0 AND ScreenRow < ME.VisibleRows THEN
+            ColPos = ME.LineNumberWidth + MATH.MIN(ME.Col, ME.TextWidth - 1)
+            OSL.CONSOLE.SETCURSOR(ScreenRow + 1, ColPos)
+            OSL.CONSOLE.SHOWCURSOR()
+        END
+    END FUNCTION
+
+    PRIVATE FUNCTION HANDLEKEY(Key)
+        IF Key.CTRL AND Key.KEY = "S" THEN
+            ME.SAVE()
+            RETURN
+        END
+
+        IF Key.CTRL AND Key.KEY = "Q" THEN
+            IF ME.Modified THEN
+                IF NOT ME.CONFIRMDISCARD() THEN
+                    RETURN
+                END
+            END
+            ME.Running = FALSE
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.ESC THEN
+            IF ME.Modified THEN
+                IF NOT ME.CONFIRMDISCARD() THEN
+                    RETURN
+                END
+            END
+            ME.Running = FALSE
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.UP THEN
+            IF ME.Row > 0 THEN
+                ME.Row = ME.Row - 1
+            END
+            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.DOWN THEN
+            IF ME.Row < COUNT(ME.Lines) - 1 THEN
+                ME.Row = ME.Row + 1
+            END
+            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.LEFT THEN
+            IF ME.Col > 0 THEN
+                ME.Col = ME.Col - 1
+            ELIF ME.Row > 0 THEN
+                ME.Row = ME.Row - 1
+                ME.Col = COUNT(ME.Lines[ME.Row])
+            END
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.RIGHT THEN
+            IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
+                ME.Col = ME.Col + 1
+            ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
+                ME.Row = ME.Row + 1
+                ME.Col = 0
+            END
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.HOME THEN
+            ME.Col = 0
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.END THEN
+            ME.Col = COUNT(ME.Lines[ME.Row])
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.PAGEUP THEN
+            ME.Row = MATH.MAX(0, ME.Row - ME.VisibleRows)
+            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.PAGEDOWN THEN
+            ME.Row = MATH.MIN(COUNT(ME.Lines) - 1, ME.Row + ME.VisibleRows)
+            ME.Col = MATH.MIN(ME.Col, COUNT(ME.Lines[ME.Row]))
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.ENTER THEN
+            Line = ME.Lines[ME.Row]
+            ME.Lines = ME.Lines.INSERTAT(ME.Row + 1, RIGHT(Line, COUNT(Line) - ME.Col))
+            ME.Lines[ME.Row] = LEFT(Line, ME.Col)
+            ME.Row = ME.Row + 1
+            ME.Col = 0
+            ME.Modified = TRUE
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.BACKSPACE THEN
+            IF ME.Col > 0 THEN
+                ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col - 1, 1)
+                ME.Col = ME.Col - 1
+                ME.Modified = TRUE
+            ELIF ME.Row > 0 THEN
+                ME.Col = COUNT(ME.Lines[ME.Row - 1])
+                ME.Lines[ME.Row - 1] = ME.Lines[ME.Row - 1] + ME.Lines[ME.Row]
+                ME.Lines = ME.Lines.REMOVEAT(ME.Row)
+                ME.Row = ME.Row - 1
+                ME.Modified = TRUE
+            END
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.DELETE THEN
+            IF ME.Col < COUNT(ME.Lines[ME.Row]) THEN
+                ME.Lines[ME.Row] = REMOVE(ME.Lines[ME.Row], ME.Col, 1)
+                ME.Modified = TRUE
+            ELIF ME.Row < COUNT(ME.Lines) - 1 THEN
+                ME.Lines[ME.Row] = ME.Lines[ME.Row] + ME.Lines[ME.Row + 1]
+                ME.Lines = ME.Lines.REMOVEAT(ME.Row + 1)
+                ME.Modified = TRUE
+            END
+            RETURN
+        END
+
+        IF Key.KEY = OSL.CONSOLE.TAB THEN
+            ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, "    ")
+            ME.Col = ME.Col + 4
+            ME.Modified = TRUE
+            RETURN
+        END
+
+        IF Key.CHAR <> NULL THEN
+            ME.Lines[ME.Row] = INSERT(ME.Lines[ME.Row], ME.Col, Key.CHAR)
+            ME.Col = ME.Col + 1
+            ME.Modified = TRUE
+            RETURN
+        END
+    END
+
+    PRIVATE FUNCTION CONFIRMDISCARD()
+        OSL.CONSOLE.SHOWCURSOR()
+        OSL.CONSOLE.SETCURSOR(ME.Height, 1)
+        SHOW "Unsaved changes. Discard? (Y/N): "
+        INPUT Answer
+        OSL.CONSOLE.HIDECURSOR()
+        RETURN TOUPPER(Answer) = "Y"
+    END
+
+END CLASS
+
+FUNCTION MAIN()
+    App = NEW KISS()
+    App.RUN(ARGS)
+END

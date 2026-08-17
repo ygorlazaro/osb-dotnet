@@ -2,7 +2,6 @@ using Osb.Lang;
 using Osb.Lang.Diagnostics;
 using Osb.Lang.Extensibility;
 using Osb.Lang.Runtime;
-using Osb.Shell.Apps;
 
 namespace Osb.Shell.Kernel;
 
@@ -128,7 +127,7 @@ public partial class OsbShell
         {
             if (File.Exists(candidate))
             {
-                TextEditor.Run(candidate, _env);
+                RunOslScript(Path.Combine(AppContext.BaseDirectory, "APPS", "KISS", "main.osl"), [candidate]);
                 return;
             }
         }
@@ -703,6 +702,14 @@ public partial class OsbShell
             RequireArgCount(args, 1, "APP.EXIT", location);
             var code = (int)RequireNumberArg(args, 0, "APP.EXIT", location);
             throw new AppExitException(code);
+        });
+
+        extensions.Register("APP.HIGHLIGHT", (args, location) =>
+        {
+            RequireArgCount(args, 2, "APP.HIGHLIGHT", location);
+            var line = RequireStringArg(args, 0, "APP.HIGHLIGHT", location);
+            var maxWidth = (int)RequireNumberArg(args, 1, "APP.HIGHLIGHT", location);
+            return new StringValue(OslangHighlighter.Highlight(line, maxWidth));
         });
 
         var consoleHost = extensions.ConsoleHost;

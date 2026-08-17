@@ -521,7 +521,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Osl or TokenType.Osb)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Clear or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Osl or TokenType.Osb or TokenType.End)
         {
             return Advance().Text;
         }
@@ -536,7 +536,7 @@ public sealed class Parser
             return Advance().Text;
         }
 
-        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Osl or TokenType.Osb)
+        if (Current.Type is TokenType.Sqrt or TokenType.Ceil or TokenType.Floor or TokenType.Pow or TokenType.Count or TokenType.Str or TokenType.Bool or TokenType.Math or TokenType.File or TokenType.Dir or TokenType.Show or TokenType.Mod or TokenType.TypeOf or TokenType.Osl or TokenType.Osb or TokenType.End)
         {
             return Advance().Text;
         }

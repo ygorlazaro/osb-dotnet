@@ -11,7 +11,16 @@ public partial class OsbShell
         var width = Math.Max(0, Console.WindowWidth - timestamp.Length);
         if (cwd.Length > width)
         {
-            cwd = "..." + cwd[(cwd.Length - width + 3)..];
+            var prefix = "...";
+            var available = Math.Max(0, width - prefix.Length);
+            if (available > 0)
+            {
+                cwd = prefix + cwd[(cwd.Length - available)..];
+            }
+            else
+            {
+                cwd = prefix;
+            }
         }
 
         Console.WriteLine(cwd.PadRight(width) + timestamp);

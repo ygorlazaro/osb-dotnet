@@ -1,5 +1,3 @@
-using Osb.Shell.Apps;
-
 namespace Osb.Shell.Kernel;
 
 public class HistoryEntry

@@ -1,5 +1,4 @@
 using System.Linq;
-using Osb.Shell.Apps;
 
 namespace Osb.Shell.Kernel;
 
@@ -63,7 +62,7 @@ public partial class OsbShell
         switch (entry.Name.ToUpperInvariant())
         {
             case "CAL": RunOslFile("APPS/CAL/main.osl"); break;
-            case "KISS": TextEditor.Run("", _env); break;
+            case "KISS": RunOslFile("APPS/KISS/main.osl"); break;
             case "TOUR": RunOslFile("APPS/TOUR/main.osl"); break;
             case "TODO": RunOslFile("APPS/TODO/main.osl"); break;
             default: Console.WriteLine(I18nService.Get("apps.app_not_available", entry.Name)); break;

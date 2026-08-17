@@ -110,7 +110,6 @@ src/Osb.Shell/
     OslangHighlighter.cs - syntax highlighting ANSI para OSLANG no KISS e TYPE
   Apps/
     Calendar.cs         - porte do CAL.COM (mês, mês+ano, ano inteiro)
-    TextEditor.cs       - porte do KISS (editor de texto com syntax highlighting)
   Games/
     Hangman.cs          - porte do HANGMAN.BAS
 
@@ -205,8 +204,10 @@ ou use `code --install-extension oslang-vscode/oslang-0.61.vsix`.
 
 ### KISS Editor
 
-O editor de texto embutido no OSB agora aplica syntax highlighting OSLANG
-também para arquivos `.cfg`, `.i18n`, `.hlp` e `.wds`, além de `.osl`.
+O editor de texto KISS agora é uma aplicação OSLANG 0.7, implementada em
+`src/Osb.Shell/APPS/KISS/main.osl`. Ele usa `OSL.CONSOLE` para renderização,
+`OSL.FILE` para leitura/escrita e `OSL.APP` para argumentos, sem código C#
+específico do editor no runtime.
 
 ### TYPE Command
 
@@ -225,8 +226,7 @@ O comando `TYPE` agora aplica syntax highlighting OSLANG para arquivos `.osl`,
 | DATE, TIME | Portado (somente leitura) |
 | CAL | Portado — mês, mês+ano, e ano inteiro (`CAL 2015`) |
 | X (chamar o XWIN) | Portado |
-| CAL | Portado |
-| KISS (editor de texto) | Portado — editor com syntax highlighting OSLANG |
+| KISS (editor de texto) | Portado — agora em OSLANG 0.7 (`APPS/KISS/main.osl`) |
 | TODO | Portado |
 | TOUR | Portado |
 | HANGMAN | Portado |

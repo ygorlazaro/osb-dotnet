@@ -239,6 +239,28 @@ public static class PrimitiveMethodDispatcher
                 var last = a.Items[^1];
                 a.Items.RemoveAt(a.Items.Count - 1);
                 return last;
+            case "INSERTAT":
+                EnsureArgCount(args, 2, methodName, location);
+                var insertIndex = (int)RequireNumber(args, 0, methodName, location);
+                if (insertIndex < 0 || insertIndex > a.Items.Count)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() index out of range.");
+                }
+                a.Items.Insert(insertIndex, args[1]);
+                if (a.ElementType is null && args[1].Type != RuntimeType.Null)
+                {
+                    a.ElementType = args[1].Type;
+                }
+                return a;
+            case "REMOVEAT":
+                EnsureArgCount(args, 1, methodName, location);
+                var removeIndex = (int)RequireNumber(args, 0, methodName, location);
+                if (removeIndex < 0 || removeIndex >= a.Items.Count)
+                {
+                    throw new OslangRuntimeException(location, $"{methodName}() index out of range.");
+                }
+                a.Items.RemoveAt(removeIndex);
+                return a;
             case "FINDINDEX":
                 EnsureArgCount(args, 1, methodName, location);
                 if (args[0] is not FunctionValue funcFind)
