@@ -326,7 +326,7 @@ public sealed class ConsoleHost
             _ => key.KeyChar.ToString(),
         };
 
-        var keyEnum = new EnumValue(new NumberValue(0), "KEY", keyName);
+        var keyEnum = new EnumValue(new NumberValue(0), "KEYCODE", keyName);
         return new KeyValue(keyEnum, charValue, hasCtrl, hasAlt, hasShift);
     }
 

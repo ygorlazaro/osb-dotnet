@@ -201,7 +201,7 @@ CLASS KISS
 
     PRIVATE FUNCTION HANDLEKEY(Key)
         SWITCH Key.KEY
-            CASE KEY.ESC
+            CASE KEYCODE.ESC
                 IF Modified THEN
                     IF NOT CONFIRMDISCARD() THEN
                         RETURN
@@ -209,21 +209,21 @@ CLASS KISS
                 END
                 Running = FALSE
                 RETURN
-            CASE KEY.UP
+            CASE KEYCODE.UP
                 IF Row > 0 THEN
                     Row = Row - 1
                     EnsureVisible()
                 END
                 Col = MATH.MIN(Col, COUNT(Lines[Row]))
                 RETURN
-            CASE KEY.DOWN
+            CASE KEYCODE.DOWN
                 IF Row < COUNT(Lines) - 1 THEN
                     Row = Row + 1
                     EnsureVisible()
                 END
                 Col = MATH.MIN(Col, COUNT(Lines[Row]))
                 RETURN
-            CASE KEY.LEFT
+            CASE KEYCODE.LEFT
                 IF Col > 0 THEN
                     Col = Col - 1
                 ELIF Row > 0 THEN
@@ -232,7 +232,7 @@ CLASS KISS
                     EnsureVisible()
                 END
                 RETURN
-            CASE KEY.RIGHT
+            CASE KEYCODE.RIGHT
                 IF Col < COUNT(Lines[Row]) THEN
                     Col = Col + 1
                 ELIF Row < COUNT(Lines) - 1 THEN
@@ -241,18 +241,18 @@ CLASS KISS
                     EnsureVisible()
                 END
                 RETURN
-            CASE KEY.HOME
+            CASE KEYCODE.HOME
                 Col = 0
                 RETURN
-            CASE KEY.END
+            CASE KEYCODE.END
                 Col = COUNT(Lines[Row])
                 RETURN
-            CASE KEY.PAGEUP
+            CASE KEYCODE.PAGEUP
                 Row = MATH.MAX(0, Row - VisibleRows)
                 ScrollTop = MATH.MAX(0, ScrollTop - VisibleRows)
                 Col = MATH.MIN(Col, COUNT(Lines[Row]))
                 RETURN
-            CASE KEY.PAGEDOWN
+            CASE KEYCODE.PAGEDOWN
                 Row = MATH.MIN(COUNT(Lines) - 1, Row + VisibleRows)
                 ScrollTop = MATH.MIN(COUNT(Lines) - VisibleRows, ScrollTop + VisibleRows)
                 IF ScrollTop < 0 THEN
@@ -260,7 +260,7 @@ CLASS KISS
                 END
                 Col = MATH.MIN(Col, COUNT(Lines[Row]))
                 RETURN
-            CASE KEY.ENTER
+            CASE KEYCODE.ENTER
                 Line = Lines[Row]
                 Lines = Lines.INSERTAT(Row + 1, RIGHT(Line, COUNT(Line) - Col))
                 Lines[Row] = LEFT(Line, Col)
@@ -268,7 +268,7 @@ CLASS KISS
                 Col = 0
                 Modified = TRUE
                 RETURN
-            CASE KEY.BACKSPACE
+            CASE KEYCODE.BACKSPACE
                 IF Col > 0 THEN
                     Lines[Row] = REMOVE(Lines[Row], Col - 1, 1)
                     Col = Col - 1
@@ -281,7 +281,7 @@ CLASS KISS
                     Modified = TRUE
                 END
                 RETURN
-            CASE KEY.DELETE
+            CASE KEYCODE.DELETE
                 IF Col < COUNT(Lines[Row]) THEN
                     Lines[Row] = REMOVE(Lines[Row], Col, 1)
                     Modified = TRUE
@@ -291,7 +291,7 @@ CLASS KISS
                     Modified = TRUE
                 END
                 RETURN
-            CASE KEY.TAB
+            CASE KEYCODE.TAB
                 Lines[Row] = INSERT(Lines[Row], Col, "    ")
                 Col = Col + 4
                 Modified = TRUE

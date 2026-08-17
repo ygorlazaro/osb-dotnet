@@ -62,6 +62,8 @@ public sealed class Scope
         return _globals.GetValueOrDefault(name);
     }
 
+    public bool HasLocal(string name) => _locals.ContainsKey(name);
+
     public Variable ResolveForAssignment(string name)
     {
         if (_locals.TryGetValue(name, out var local))

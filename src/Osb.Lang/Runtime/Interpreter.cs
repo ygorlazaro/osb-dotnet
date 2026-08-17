@@ -19,7 +19,7 @@ internal sealed class Interpreter
     private readonly Dictionary<string, InterfaceDefinition> _interfaces = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, OslangValue> _standardLibraries = new();
     private readonly Dictionary<string, List<(string MemberName, OslangValue Value)>> _enums = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, EnumTypeValue> _enumTypes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, EnumTypeValue> _enumTypes = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<UsingDecl> _topLevelUsings;
     private readonly List<EnumDecl> _topLevelEnums;
     private readonly ExtensionRegistry _extensions;
@@ -270,33 +270,33 @@ internal sealed class Interpreter
                 case "BRIGHT_MAGENTA": return new NumberValue(13);
                 case "BRIGHT_YELLOW": return new NumberValue(14);
                 case "BRIGHT_WHITE": return new NumberValue(15);
-                case "ENTER": return new StringValue("ENTER");
-                case "ESC": return new StringValue("ESC");
-                case "TAB": return new StringValue("TAB");
-                case "BACKSPACE": return new StringValue("BACKSPACE");
-                case "DELETE": return new StringValue("DELETE");
-                case "INSERT": return new StringValue("INSERT");
-                case "SPACE": return new StringValue("SPACE");
-                case "UP": return new StringValue("UP");
-                case "DOWN": return new StringValue("DOWN");
-                case "LEFT": return new StringValue("LEFT");
-                case "RIGHT": return new StringValue("RIGHT");
-                case "HOME": return new StringValue("HOME");
-                case "END": return new StringValue("END");
-                case "PAGEUP": return new StringValue("PAGEUP");
-                case "PAGEDOWN": return new StringValue("PAGEDOWN");
-                case "F1": return new StringValue("F1");
-                case "F2": return new StringValue("F2");
-                case "F3": return new StringValue("F3");
-                case "F4": return new StringValue("F4");
-                case "F5": return new StringValue("F5");
-                case "F6": return new StringValue("F6");
-                case "F7": return new StringValue("F7");
-                case "F8": return new StringValue("F8");
-                case "F9": return new StringValue("F9");
-                case "F10": return new StringValue("F10");
-                case "F11": return new StringValue("F11");
-                case "F12": return new StringValue("F12");
+                case "ENTER": return new EnumValue(new NumberValue(1), "KEYCODE", "ENTER");
+                case "ESC": return new EnumValue(new NumberValue(2), "KEYCODE", "ESC");
+                case "TAB": return new EnumValue(new NumberValue(3), "KEYCODE", "TAB");
+                case "BACKSPACE": return new EnumValue(new NumberValue(4), "KEYCODE", "BACKSPACE");
+                case "DELETE": return new EnumValue(new NumberValue(5), "KEYCODE", "DELETE");
+                case "INSERT": return new EnumValue(new NumberValue(6), "KEYCODE", "INSERT");
+                case "SPACE": return new EnumValue(new NumberValue(7), "KEYCODE", "SPACE");
+                case "UP": return new EnumValue(new NumberValue(8), "KEYCODE", "UP");
+                case "DOWN": return new EnumValue(new NumberValue(9), "KEYCODE", "DOWN");
+                case "LEFT": return new EnumValue(new NumberValue(10), "KEYCODE", "LEFT");
+                case "RIGHT": return new EnumValue(new NumberValue(11), "KEYCODE", "RIGHT");
+                case "HOME": return new EnumValue(new NumberValue(12), "KEYCODE", "HOME");
+                case "END": return new EnumValue(new NumberValue(13), "KEYCODE", "END");
+                case "PAGEUP": return new EnumValue(new NumberValue(14), "KEYCODE", "PAGEUP");
+                case "PAGEDOWN": return new EnumValue(new NumberValue(15), "KEYCODE", "PAGEDOWN");
+                case "F1": return new EnumValue(new NumberValue(16), "KEYCODE", "F1");
+                case "F2": return new EnumValue(new NumberValue(17), "KEYCODE", "F2");
+                case "F3": return new EnumValue(new NumberValue(18), "KEYCODE", "F3");
+                case "F4": return new EnumValue(new NumberValue(19), "KEYCODE", "F4");
+                case "F5": return new EnumValue(new NumberValue(20), "KEYCODE", "F5");
+                case "F6": return new EnumValue(new NumberValue(21), "KEYCODE", "F6");
+                case "F7": return new EnumValue(new NumberValue(22), "KEYCODE", "F7");
+                case "F8": return new EnumValue(new NumberValue(23), "KEYCODE", "F8");
+                case "F9": return new EnumValue(new NumberValue(24), "KEYCODE", "F9");
+                case "F10": return new EnumValue(new NumberValue(25), "KEYCODE", "F10");
+                case "F11": return new EnumValue(new NumberValue(26), "KEYCODE", "F11");
+                case "F12": return new EnumValue(new NumberValue(27), "KEYCODE", "F12");
             }
         }
 
@@ -510,16 +510,8 @@ internal sealed class Interpreter
     private void ExecuteGlobalDecl(GlobalDeclStmt g, Scope scope)
     {
         var value = Eval(g.Value, scope);
-        if (_enumTypes.ContainsKey(g.Name.ToUpperInvariant()))
-        {
-            var variable = scope.DeclareLocal(g.Name);
-            TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
-        }
-        else
-        {
-            var variable = scope.DeclareOrGetGlobal(g.Name);
-            TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
-        }
+        var variable = scope.DeclareOrGetGlobal(g.Name);
+        TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
     }
 
     private void ExecuteAssign(AssignStmt a, Scope scope)
@@ -528,10 +520,10 @@ internal sealed class Interpreter
         switch (a.Target)
         {
             case VariableTarget vt:
-                Variable variable;
-                if (_enumTypes.ContainsKey(vt.Name.ToUpperInvariant()))
+                Variable? variable;
+                if (scope.HasLocal(vt.Name))
                 {
-                    variable = scope.DeclareLocal(vt.Name);
+                    variable = scope.ResolveForAssignment(vt.Name);
                 }
                 else if (_currentObject is not null)
                 {
@@ -922,7 +914,6 @@ internal sealed class Interpreter
         }
 
         _enums[e.Name] = members;
-        _globals[e.Name] = new Variable { Value = new EnumTypeValue(e.Name) };
         _enumTypes[e.Name] = new EnumTypeValue(e.Name);
     }
 
@@ -960,9 +951,8 @@ internal sealed class Interpreter
             ("F12", new NumberValue(27)),
         };
 
-        _enums["KEY"] = members;
-        _globals["KEY"] = new Variable { Value = new EnumTypeValue("KEY") };
-        _enumTypes["KEY"] = new EnumTypeValue("KEY");
+        _enums["KEYCODE"] = members;
+        _enumTypes["KEYCODE"] = new EnumTypeValue("KEYCODE");
     }
 
     // ============================================================
@@ -1061,11 +1051,6 @@ internal sealed class Interpreter
 
     private OslangValue EvalIdentifier(IdentifierExpr id, Scope scope)
     {
-        if (_enumTypes.TryGetValue(id.Name, out var enumType))
-        {
-            return enumType;
-        }
-
         var variable = scope.TryResolve(id.Name);
         if (variable is not null)
         {
@@ -1100,6 +1085,11 @@ internal sealed class Interpreter
             {
                 return CreateFunctionReference(first);
             }
+        }
+
+        if (_enumTypes.TryGetValue(id.Name, out var enumType))
+        {
+            return enumType;
         }
 
         throw new OslangRuntimeException(id.Location, $"Undefined variable '{id.Name}'.");
