@@ -179,8 +179,6 @@ public partial class OsbShell
             }
         }
     }
-
- // ... existing code ...
     private bool RunExternal(string cmd)
     {
         cmd = cmd.Trim();
@@ -245,92 +243,5 @@ public partial class OsbShell
             Console.WriteLine(I18nService.Get("commands.cannot_execute", ex.Message));
             return false;
         }
-    }
-
-    private static (string Path, string[] Args) ParseOshArgs(string args)
-    {
-        var trimmed = args.Trim();
-        if (trimmed.Length == 0)
-        {
-            return (string.Empty, []);
-        }
-
-        var tokens = new List<string>();
-        var current = new System.Text.StringBuilder();
-        var inQuotes = false;
-
-        foreach (var ch in trimmed)
-        {
-            if (ch == '"')
-            {
-                inQuotes = !inQuotes;
-            }
-            else if (char.IsWhiteSpace(ch) && !inQuotes)
-            {
-                if (current.Length > 0)
-                {
-                    tokens.Add(current.ToString());
-                    current.Clear();
-                }
-            }
-            else
-            {
-                current.Append(ch);
-            }
-        }
-
-        if (current.Length > 0)
-        {
-            tokens.Add(current.ToString());
-        }
-
-        if (tokens.Count == 0)
-        {
-            return (string.Empty, []);
-        }
-
-        var path = tokens[0];
-        var oshArgs = tokens.Skip(1).ToArray();
-        return (path, oshArgs);
-    }
-
-    private static string[] ParseArgList(string args)
-    {
-        var trimmed = args.Trim();
-        if (trimmed.Length == 0)
-        {
-            return [];
-        }
-
-        var tokens = new List<string>();
-        var current = new System.Text.StringBuilder();
-        var inQuotes = false;
-
-        foreach (var ch in trimmed)
-        {
-            if (ch == '"')
-            {
-                inQuotes = !inQuotes;
-            }
-            else if (char.IsWhiteSpace(ch) && !inQuotes)
-            {
-                if (current.Length > 0)
-                {
-                    tokens.Add(current.ToString());
-                    current.Clear();
-                }
-            }
-            else
-            {
-                current.Append(ch);
-            }
-        }
-
-        if (current.Length > 0)
-        {
-            tokens.Add(current.ToString());
-        }
-
-        return tokens.ToArray();
     }
 }
