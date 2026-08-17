@@ -121,6 +121,13 @@ public class OsbEnvironment
 
     private void PerformFirstBootSetup()
     {
+        if (Console.IsInputRedirected)
+        {
+            SaveMachineName("OSB");
+            Users.Add("user", "password", "EN-US", out _);
+            return;
+        }
+
         Console.WriteLine(I18nService.Get("boot.first_time"));
         Console.Write(I18nService.Get("boot.machine_name_prompt"));
         var hostName = (Console.ReadLine() ?? string.Empty).Trim();
