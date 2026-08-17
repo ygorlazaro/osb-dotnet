@@ -15,10 +15,11 @@ internal sealed class Interpreter
 {
     private readonly Dictionary<string, FunctionOverloadSet> _functions = new();
     private readonly Dictionary<string, Variable> _globals = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, ClassDefinition> _classes = new();
-    private readonly Dictionary<string, InterfaceDefinition> _interfaces = new();
+    private readonly Dictionary<string, ClassDefinition> _classes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, InterfaceDefinition> _interfaces = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, OslangValue> _standardLibraries = new();
     private readonly Dictionary<string, List<(string MemberName, OslangValue Value)>> _enums = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, EnumTypeValue> _enumTypes = new(StringComparer.Ordinal);
     private readonly List<UsingDecl> _topLevelUsings;
     private readonly List<EnumDecl> _topLevelEnums;
     private readonly ExtensionRegistry _extensions;
@@ -102,6 +103,8 @@ internal sealed class Interpreter
             ExecuteEnumDecl(enumDecl);
         }
 
+        RegisterBuiltinKeyEnum();
+
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
 
         var argsArray = args != null
@@ -141,6 +144,16 @@ internal sealed class Interpreter
         if (StandardLibrary.FunctionNames.Contains(name))
         {
             return StandardLibrary.Call(name, args, callLocation);
+        }
+
+        if (_currentObject is not null)
+        {
+            var method = _currentObject.ClassDefinition.FindMethod(name);
+            if (method is not null)
+            {
+                CheckMemberVisibility(method.Visibility, method.Name, callLocation);
+                return CallMethod(_currentObject, method, null, args, callLocation);
+            }
         }
 
         if (_extensions.TryGet(name, out var hostFunction))
@@ -497,8 +510,16 @@ internal sealed class Interpreter
     private void ExecuteGlobalDecl(GlobalDeclStmt g, Scope scope)
     {
         var value = Eval(g.Value, scope);
-        var variable = scope.DeclareOrGetGlobal(g.Name);
-        TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
+        if (_enumTypes.ContainsKey(g.Name.ToUpperInvariant()))
+        {
+            var variable = scope.DeclareLocal(g.Name);
+            TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
+        }
+        else
+        {
+            var variable = scope.DeclareOrGetGlobal(g.Name);
+            TypeSystem.Assign(variable, value, g.Location, $"global variable '{g.Name}'");
+        }
     }
 
     private void ExecuteAssign(AssignStmt a, Scope scope)
@@ -507,8 +528,34 @@ internal sealed class Interpreter
         switch (a.Target)
         {
             case VariableTarget vt:
-                var variable = scope.ResolveForAssignment(vt.Name);
-                TypeSystem.Assign(variable, value, vt.Location, $"variable '{vt.Name}'");
+                Variable variable;
+                if (_enumTypes.ContainsKey(vt.Name.ToUpperInvariant()))
+                {
+                    variable = scope.DeclareLocal(vt.Name);
+                }
+                else if (_currentObject is not null)
+                {
+                    var prop = _currentObject.ClassDefinition.FindProperty(vt.Name);
+                    if (prop is not null)
+                    {
+                        CheckMemberVisibility(prop.Visibility, prop.Name, vt.Location);
+                        _currentObject.PropertyValues[prop.Name] = value;
+                        variable = null;
+                    }
+                    else
+                    {
+                        variable = scope.ResolveForAssignment(vt.Name);
+                    }
+                }
+                else
+                {
+                    variable = scope.ResolveForAssignment(vt.Name);
+                }
+
+                if (variable is not null)
+                {
+                    TypeSystem.Assign(variable, value, vt.Location, $"variable '{vt.Name}'");
+                }
                 break;
             case IndexTarget it:
                 var array = EvalArray(it.ArrayExpr, scope);
@@ -876,6 +923,46 @@ internal sealed class Interpreter
 
         _enums[e.Name] = members;
         _globals[e.Name] = new Variable { Value = new EnumTypeValue(e.Name) };
+        _enumTypes[e.Name] = new EnumTypeValue(e.Name);
+    }
+
+    private void RegisterBuiltinKeyEnum()
+    {
+        var members = new List<(string MemberName, OslangValue Value)>
+        {
+            ("UNKNOWN", new NumberValue(0)),
+            ("ENTER", new NumberValue(1)),
+            ("ESC", new NumberValue(2)),
+            ("TAB", new NumberValue(3)),
+            ("BACKSPACE", new NumberValue(4)),
+            ("DELETE", new NumberValue(5)),
+            ("INSERT", new NumberValue(6)),
+            ("SPACE", new NumberValue(7)),
+            ("UP", new NumberValue(8)),
+            ("DOWN", new NumberValue(9)),
+            ("LEFT", new NumberValue(10)),
+            ("RIGHT", new NumberValue(11)),
+            ("HOME", new NumberValue(12)),
+            ("END", new NumberValue(13)),
+            ("PAGEUP", new NumberValue(14)),
+            ("PAGEDOWN", new NumberValue(15)),
+            ("F1", new NumberValue(16)),
+            ("F2", new NumberValue(17)),
+            ("F3", new NumberValue(18)),
+            ("F4", new NumberValue(19)),
+            ("F5", new NumberValue(20)),
+            ("F6", new NumberValue(21)),
+            ("F7", new NumberValue(22)),
+            ("F8", new NumberValue(23)),
+            ("F9", new NumberValue(24)),
+            ("F10", new NumberValue(25)),
+            ("F11", new NumberValue(26)),
+            ("F12", new NumberValue(27)),
+        };
+
+        _enums["KEY"] = members;
+        _globals["KEY"] = new Variable { Value = new EnumTypeValue("KEY") };
+        _enumTypes["KEY"] = new EnumTypeValue("KEY");
     }
 
     // ============================================================
@@ -974,6 +1061,11 @@ internal sealed class Interpreter
 
     private OslangValue EvalIdentifier(IdentifierExpr id, Scope scope)
     {
+        if (_enumTypes.TryGetValue(id.Name, out var enumType))
+        {
+            return enumType;
+        }
+
         var variable = scope.TryResolve(id.Name);
         if (variable is not null)
         {
@@ -1763,7 +1855,7 @@ internal sealed class Interpreter
         {
             return expr.MemberName.ToUpperInvariant() switch
             {
-                "KEY" => new StringValue(keyValue.Key),
+                "KEY" => keyValue.Key,
                 "CHAR" => keyValue.Char is not null ? new StringValue(keyValue.Char) : OslangValue.Null,
                 "CTRL" => BooleanValue.Of(keyValue.Ctrl),
                 "ALT" => BooleanValue.Of(keyValue.Alt),

@@ -9,7 +9,7 @@ CLASS CONFIGAPP
         OSL.CONSOLE.CLEAR()
 
         TRY
-            ME.MainLoop()
+            MainLoop()
         CATCH ERR
             OSL.CONSOLE.SHOWCURSOR()
             OSL.CONSOLE.ALTERNATE(FALSE)
@@ -47,11 +47,11 @@ CLASS CONFIGAPP
             Choice = TRIM(Choice)
 
             IF Choice = "1" THEN
-                ME.ChangeBootMessage()
+                ChangeBootMessage()
             ELIF Choice = "2" THEN
-                ME.ChangePromptLayout()
+                ChangePromptLayout()
             ELIF Choice = "3" THEN
-                ME.ChangeLanguage()
+                ChangeLanguage()
             ELIF Choice = "0" THEN
                 CFG_SAVE()
                 RETURN
@@ -94,44 +94,44 @@ CLASS CONFIGAPP
         WHILE TRUE
             Key = OSL.CONSOLE.GETKEY()
 
-            IF Key.KEY = "ENTER" THEN
+            IF Key.KEY = KEY.ENTER THEN
                 OSL.CONSOLE.HIDECURSOR()
                 CFG_SET_PROMPT(Buffer)
                 RETURN
             END
 
-            IF Key.KEY = "ESC" THEN
+            IF Key.KEY = KEY.ESC THEN
                 OSL.CONSOLE.HIDECURSOR()
                 RETURN
             END
 
-            IF Key.KEY = "LEFT" AND Cursor > 0 THEN
+            IF Key.KEY = KEY.LEFT AND Cursor > 0 THEN
                 Cursor = Cursor - 1
                 OSL.CONSOLE.SETCURSOR(10, Cursor + 1)
             END
 
-            IF Key.KEY = "RIGHT" AND Cursor < COUNT(Buffer) THEN
+            IF Key.KEY = KEY.RIGHT AND Cursor < COUNT(Buffer) THEN
                 Cursor = Cursor + 1
                 OSL.CONSOLE.SETCURSOR(10, Cursor + 1)
             END
 
-            IF Key.KEY = "HOME" AND Cursor > 0 THEN
+            IF Key.KEY = KEY.HOME AND Cursor > 0 THEN
                 OSL.CONSOLE.SETCURSOR(10, 1)
                 Cursor = 0
             END
 
-            IF Key.KEY = "END" AND Cursor < COUNT(Buffer) THEN
+            IF Key.KEY = KEY.END AND Cursor < COUNT(Buffer) THEN
                 OSL.CONSOLE.SETCURSOR(10, COUNT(Buffer) + 1)
                 Cursor = COUNT(Buffer)
             END
 
-            IF Key.KEY = "BACKSPACE" AND Cursor > 0 THEN
+            IF Key.KEY = KEY.BACKSPACE AND Cursor > 0 THEN
                 Buffer = REMOVE(Buffer, Cursor - 1, 1)
                 Cursor = Cursor - 1
                 RedrawPromptLine(Buffer, Cursor)
             END
 
-            IF Key.KEY = "DELETE" AND Cursor < COUNT(Buffer) THEN
+            IF Key.KEY = KEY.DELETE AND Cursor < COUNT(Buffer) THEN
                 Buffer = REMOVE(Buffer, Cursor, 1)
                 RedrawPromptLine(Buffer, Cursor)
             END

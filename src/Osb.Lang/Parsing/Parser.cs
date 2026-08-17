@@ -1278,7 +1278,7 @@ public sealed class Parser
             return new CallExpr(tok.Text, args, tok.Location);
         }
 
-        return new IdentifierExpr(tok.Text, tok.Location);
+        return new IdentifierExpr(tok.Lexeme, tok.Location);
     }
 
     private Expr ParseParenOrArrow()

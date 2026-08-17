@@ -134,14 +134,14 @@ public sealed class EnumSetValue(string enumTypeName, HashSet<EnumValue> values)
 
 public sealed class KeyValue : OslangValue
 {
-    public string Key { get; }
+    public EnumValue Key { get; }
     public string? Char { get; }
     public bool Ctrl { get; }
     public bool Alt { get; }
     public bool Shift { get; }
     public override RuntimeType Type => RuntimeType.Object;
 
-    public KeyValue(string key, string? charValue, bool ctrl, bool alt, bool shift)
+    public KeyValue(EnumValue key, string? charValue, bool ctrl, bool alt, bool shift)
     {
         Key = key;
         Char = charValue;

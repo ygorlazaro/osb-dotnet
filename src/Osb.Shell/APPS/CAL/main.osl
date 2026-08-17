@@ -4,7 +4,7 @@ CLASS CALENDARAPP
 
     PUBLIC FUNCTION RUN(Args)
         IF COUNT(Args) = 0 THEN
-            ME.SHOWMONTH(ME.NOW_MONTH(), ME.NOW_YEAR())
+            SHOWMONTH(NOW_MONTH(), NOW_YEAR())
             RETURN
         END
 
@@ -16,9 +16,9 @@ CLASS CALENDARAPP
                 RETURN
             END
             IF Value >= 1 AND Value <= 12 THEN
-                ME.SHOWMONTH(Value, ME.NOW_YEAR())
+                SHOWMONTH(Value, NOW_YEAR())
             ELSE
-                ME.SHOWYEAR(Value)
+                SHOWYEAR(Value)
             END
             RETURN
         END
@@ -26,7 +26,7 @@ CLASS CALENDARAPP
         IF COUNT(Args) >= 2 THEN
             Month = NUMBER(Args[0])
             Year = NUMBER(Args[1])
-            ME.SHOWMONTH(Month, Year)
+            SHOWMONTH(Month, Year)
         END
     END FUNCTION
 
@@ -62,20 +62,20 @@ CLASS CALENDARAPP
 
     PRIVATE FUNCTION SHOWYEAR(Year)
         FOR Month = 1 TO 12
-            ME.SHOWMONTH(Month, Year)
+            SHOWMONTH(Month, Year)
         END
     END FUNCTION
 
     PRIVATE FUNCTION SHOWMONTH(Month, Year)
         PRINT ""
-        PRINT "   " + ME.MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
+        PRINT "   " + MONTHNAME(Month).TOUPPER() + " / " + STR(Year)
         PRINT I18N.GET("weekdays")
 
-        FirstDay = ME.GETFIRSTDAYOFWEEK(Month, Year)
-        DaysInMonth = ME.GETDAYSINMONTH(Month, Year)
-        TodayDay = ME.NOW_DAY()
-        TodayMonth = ME.NOW_MONTH()
-        TodayYear = ME.NOW_YEAR()
+        FirstDay = GETFIRSTDAYOFWEEK(Month, Year)
+        DaysInMonth = GETDAYSINMONTH(Month, Year)
+        TodayDay = NOW_DAY()
+        TodayMonth = NOW_MONTH()
+        TodayYear = NOW_YEAR()
 
         Line = ""
         IF FirstDay > 0 THEN
@@ -105,10 +105,10 @@ CLASS CALENDARAPP
 
         IF Month = TodayMonth AND Year = TodayYear THEN
             TodayWeekdayIndex = (FirstDay + TodayDay - 1) MOD 7
-            TodayWeekday = ME.GETWEEKDAYFULLNAME(TodayWeekdayIndex)
-            Hour = STR(ME.NOW_HOUR()).PADSTART(2)
-            Minute = STR(ME.NOW_MINUTE()).PADSTART(2)
-            Second = STR(ME.NOW_SECOND()).PADSTART(2)
+            TodayWeekday = GETWEEKDAYFULLNAME(TodayWeekdayIndex)
+            Hour = STR(NOW_HOUR()).PADSTART(2)
+            Minute = STR(NOW_MINUTE()).PADSTART(2)
+            Second = STR(NOW_SECOND()).PADSTART(2)
             PRINT I18N("today", TodayWeekday, STR(TodayDay).PADSTART(2), STR(TodayMonth).PADSTART(2), STR(TodayYear), Hour, Minute, Second)
         END
     END FUNCTION

@@ -20,7 +20,7 @@ namespace Osb.Lang.Runtime;
 /// </summary>
 public sealed class Scope
 {
-    private readonly Dictionary<string, Variable> _locals = new();
+    private readonly Dictionary<string, Variable> _locals = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Variable> _globals;
     private readonly Scope? _parent;
 

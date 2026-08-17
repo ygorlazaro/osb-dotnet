@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using Osb.Lang.Diagnostics;
 
 namespace Osb.Lang.Runtime;
@@ -14,6 +15,8 @@ public static class Conversions
         StringValue s => s.Value.Length > 0,
         ArrayValue => true, // "any ARRAY" é truthy, mesmo vazio (seção 19)
         ObjectValue => true, // object references are truthy
+        EnumValue => true, // enum values are truthy
+        EnumSetValue => true, // enum sets are truthy
         _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 
@@ -57,6 +60,8 @@ public static class Conversions
         BooleanValue b => b.Value ? "TRUE" : "FALSE",
         ArrayValue => throw new OslangRuntimeException(location, "Cannot convert an ARRAY to STRING."),
         ObjectValue obj => obj.ClassName,
+        EnumValue ev => $"{ev.EnumTypeName}.{ev.MemberName}",
+        EnumSetValue es => $"{es.EnumTypeName}[{string.Join("|", es.Values.Select(v => v.MemberName))}]",
         _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 }

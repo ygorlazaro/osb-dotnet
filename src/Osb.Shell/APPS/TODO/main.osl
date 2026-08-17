@@ -4,7 +4,7 @@ CLASS TODOAPP
 
     PUBLIC FUNCTION RUN(Args)
         IF COUNT(Args) = 0 THEN
-            ME.LIST(Args)
+            LIST(Args)
             RETURN
         END
 
@@ -18,18 +18,18 @@ CLASS TODOAPP
             FOR I = 2 TO COUNT(Args) - 1
                 TaskText += " " + Args[I]
             END
-            ME.ADD(TaskText)
+            ADD(TaskText)
         ELIF Command = "LIST" THEN
-            ME.LIST(Args)
+            LIST(Args)
         ELIF Command = "DONE" THEN
             IF COUNT(Args) < 2 THEN
                 PRINT I18N.GET("todo.usage_done")
                 RETURN
             END
             Index = NUMBER(Args[1])
-            ME.DONE(Index)
+            DONE(Index)
         ELIF Command = "CLEAR" THEN
-            ME.CLEARALL()
+            CLEARALL()
         ELSE
             PRINT I18N("todo.unknown_command", Command)
             PRINT I18N.GET("todo.usage")
@@ -37,14 +37,14 @@ CLASS TODOAPP
     END FUNCTION
 
     PRIVATE FUNCTION ADD(TaskText)
-        Tasks = ME.LOAD()
+        Tasks = LOAD()
         Tasks.ADD(TaskText)
-        ME.SAVE(Tasks)
+        SAVE(Tasks)
         PRINT I18N.GET("todo.added")
     END FUNCTION
 
     PRIVATE FUNCTION LIST(Args)
-        Tasks = ME.LOAD()
+        Tasks = LOAD()
         ShowAll = FALSE
         IF COUNT(Args) >= 2 AND Args[1].TOUPPER() = "ALL" THEN
             ShowAll = TRUE
@@ -66,7 +66,7 @@ CLASS TODOAPP
     END FUNCTION
 
     PRIVATE FUNCTION DONE(Index)
-        Tasks = ME.LOAD()
+        Tasks = LOAD()
         IF Index < 1 OR Index > COUNT(Tasks) THEN
             PRINT I18N.GET("todo.invalid_index")
             RETURN
@@ -77,17 +77,17 @@ CLASS TODOAPP
             RETURN
         END
         Tasks[Index - 1] = "[x] " + Task
-        ME.SAVE(Tasks)
+        SAVE(Tasks)
         PRINT I18N("todo.completed", Task)
     END FUNCTION
 
     PRIVATE FUNCTION CLEARALL()
-        ME.SAVE([])
+        SAVE([])
         PRINT I18N.GET("todo.cleared")
     END FUNCTION
 
     PRIVATE FUNCTION LOAD()
-        Path = ME.FILE_PATH()
+        Path = FILE_PATH()
         IF FILE.EXISTS(Path) THEN
             Content = FILE.READTEXT(Path)
             IF COUNT(Content) = 0 THEN
@@ -107,7 +107,7 @@ CLASS TODOAPP
     END FUNCTION
 
     PRIVATE FUNCTION SAVE(Tasks)
-        Path = ME.FILE_PATH()
+        Path = FILE_PATH()
         Content = Tasks.JOIN("\n")
         IF COUNT(Content) > 0 THEN
             Content = Content + "\n"

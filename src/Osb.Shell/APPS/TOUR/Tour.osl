@@ -9,15 +9,15 @@ CLASS TOUR
         PRINT ""
         PRINT I18N("tour.welcome", UserName)
         PRINT I18N.GET("tour.learn")
-        ME.PAUSE()
+        PAUSE()
 
-        ME.SHOW_STEP(1, I18N.GET("tour.what_is_osb"), [
+        SHOW_STEP(1, I18N.GET("tour.what_is_osb"), [
             I18N.GET("tour.what_is_osb_1"),
             I18N.GET("tour.what_is_osb_2"),
             I18N.GET("tour.what_is_osb_3")
         ])
 
-        ME.SHOW_STEP(2, I18N.GET("tour.folders"), [
+        SHOW_STEP(2, I18N.GET("tour.folders"), [
             I18N.GET("tour.folders_1"),
             I18N.GET("tour.folders_examples"),
             I18N.GET("tour.folders_ex_1"),
@@ -27,7 +27,7 @@ CLASS TOUR
             I18N.GET("tour.folders_ex_5")
         ])
 
-        ME.SHOW_STEP(3, I18N.GET("tour.files"), [
+        SHOW_STEP(3, I18N.GET("tour.files"), [
             I18N.GET("tour.files_1"),
             I18N.GET("tour.files_examples"),
             I18N.GET("tour.files_ex_1"),
@@ -37,7 +37,7 @@ CLASS TOUR
             I18N.GET("tour.files_ex_5")
         ])
 
-        ME.SHOW_STEP(4, I18N.GET("tour.view_files"), [
+        SHOW_STEP(4, I18N.GET("tour.view_files"), [
             I18N.GET("tour.view_files_1"),
             I18N.GET("tour.view_files_examples"),
             I18N.GET("tour.view_files_ex_1"),
@@ -46,7 +46,7 @@ CLASS TOUR
             I18N.GET("tour.view_files_ex_4")
         ])
 
-        ME.SHOW_STEP(5, I18N.GET("tour.variables"), [
+        SHOW_STEP(5, I18N.GET("tour.variables"), [
             I18N.GET("tour.variables_1"),
             I18N.GET("tour.variables_examples"),
             I18N.GET("tour.variables_ex_1"),
@@ -56,7 +56,7 @@ CLASS TOUR
             I18N.GET("tour.variables_ex_5")
         ])
 
-        ME.SHOW_STEP(6, I18N.GET("tour.calculator"), [
+        SHOW_STEP(6, I18N.GET("tour.calculator"), [
             I18N.GET("tour.calculator_1"),
             I18N.GET("tour.calculator_examples"),
             I18N.GET("tour.calculator_ex_1"),
@@ -66,7 +66,7 @@ CLASS TOUR
             I18N.GET("tour.new_in_051")
         ])
 
-        ME.SHOW_STEP(7, I18N.GET("tour.pipes"), [
+        SHOW_STEP(7, I18N.GET("tour.pipes"), [
             I18N.GET("tour.pipes_1"),
             I18N.GET("tour.pipes_examples"),
             I18N.GET("tour.pipes_ex_1"),
@@ -74,7 +74,7 @@ CLASS TOUR
             I18N.GET("tour.pipes_ex_3")
         ])
 
-        ME.SHOW_STEP(8, I18N.GET("tour.apps_help"), [
+        SHOW_STEP(8, I18N.GET("tour.apps_help"), [
             I18N.GET("tour.apps_help_1"),
             I18N.GET("tour.apps_help_2"),
             I18N.GET("tour.apps_help_3"),
@@ -105,7 +105,7 @@ CLASS TOUR
         FOR I = 0 TO COUNT(Lines) - 1
             PRINT Lines[I]
         END
-        ME.PAUSE()
+        PAUSE()
     END FUNCTION
 
     PRIVATE FUNCTION PAUSE()

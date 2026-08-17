@@ -309,13 +309,13 @@ public sealed class ConsoleHost
         {
             keyName = $"F{(int)key.Key - (int)ConsoleKey.F1 + 1}";
         }
-                else if (key.Key == ConsoleKey.Pause)
-                {
-                    keyName = "PAUSE";
-                }
-                else
+        else if (key.Key == ConsoleKey.Pause)
         {
-            keyName = key.Key.ToString().ToUpperInvariant();
+            keyName = "UNKNOWN";
+        }
+        else
+        {
+            keyName = "UNKNOWN";
         }
 
         var charValue = key.KeyChar switch
@@ -326,7 +326,8 @@ public sealed class ConsoleHost
             _ => key.KeyChar.ToString(),
         };
 
-        return new KeyValue(keyName, charValue, hasCtrl, hasAlt, hasShift);
+        var keyEnum = new EnumValue(new NumberValue(0), "KEY", keyName);
+        return new KeyValue(keyEnum, charValue, hasCtrl, hasAlt, hasShift);
     }
 
     private static void EnterRawMode()

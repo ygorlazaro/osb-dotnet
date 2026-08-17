@@ -4,11 +4,11 @@ CLASS Animal
     VAR Name String
 
     CONSTRUCTOR(Name String)
-        ME.Name = Name
+        Name = Name
     END
 
     PUBLIC GET_NAME()
-        RETURN ME.Name
+        RETURN Name
     END
 END
 
@@ -17,11 +17,11 @@ CLASS Mammal: Animal
 
     CONSTRUCTOR(Name String, Sound String)
         BASE(Name)
-        ME.Sound = Sound
+        Sound = Sound
     END
 
     PUBLIC GET_SOUND()
-        RETURN ME.Sound
+        RETURN Sound
     END
 END
 

@@ -2519,7 +2519,7 @@ END FUNCTION";
 
 FUNCTION MAIN()
     Key = OSL.CONSOLE.GETKEY()
-    IF Key.KEY = OSL.CONSOLE.ESC THEN
+    IF Key.KEY = KEY.ESC THEN
         PRINT ""ESC""
     END
     IF Key.CHAR <> NULL THEN
@@ -2538,8 +2538,7 @@ FUNCTION MAIN()
 END FUNCTION";
 
         var extensions = new ExtensionRegistry();
-        extensions.Register("CONSOLE.GETKEY", (args, location) => new KeyValue("ESC", null, false, false, false));
-        extensions.Register("CONSOLE.ESC", (args, location) => new StringValue("ESC"));
+        extensions.Register("CONSOLE.GETKEY", (args, location) => new KeyValue(new EnumValue(new NumberValue(2), "KEY", "ESC"), null, false, false, false));
         var interpreter = new OslangInterpreter(extensions);
         interpreter.Execute(source, output, Console.In, Console.Clear, null);
         Assert.Contains("KeyOK", output.ToString());

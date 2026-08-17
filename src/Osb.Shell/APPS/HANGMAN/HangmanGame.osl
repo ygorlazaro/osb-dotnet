@@ -16,14 +16,14 @@ CLASS HANGMANGAME
             Path = "../../CONF/HANGMAN-WORDS.EN-US"
         END
         IF FILE.EXISTS(Path) THEN
-            ME.Words = FILE.READ(Path)
+            Words = FILE.READ(Path)
         ELSE
-            ME.Words = FILE.READ("../../CONF/HANGMAN.WDS")
+            Words = FILE.READ("../../CONF/HANGMAN.WDS")
         END
-        ME.MaxErrors = 7
-        ME.Guessed = ""
-        ME.Errors = 0
-        ME.Stages = [
+        MaxErrors = 7
+        Guessed = ""
+        Errors = 0
+        Stages = [
             ["", "", "", "", "", "========="],
             ["  |", "  |", "  |", "  |", "  |", "========="],
             ["  +---+", "  |", "  |", "  |", "  |", "  |", "========="],
@@ -36,36 +36,36 @@ CLASS HANGMANGAME
     END CONSTRUCTOR
 
     PUBLIC FUNCTION PLAY()
-        IF COUNT(ME.Words) = 0 THEN
+        IF COUNT(Words) = 0 THEN
             PRINT I18N.GET("hangman.no_words")
             RETURN
         END
 
-        Index = MATH.RANDOM(COUNT(ME.Words))
-        ME.Word = ME.Words[Index]
-        ME.Guessed = ""
-        ME.Errors = 0
+        Index = MATH.RANDOM(COUNT(Words))
+        Word = Words[Index]
+        Guessed = ""
+        Errors = 0
 
         PRINT ""
         PRINT I18N.GET("hangman.title")
         PRINT I18N.GET("hangman.instruction")
         PRINT ""
 
-        WHILE ME.Errors < ME.MaxErrors
+        WHILE Errors < MaxErrors
             CLEAR
             PRINT I18N.GET("hangman.title")
             PRINT ""
-            ME.DRAW_STAGE()
+            DRAW_STAGE()
             PRINT ""
-            ME.DRAW_WORD()
+            DRAW_WORD()
             PRINT ""
-            PRINT I18N("hangman.errors", STR(ME.Errors), STR(ME.MaxErrors))
-            PRINT I18N("hangman.guessed", ME.GET_GUESSED_STRING())
+            PRINT I18N("hangman.errors", STR(Errors), STR(MaxErrors))
+            PRINT I18N("hangman.guessed", GET_GUESSED_STRING())
 
-            Display = ME.GET_DISPLAY()
-            IF ME.GET_HIDDEN_COUNT(Display) = 0 THEN
+            Display = GET_DISPLAY()
+            IF GET_HIDDEN_COUNT(Display) = 0 THEN
                 PRINT ""
-                PRINT I18N("hangman.won", ME.Word)
+                PRINT I18N("hangman.won", Word)
                 RETURN
             END
 
@@ -81,33 +81,33 @@ CLASS HANGMANGAME
                 CONTINUE
             END
 
-            IF ME.HAS_GUESSED(Letter) THEN
+            IF HAS_GUESSED(Letter) THEN
                 CONTINUE
             END
 
-            ME.ADD_GUESSED(Letter)
-            IF NOT ME.CONTAINS_LETTER(ME.Word.NORMALIZE(), Letter) THEN
-                ME.Errors++
+            ADD_GUESSED(Letter)
+            IF NOT CONTAINS_LETTER(Word.NORMALIZE(), Letter) THEN
+                Errors++
             END
         END
 
         CLEAR
         PRINT I18N.GET("hangman.title")
         PRINT ""
-        ME.DRAW_STAGE()
+        DRAW_STAGE()
         PRINT ""
-        PRINT I18N("hangman.lost", ME.Word)
+        PRINT I18N("hangman.lost", Word)
     END FUNCTION
 
     PUBLIC FUNCTION DRAW_STAGE()
-        Stage = ME.Stages[ME.Errors]
+        Stage = Stages[Errors]
         FOR I = 0 TO COUNT(Stage) - 1
             PRINT Stage[I]
         END
     END FUNCTION
 
     PUBLIC FUNCTION DRAW_WORD()
-        Display = ME.GET_DISPLAY()
+        Display = GET_DISPLAY()
         Result = ""
         FOR I = 0 TO COUNT(Display) - 1
             IF I > 0 THEN
@@ -120,11 +120,11 @@ CLASS HANGMANGAME
 
     PUBLIC FUNCTION GET_DISPLAY()
         Result = ""
-        WordLen = COUNT(ME.Word)
+        WordLen = COUNT(Word)
         FOR I = 0 TO WordLen - 1
-            NormalizedChar = ME.Word.SUBSTR(I, 1).NORMALIZE()
-            IF ME.HAS_GUESSED(NormalizedChar) THEN
-                Result += ME.Word.SUBSTR(I, 1)
+            NormalizedChar = Word.SUBSTR(I, 1).NORMALIZE()
+            IF HAS_GUESSED(NormalizedChar) THEN
+                Result += Word.SUBSTR(I, 1)
             ELSE
                 Result += "_"
             END
@@ -143,20 +143,20 @@ CLASS HANGMANGAME
     END FUNCTION
 
     PUBLIC FUNCTION HAS_GUESSED(Letter)
-        RETURN ME.Guessed.INDEXOF(Letter) >= 0
+        RETURN Guessed.INDEXOF(Letter) >= 0
     END FUNCTION
 
     PUBLIC FUNCTION ADD_GUESSED(Letter)
-        ME.Guessed += Letter
+        Guessed += Letter
     END FUNCTION
 
     PUBLIC FUNCTION GET_GUESSED_STRING()
-        IF COUNT(ME.Guessed) = 0 THEN
+        IF COUNT(Guessed) = 0 THEN
             RETURN ""
         END
         Letters = []
-        FOR I = 0 TO COUNT(ME.Guessed) - 1
-            Letters.ADD(ME.Guessed.SUBSTR(I, 1))
+        FOR I = 0 TO COUNT(Guessed) - 1
+            Letters.ADD(Guessed.SUBSTR(I, 1))
         END
         RETURN Letters.JOIN(", ")
     END FUNCTION
