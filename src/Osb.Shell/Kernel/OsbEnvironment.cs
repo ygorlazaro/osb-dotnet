@@ -87,12 +87,6 @@ public class OsbEnvironment
         }
     }
 
-    public void ApplyColors()
-    {
-        Console.ForegroundColor = DosColors.ToConsoleColor(Config.ForeColor);
-        Console.BackgroundColor = DosColors.ToConsoleColor(Config.BackColor);
-    }
-
     private string LoadMachineName()
     {
         try
@@ -207,12 +201,6 @@ public class OsbEnvironment
         }
 
         return new string(password.ToArray());
-    }
-
-    public void ReloadColorsFromDisk()
-    {
-        Config = OsbConfig.Load(ConfigFile);
-        ApplyColors();
     }
 
     public void SetCurrentUsername(string username)

@@ -60,8 +60,6 @@ public partial class OsbShell
                 Console.Clear();
                 DrawStatusBar();
                 handled = true; break;
-            case "COLOR":
-                ColorPicker.Run(_env); handled = true; break;
             case "CONFIG":
                 handled = TryRunOslCommand("CONFIG", args); handled = true; break;
             case "COPY":
@@ -246,10 +244,6 @@ public partial class OsbShell
         {
             Console.WriteLine(I18nService.Get("commands.cannot_execute", ex.Message));
             return false;
-        }
-        finally
-        {
-            _env.ApplyColors();
         }
     }
 

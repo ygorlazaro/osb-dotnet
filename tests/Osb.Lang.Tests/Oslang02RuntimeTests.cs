@@ -2472,7 +2472,6 @@ END FUNCTION";
 USING OSL.APP
 
 FUNCTION MAIN()
-    OSL.CONSOLE.COLOR(OSL.CONSOLE.WHITE, OSL.CONSOLE.BLUE)
     OSL.CONSOLE.WRITE(1, 1, ""Hello"")
     OSL.CONSOLE.CLEAR()
     OSL.CONSOLE.HIDECURSOR()
@@ -2492,7 +2491,6 @@ END FUNCTION";
         var extensions = new ExtensionRegistry();
         extensions.Register("CONSOLE.WHITE", (args, location) => new NumberValue(7));
         extensions.Register("CONSOLE.BLUE", (args, location) => new NumberValue(1));
-        extensions.Register("CONSOLE.COLOR", (args, location) => OslangValue.Null);
         extensions.Register("CONSOLE.WRITE", (args, location) => OslangValue.Null);
         extensions.Register("CONSOLE.CLEAR", (args, location) => OslangValue.Null);
         extensions.Register("CONSOLE.HIDECURSOR", (args, location) => OslangValue.Null);

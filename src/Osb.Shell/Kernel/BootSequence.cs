@@ -7,8 +7,6 @@ public static class BootSequence
         Console.Clear();
         Console.WriteLine(I18nService.Get("boot.starting"));
         Console.WriteLine(I18nService.Get("boot.reading_config", env.ConfigFile));
-        Console.WriteLine(I18nService.Get("boot.setting_colors"));
-        env.ApplyColors();
 
         Console.WriteLine(I18nService.Get("boot.setting_dirs"));
         Console.WriteLine(I18nService.Get("boot.osb_dir", env.HomeDir));

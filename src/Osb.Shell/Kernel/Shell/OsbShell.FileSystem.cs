@@ -138,14 +138,13 @@ public partial class OsbShell
                 var isDir = directories.Select(d => true).Concat(files.Select(f => false)).ToArray();
                 var columnWidth = Math.Max(10, Math.Min(25, Console.WindowWidth / 4));
                 var columns = Math.Max(1, Console.WindowWidth / columnWidth);
-                var focusColor = DosColors.ToConsoleColor(_env.Config.FocusColor);
                 for (var i = 0; i < entries.Length; i += columns)
                 {
                     for (var j = i; j < i + columns && j < entries.Length; j++)
                     {
                         if (isDir[j])
                         {
-                            Console.ForegroundColor = focusColor;
+                            Console.ForegroundColor = ConsoleColor.Yellow;
                         }
                         Console.Write(entries[j].PadRight(columnWidth));
                         if (isDir[j])
@@ -163,10 +162,9 @@ public partial class OsbShell
 
             foreach (var d in directories)
             {
-                var previousColor = Console.ForegroundColor;
-                Console.ForegroundColor = DosColors.ToConsoleColor(_env.Config.FocusColor);
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"  {FormatDate(d.CreationTime),-16}  {FormatDate(d.LastWriteTime),-16}       <DIR>  {d.Name}");
-                Console.ForegroundColor = previousColor;
+                Console.ForegroundColor = ConsoleColor.Gray;
             }
 
             foreach (var f in files)

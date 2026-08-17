@@ -46,8 +46,6 @@ public partial class OsbShell
         var consoleHost = new ConsoleHost(extensions);
         extensions.ConsoleHost = consoleHost;
         RegisterOsbShellExtensions(extensions, _env);
-        extensions.ForegroundColor = _env.Config.ForeColor;
-        extensions.BackgroundColor = _env.Config.BackColor;
         var interpreter = new OslangInterpreter(extensions);
 
         try
@@ -150,18 +148,6 @@ public partial class OsbShell
     /// </summary>
     private void RegisterOsbShellExtensions(ExtensionRegistry extensions, OsbEnvironment env)
     {
-        extensions.Register("FOREGROUND_COLOR", (args, location) =>
-        {
-            RequireArgCount(args, 0, "FOREGROUND_COLOR", location);
-            return new NumberValue(extensions.ForegroundColor);
-        });
-
-        extensions.Register("BACKGROUND_COLOR", (args, location) =>
-        {
-            RequireArgCount(args, 0, "BACKGROUND_COLOR", location);
-            return new NumberValue(extensions.BackgroundColor);
-        });
-
         extensions.Register("PWD", (args, location) =>
         {
             RequireArgCount(args, 0, "PWD", location);
@@ -175,9 +161,6 @@ public partial class OsbShell
             var cfg = env.Config;
             return key switch
             {
-                "FORECOLOR" => new NumberValue(cfg.ForeColor),
-                "BACKCOLOR" => new NumberValue(cfg.BackColor),
-                "FOCUSCOLOR" => new NumberValue(cfg.FocusColor),
                 "MESSAGE" => new StringValue(cfg.Message),
                 _ => throw new OslangRuntimeException(location, $"Unknown config key '{key}'."),
             };
@@ -191,15 +174,6 @@ public partial class OsbShell
             var cfg = env.Config;
             switch (key)
             {
-                case "FORECOLOR":
-                    cfg.ForeColor = value is NumberValue nf ? (int)nf.Value : throw new OslangRuntimeException(location, "CFG_SET FORECOLOR expects a NUMBER.");
-                    break;
-                case "BACKCOLOR":
-                    cfg.BackColor = value is NumberValue nb ? (int)nb.Value : throw new OslangRuntimeException(location, "CFG_SET BACKCOLOR expects a NUMBER.");
-                    break;
-                case "FOCUSCOLOR":
-                    cfg.FocusColor = value is NumberValue nfc ? (int)nfc.Value : throw new OslangRuntimeException(location, "CFG_SET FOCUSCOLOR expects a NUMBER.");
-                    break;
                 case "MESSAGE":
                     cfg.Message = value is StringValue sv ? sv.Value : value.ToString();
                     break;
@@ -809,8 +783,6 @@ public partial class OsbShell
         extensions.Register("CONSOLE.CLEARLINE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("CLEARLINE", args, location));
         extensions.Register("CONSOLE.CLEARAREA", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("CLEARAREA", args, location));
         extensions.Register("CONSOLE.WRITE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("WRITE", args, location));
-        extensions.Register("CONSOLE.COLOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("COLOR", args, location));
-        extensions.Register("CONSOLE.RESETCOLOR", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("RESETCOLOR", args, location));
         extensions.Register("CONSOLE.GETKEY", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("GETKEY", args, location));
         extensions.Register("CONSOLE.READKEY", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("READKEY", args, location));
         extensions.Register("CONSOLE.KEYAVAILABLE", (args, location) => ((ConsoleHost)consoleHostObj).Dispatch("KEYAVAILABLE", args, location));

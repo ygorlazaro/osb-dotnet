@@ -12,7 +12,7 @@ public class TabCompleter
 {
     public static readonly string[] CommandVerbs =
     [
-        "ABOUT", "CAL", "CD", "CLEAR", "CLS", "COLOR", "CONFIG", "COPY",
+        "ABOUT", "CAL", "CD", "CLEAR", "CLS", "CONFIG", "COPY",
         "DATE", "DEL", "DIR", "EXIT", "FIND", "HELP", "HISTORY", "HOSTNAME",
         "KISS", "MD", "MOVE", "OSL", "PRINT", "PROMPT", "PWD", "RD", "REN", "SET",
         "SIZE", "TIME", "TOUR", "TODO", "TYPE", "USER", "VER"

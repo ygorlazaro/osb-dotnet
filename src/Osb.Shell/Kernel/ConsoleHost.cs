@@ -113,24 +113,6 @@ public sealed class ConsoleHost
                 var wText = RequireStringArg(args, 2, methodName, location);
                 Console.Write($"\x1b[{wRow};{wCol}H{wText}");
                 return OslangValue.Null;
-            case "COLOR":
-                EnsureArgCount(args, 2, methodName, location);
-                var fg = (int)RequireNumberArg(args, 0, methodName, location);
-                var bg = (int)RequireNumberArg(args, 1, methodName, location);
-                var fgCode = 30 + (fg & 0xF);
-                var bgCode = 40 + (bg & 0xF);
-                if (fg >= 8) fgCode += 60;
-                if (bg >= 8) bgCode += 60;
-                Console.Write($"\x1b[{fgCode};{bgCode}m");
-                _extensions.ForegroundColor = fg;
-                _extensions.BackgroundColor = bg;
-                return OslangValue.Null;
-            case "RESETCOLOR":
-                EnsureArgCount(args, 0, methodName, location);
-                Console.Write("\x1b[0m");
-                _extensions.ForegroundColor = 7;
-                _extensions.BackgroundColor = 0;
-                return OslangValue.Null;
             case "GETKEY":
                 EnsureArgCount(args, 0, methodName, location);
                 return ReadKeyBlocking(location);
