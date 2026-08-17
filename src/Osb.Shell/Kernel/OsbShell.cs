@@ -37,10 +37,11 @@ public partial class OsbShell
     public void Run()
     {
         Console.Clear();
+        DrawStatusBar();
         LoadHistory();
-        PrintStatusLine();
         while (_running)
         {
+            EnsureStatusBar();
             var input = ReadCommandLine();
             Execute(input);
         }

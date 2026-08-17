@@ -4,26 +4,44 @@ namespace Osb.Shell.Kernel;
 
 public partial class OsbShell
     {
-    private static void PrintStatusLine() 
+    private void DrawStatusBar()
     {
-        var timestamp = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
-        var cwd = Directory.GetCurrentDirectory();
-        var width = Math.Max(0, Console.WindowWidth - timestamp.Length);
-        if (cwd.Length > width)
-        {
-            var prefix = "...";
-            var available = Math.Max(0, width - prefix.Length);
-            if (available > 0)
-            {
-                cwd = prefix + cwd[(cwd.Length - available)..];
-            }
-            else
-            {
-                cwd = prefix;
-            }
-        }
+        var user = _currentUsername;
+        var host = _env.MachineName;
+        var now = DateTime.Now;
+        var time = now.ToString("dd/MM/yyyy HH:mm:ss");
+        var line = $"{user}@{host} | {time}";
 
-        Console.WriteLine(cwd.PadRight(width) + timestamp);
+        var savedTop = Console.CursorTop;
+        var savedLeft = Console.CursorLeft;
+
+        try
+        {
+            Console.SetCursorPosition(0, 0);
+
+            Console.Write("\x1b[44;37m");
+            Console.Write(line);
+
+            var remaining = Console.WindowWidth - line.Length;
+            if (remaining > 0)
+            {
+                Console.Write(new string(' ', remaining));
+            }
+
+            Console.Write("\x1b[0m");
+        }
+        finally
+        {
+            Console.SetCursorPosition(savedLeft, savedTop);
+        }
+    }
+
+    private void EnsureStatusBar()
+    {
+        if (Console.CursorTop == 0)
+        {
+            DrawStatusBar();
+        }
     }
 
     private void LoadHistory()
@@ -300,7 +318,6 @@ public partial class OsbShell
         var promptUser = _isAuthenticated && !string.IsNullOrWhiteSpace(_currentUsername)
             ? _currentUsername
             : "guest";
-        Console.WriteLine();
         Console.Write(ExpandPrompt(_env.Prompt.Layout, promptUser, _env.MachineName));
 
         var buffer = new List<char>();

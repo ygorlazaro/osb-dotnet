@@ -57,7 +57,9 @@ public partial class OsbShell
                 ChangeDirectory(args); handled = true; break;
             case "CLS":
             case "CLEAR":
-                Console.Clear(); handled = true; break;
+                Console.Clear();
+                DrawStatusBar();
+                handled = true; break;
             case "COLOR":
                 ColorPicker.Run(_env); handled = true; break;
             case "CONFIG":
