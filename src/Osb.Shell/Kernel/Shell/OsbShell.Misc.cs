@@ -12,12 +12,10 @@ public partial class OsbShell
         var time = now.ToString("dd/MM/yyyy HH:mm:ss");
         var line = $"{user}@{host} | {time}";
 
-        var savedTop = Console.CursorTop;
-        var savedLeft = Console.CursorLeft;
-
         try
         {
-            Console.SetCursorPosition(0, 0);
+            var row = Math.Max(0, Console.WindowHeight - 1);
+            Console.SetCursorPosition(0, row);
 
             Console.Write("\x1b[44;37m");
             Console.Write(line);
@@ -30,18 +28,24 @@ public partial class OsbShell
 
             Console.Write("\x1b[0m");
         }
-        finally
+        catch (IOException)
         {
-            Console.SetCursorPosition(savedLeft, savedTop);
         }
     }
 
-    private void EnsureStatusBar()
+    private void PreparePromptArea()
     {
-        if (Console.CursorTop == 0)
+        var height = Console.WindowHeight;
+        if (height < 2) return;
+
+        var promptRow = height - 2;
+        if (Console.CursorTop != promptRow || Console.CursorLeft != 0)
         {
-            DrawStatusBar();
+            Console.SetCursorPosition(0, promptRow);
         }
+
+        Console.Write(new string(' ', Console.WindowWidth));
+        Console.SetCursorPosition(0, promptRow);
     }
 
     private void LoadHistory()
@@ -318,6 +322,8 @@ public partial class OsbShell
         var promptUser = _isAuthenticated && !string.IsNullOrWhiteSpace(_currentUsername)
             ? _currentUsername
             : "guest";
+
+        PreparePromptArea();
         Console.Write(ExpandPrompt(_env.Prompt.Layout, promptUser, _env.MachineName));
 
         var buffer = new List<char>();
