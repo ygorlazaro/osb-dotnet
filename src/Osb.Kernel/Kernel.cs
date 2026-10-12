@@ -143,6 +143,35 @@ internal static unsafe class Kernel
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
     private static byte _rtcSec, _rtcMin, _rtcHour, _rtcDay, _rtcMonth, _rtcYear;
 
+    // ---- environment ($VAR, case-insensitive names) ----
+    // Fixed buffers (no managed arrays: the freestanding AOT runtime has no
+    // bounds-check helper, so the kernel uses fixed-size tables like the
+    // scheduler's TaskTable).
+    private const int MaxEnvVars = 32;
+    private const int EnvNameBufSize = 512;
+    private const int EnvValueBufSize = 4096;
+    private unsafe struct EnvTable
+    {
+        public fixed int nameOff[MaxEnvVars];
+        public fixed int nameLen[MaxEnvVars];
+        public fixed int valueOff[MaxEnvVars];
+        public fixed int valueLen[MaxEnvVars];
+        public fixed byte names[EnvNameBufSize];
+        public fixed byte values[EnvValueBufSize];
+    }
+    private static EnvTable _env;
+    private static int _envCount;
+    private static int _envNamePos;
+    private static int _envValuePos;
+
+    // DOS-like namespace state (drive A:, current directory). The ext4 layer
+    // updates this when CD is implemented; the boot value is the root.
+    private static char _curDrive = 'A';
+    private unsafe struct CwdState { public fixed byte path[160]; }
+    private static CwdState _cwd;
+    private static int _cwdALen;
+
+
     // Preemptive round-robin scheduler over a fixed table of task slots.
     // Slot 0 is the console/shell (PID 1, kernel address space); the others are
     // processes/jobs, each with its own kernel stack. A ring-3 process also owns
@@ -229,6 +258,7 @@ internal static unsafe class Kernel
         WriteLine("Type HELP for commands.");
         WriteLine("");
 
+        EnvInit();          // session environment (PATH, PROMPT, USER, ...)
         ShellLoop();
     }
 
@@ -1171,17 +1201,315 @@ internal static unsafe class Kernel
         }
     }
 
+
+    // ---------------------------------------------------------------- env
+    // Sets/changes a variable. Names are stored uppercase so lookups are
+    // case-insensitive (DOS/OSB convention). Values keep their characters.
+    // Redefining a variable appends its new value to the value buffer (the old
+    // bytes are left behind); fine for the shell-size 4 KiB buffer.
+    private static unsafe bool EnvSetChars(char* name, int nlen, char* value, int vlen)
+    {
+        if (nlen <= 0) return false;
+        for (int i = 0; i < _envCount; i++)
+        {
+            if (_env.nameLen[i] != nlen) continue;
+            bool same = true;
+            for (int k = 0; k < nlen; k++)
+            {
+                char c = name[k];
+                if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+                if (c != (char)_env.names[_env.nameOff[i] + k]) { same = false; break; }
+            }
+            if (!same) continue;
+            if (_envValuePos + vlen > EnvValueBufSize) return false;
+            _env.valueOff[i] = _envValuePos;
+            _env.valueLen[i] = vlen;
+            for (int k = 0; k < vlen; k++) _env.values[_envValuePos + k] = (byte)value[k];
+            _envValuePos += vlen;
+            return true;
+        }
+        if (_envCount >= MaxEnvVars) return false;
+        if (_envNamePos + nlen > EnvNameBufSize || _envValuePos + vlen > EnvValueBufSize) return false;
+        int idx = _envCount;
+        _envCount++;
+        _env.nameOff[idx] = _envNamePos;
+        _env.nameLen[idx] = nlen;
+        for (int k = 0; k < nlen; k++)
+        {
+            char c = name[k];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+            _env.names[_envNamePos + k] = (byte)c;
+        }
+        _envNamePos += nlen;
+        _env.valueOff[idx] = _envValuePos;
+        _env.valueLen[idx] = vlen;
+        for (int k = 0; k < vlen; k++) _env.values[_envValuePos + k] = (byte)value[k];
+        _envValuePos += vlen;
+        return true;
+    }
+
+    private static unsafe bool EnvSet(string name, string value)
+    {
+        fixed (char* n = name)
+        fixed (char* v = value)
+        {
+            return EnvSetChars(n, name.Length, v, value.Length);
+        }
+    }
+
+    // Case-insensitive lookup; returns the value's range in the value buffer.
+    private static unsafe bool EnvFind(char* name, int nlen, out int vo, out int vl)
+    {
+        vo = 0;
+        vl = 0;
+        for (int i = 0; i < _envCount; i++)
+        {
+            if (_env.nameLen[i] != nlen) continue;
+            bool same = true;
+            for (int k = 0; k < nlen; k++)
+            {
+                char c = name[k];
+                if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+                if (c != (char)_env.names[_env.nameOff[i] + k]) { same = false; break; }
+            }
+            if (same)
+            {
+                vo = _env.valueOff[i];
+                vl = _env.valueLen[i];
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void EnvListAll()
+    {
+        for (int i = 0; i < _envCount; i++)
+        {
+            for (int k = 0; k < _env.nameLen[i]; k++)
+                PutChar((char)_env.names[_env.nameOff[i] + k]);
+            PutChar('=');
+            for (int k = 0; k < _env.valueLen[i]; k++)
+                PutChar((char)_env.values[_env.valueOff[i] + k]);
+            PutChar('\n');
+        }
+    }
+
+    private static void EnvListPrefix(char* name, int nlen)
+    {
+        bool any = false;
+        for (int i = 0; i < _envCount; i++)
+        {
+            if (_env.nameLen[i] < nlen) continue;
+            bool pref = true;
+            for (int k = 0; k < nlen; k++)
+            {
+                char c = name[k];
+                if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+                if (c != (char)_env.names[_env.nameOff[i] + k]) { pref = false; break; }
+            }
+            if (!pref) continue;
+            any = true;
+            for (int k = 0; k < _env.nameLen[i]; k++)
+                PutChar((char)_env.names[_env.nameOff[i] + k]);
+            PutChar('=');
+            for (int k = 0; k < _env.valueLen[i]; k++)
+                PutChar((char)_env.values[_env.valueOff[i] + k]);
+            PutChar('\n');
+        }
+        if (!any) WriteLine("Environment variable not defined.");
+    }
+
+    // SET [NAME]        list variables starting with NAME (or all)
+    // SET NAME=value    define/redefine an environment variable
+    private static unsafe void CmdSet(char* line, int len)
+    {
+        int i = 3;
+        while (i < len && line[i] == ' ') i++;
+        if (i >= len) { EnvListAll(); return; }
+        int eq = i;
+        while (eq < len && line[eq] != '=') eq++;
+        if (eq >= len)
+        {
+            EnvListPrefix(line + i, len - i);
+            return;
+        }
+        int nl = eq - i;
+        int vs = eq + 1;
+        int vl = len - vs;
+        char* nameb = stackalloc char[64];
+        char* valb = stackalloc char[256];
+        for (int k = 0; k < nl && k < 63; k++) nameb[k] = line[i + k];
+        for (int k = 0; k < vl && k < 255; k++) valb[k] = line[vs + k];
+        EnvSetChars(nameb, nl, valb, vl);
+    }
+
+    // Expands $VAR (names are case-insensitive) into dst. Undefined variables
+    // round-trip literally, so SET PROMPT=$P$G keeps its special characters.
+    private static unsafe int EnvExpand(char* src, int slen, char* dst, int dcap)
+    {
+        int o = 0;
+        int i = 0;
+        while (i < slen && o < dcap - 1)
+        {
+            if (src[i] != '$') { dst[o++] = src[i++]; continue; }
+            if (i + 1 >= slen) { dst[o++] = '$'; i++; continue; }
+            char n0 = src[i + 1];
+            bool ident = (n0 >= 'A' && n0 <= 'Z') || (n0 >= 'a' && n0 <= 'z') || n0 == '_';
+            if (!ident)
+            {
+                dst[o++] = '$';
+                i++;
+                continue;
+            }
+            int st = i + 1;
+            int j = st;
+            while (j < slen && (((src[j] >= 'A' && src[j] <= 'Z') || (src[j] >= 'a' && src[j] <= 'z') ||
+                                 (src[j] >= '0' && src[j] <= '9') || src[j] == '_'))) j++;
+            int nameLen = j - st;
+            char* nm = stackalloc char[64];
+            for (int k = 0; k < nameLen && k < 63; k++) nm[k] = src[st + k];
+            int vo;
+            int vl;
+            if (EnvFind(nm, nameLen, out vo, out vl))
+            {
+                for (int k = 0; k < vl && o < dcap - 1; k++) dst[o++] = (char)_env.values[vo + k];
+                i = j;
+                continue;
+            }
+            dst[o++] = '$';
+            i++;
+        }
+        dst[o] = '\0';
+        return o;
+    }
+
+    // ---- DOS-style prompt ----
+    // $P path  $N drive  $G >  $L <  $B |  $Q =  $S space  $D date  $T time
+    // $V version  $H backspace  $E ESC  $_ newline  $$ literal $, or any
+    // variable such as $USER/$HOME.
+    private static unsafe void WritePrompt()
+    {
+        char* prompt = stackalloc char[128];
+        int plen;
+        fixed (char* pr = "PROMPT")
+        {
+            int po, pl;
+            if (EnvFind(pr, 6, out po, out pl))
+            {
+                plen = pl < 127 ? pl : 127;
+                for (int i = 0; i < plen; i++) prompt[i] = (char)_env.values[po + i];
+            }
+            else
+            {
+                prompt[0] = '$'; prompt[1] = 'P'; prompt[2] = '$'; prompt[3] = 'G';
+                plen = 4;
+            }
+        }
+        prompt[plen] = '\0';
+        for (int k = 0; k < plen; k++)
+        {
+            if (prompt[k] != '$') { PutChar(prompt[k]); continue; }
+            if (k + 1 >= plen) { PutChar('$'); continue; }
+            char t = prompt[k + 1];
+            char ut = Up(t);
+            bool known = ut == 'N' || ut == 'P' || ut == 'G' || ut == 'L' || ut == 'B' ||
+                         ut == 'Q' || ut == 'S' || ut == 'D' || ut == 'T' || ut == 'V' ||
+                         ut == 'H' || ut == 'E' || ut == '$' || ut == '_';
+            if (known)
+            {
+                k++;
+                switch (ut)
+                {
+                    case 'N': PutChar(_curDrive); break;
+                    case 'G': PutChar('>'); break;
+                    case 'L': PutChar('<'); break;
+                    case 'B': PutChar('|'); break;
+                    case 'Q': PutChar('='); break;
+                    case 'S': PutChar(' '); break;
+                    case 'D':
+                        WriteTwo(_rtcDay); PutChar('/'); WriteTwo(_rtcMonth); PutChar('/');
+                        WriteDec(2000UL + (ulong)_rtcYear);
+                        break;
+                    case 'T':
+                        WriteTwo(_rtcHour); PutChar(':');
+                        WriteTwo(_rtcMin); PutChar(':');
+                        WriteTwo(_rtcSec);
+                        break;
+                    case 'V': Write("OSB 0.1"); break;
+                    case '$': PutChar('$'); break;
+                    case 'H': PutChar('\b'); break;
+                    case 'E': PutChar((char)27); break;
+                    case '_': PutChar('\n'); break;
+                    case 'P': PrintCwd(); break;
+                }
+                continue;
+            }
+            int st = k + 1;
+            int j = st;
+            while (j < plen && (((prompt[j] >= 'A' && prompt[j] <= 'Z') || (prompt[j] >= 'a' && prompt[j] <= 'z') ||
+                                (prompt[j] >= '0' && prompt[j] <= '9') || prompt[j] == '_'))) j++;
+            if (j > st)
+            {
+                int nameLen = j - st;
+                char* nm = stackalloc char[64];
+                for (int q = 0; q < nameLen && q < 63; q++) nm[q] = prompt[st + q];
+                int vo, vl;
+                if (EnvFind(nm, nameLen, out vo, out vl))
+                {
+                    for (int q = 0; q < vl; q++) PutChar((char)_env.values[vo + q]);
+                    k = j - 1;
+                    continue;
+                }
+                PutChar('$');
+                for (int q = st; q < j; q++) PutChar(prompt[q]);
+                k = j - 1;
+                continue;
+            }
+            PutChar('$');
+        }
+    }
+
+    private static void CwdInit()
+    {
+        if (_cwdALen == 0)
+        {
+            _cwd.path[0] = (byte)'A'; _cwd.path[1] = (byte)':'; _cwd.path[2] = (byte)'\\';
+            _cwdALen = 3;
+        }
+    }
+
+    private static void PrintCwd()
+    {
+        CwdInit();
+        for (int i = 0; i < _cwdALen; i++) PutChar((char)_cwd.path[i]);
+    }
+
+    // Boot defaults for the OSB session environment.
+    private static unsafe void EnvInit()
+    {
+        EnvSet("PATH", "A:\\OSB\\BIN;A:\\OSB\\CONF");
+        EnvSet("PROMPT", "$P$G");
+        EnvSet("USER", "guest");
+        EnvSet("HOME", "A:\\HOME\\guest");
+        EnvSet("TEMP", "A:\\OSB\\TEMP");
+        EnvSet("COMSPEC", "A:\\OSB\\BIN\\COMMAND.COM");
+        EnvSet("OS", "OSB");
+        EnvSet("VER", "0.1.0");
+        EnvSet("LASTDRIVE", "Z");
+    }
+
     // ---------------------------------------------------------------- shell
     private static void ShellLoop()
     {
-        WriteLine("OSB> ");
+        WritePrompt(); PutChar('\n');
         char* line = stackalloc char[128];
         int len = 0;
         bool shift = false;
 
         while (true)
         {
-            if (_ctrlC) { _ctrlC = false; len = 0; PutChar('\n'); Write("OSB> "); continue; }
+            if (_ctrlC) { _ctrlC = false; len = 0; PutChar('\n'); WritePrompt(); continue; }
 
             // Serial console first: this is how a headless session
             // (-display none -serial stdio) drives the shell.
@@ -1216,7 +1544,7 @@ internal static unsafe class Kernel
             line[len] = '\0';
             ExecuteLine(line, len);
             len = 0;
-            Write("OSB> ");
+            WritePrompt();
             return;
         }
         if (c == '\b' || c == (char)0x7F)
@@ -1241,6 +1569,14 @@ internal static unsafe class Kernel
     {
         if (len == 0) return;
 
+        // Expand $VAR references ($USER, $HOME, ...) before dispatch.
+        // Undefined names round-trip, so SET PROMPT=$P$G keeps its $ tokens.
+        char* expanded = stackalloc char[256];
+        int elen = EnvExpand(line, len, expanded, 256);
+        line = expanded;
+        len = elen;
+        if (len == 0) return;
+
         // A trailing '&' means "run this command as a background job".
         bool background = false;
         while (len > 0 && line[len - 1] == ' ') len--;
@@ -1254,9 +1590,15 @@ internal static unsafe class Kernel
 
         if (Eq(line, len, "VER")) { WriteLine("OSB (dotnet) version 0.1 - bootable kernel"); return; }
         if (Eq(line, len, "ABOUT")) { WriteLine("OSB: Operating System Basic, created in 2000, rebooted in C#."); return; }
+        if (Eq(line, len, "SET") || StartsWith(line, len, "SET "))
+        {
+            CmdSet(line, len);
+            return;
+        }
         if (Eq(line, len, "HELP"))
         {
-            WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
+            WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
+            WriteLine("          SET [NAME=value]  env ($VAR, case-insensitive names)");
             WriteLine("          SLEEP <s>  TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
             WriteLine("Processes:SPAWN [BAD|SPAWNER] [&]  start a ring-3 process");
             WriteLine("          RING3 [BAD] [&]  synonym for SPAWN");
