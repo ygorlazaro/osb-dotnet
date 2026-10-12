@@ -4,10 +4,14 @@ Este documento planeja a evolução do OSB de *kernel único rodando tudo em rin
 para um sistema **multitarefa e multiusuário**, com **interface estilo MS-DOS** e
 **ext4** como sistema de arquivos on-disk.
 
-> Estado atual (após `feat(kernel): per-process address spaces`): ring 3 com
-> ABI `INT 21h`, escalonador preemptivo, **processos com espaço de endereço
-> próprio (CR3)**, `spawn`/`exit`/`wait`, console VGA/serial, teclado/timer/RTC
-> por IRQ. Ainda **sem** sistema de arquivos: os programas são embutidos no kernel.
+> Estado atual: ring 3 com ABI `INT 21h`, escalonador preemptivo, **processos com
+> espaço de endereço próprio (CR3)**, `spawn`/`exit`/`wait`, console VGA/serial,
+> teclado/timer/RTC por IRQ, ATA PIO (leitura de setor) e imagem ext4 (16 MiB)
+> gerada pelo build. **Já implementado:** variáveis de ambiente (`$VAR`, nomes
+> case-insensitive), `SET`, `PROMPT` DOS (`$P$G`) com valores de boot
+> (`PATH`, `PROMPT`, `USER`, `HOME`, `TEMP`, `COMSPEC`, `OS`, `VER`, `LASTDRIVE`).
+> Ainda **sem** sistema de arquivos operacional: falta a camada ext4 de
+> leitura/escrita e os comandos `DIR CD MD RD TYPE COPY DEL REN`.
 
 ---
 
@@ -125,8 +129,13 @@ dependem de FS com dono (L4) que depende de processos isolados (L2).
 - **Aceite:** um serviço roda em background e sobrevive.
 
 ### Fatia 8 — Conforto DOS
-- `.BAT`, `SET`/variáveis de ambiente, `PATH`, redirecionamento simples.
-- **Aceite:** um `.BAT` encadeia comandos; `PATH` acha um `.EXE` fora do diretório corrente.
+- ~~`.BAT`~~ → **decidido**: não existem `.BAT` nem `AUTOEXEC.BAT`. Scripts vindos em
+  OSH (linguagem de shell) e programas interpretados OSLANG (`.OSL`).
+- **Antecipado neste ponto do projeto:** variáveis de ambiente `$VAR` (nomes
+  case-insensitive, valores preservados), `SET [NAME]` / `SET NAME=value`,
+  `PROMPT` DOS (`$P $G $N $D $T $V ...` + qualquer `$VAR`) — ✅ implementado.
+- Faltam: `PATH` na resolução de comandos externos, redirecionamento simples.
+- **Aceite:** `SET` lista/altera; `$VAR` expande antes de executar; o prompt segue o `PROMPT`.
 
 ## 5. Plano do ext4 (Fatia 4–5)
 
