@@ -16,6 +16,10 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   viram panic legível (vetor + RIP), e o **teclado PS/2 é dirigido por interrupção**
   (IRQ1 → vetor 0x31, fila circular de scancodes, EOI explícito) — sem polling. O remap
   para 0x30 deixa o vetor **0x21** livre para a syscall DOS-like `INT 21h`.
+- **Console serial (COM1, IRQ4 → vetor 0x34)**: além do teclado PS/2, a shell também lê
+  caracteres recebidos na serial. Isso torna a sessão **headless** utilizável
+  (`./build.sh run` usa `-serial stdio`): o que você digita no terminal chega à shell.
+  A saída serial usa CRLF.
 - **Timer PIT** (8254, canal 0) a **100 Hz via IRQ0** (vetor 0x30): contador global de ticks,
   uptime em segundos e os comandos `TICKS`/`SLEEP <segundos>` (espera dirigida por ticks).
 - **Clock RTC** (CMOS, IRQ8 → vetor 0x38): modo 24h + binário, interrupção "update-ended"
@@ -92,8 +96,9 @@ chmod +x build.sh
 ```
 
 `run` usa `-display none -serial stdio`: sem janela, então o QEMU **não captura** o
-teclado/mouse do host. O kernel espelha a VGA na serial, então você vê tudo no terminal.
-Para sair: digite `POWEROFF` no prompt do OSB (ACPI S5 → o QEMU encerra sozinho).
+teclado/mouse do host. O kernel espelha a VGA na serial e **também lê a serial como
+entrada**, então você digita diretamente na shell pelo terminal — é só digitar um comando
+e Enter. Para sair: `POWEROFF` no prompt do OSB (ACPI S5 → o QEMU encerra sozinho).
 
 Se rodar com janela (`run-gui` ou QEMU manual), o grab de input pode prender o mouse/
 teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor do QEMU

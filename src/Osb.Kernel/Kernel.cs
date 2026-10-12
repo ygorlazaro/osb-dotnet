@@ -52,6 +52,7 @@ internal static unsafe class Kernel
     private const int PicBase = 0x30;
     private const int KbdVector = PicBase + 1;     // IRQ1 -> vector 0x31
     private const int TimerVector = PicBase + 0;   // IRQ0 -> vector 0x30
+    private const int SerVector = PicBase + 4;     // IRQ4 -> vector 0x34 (COM1 RX)
     private const int RtcVector = PicBase + 8;     // IRQ8 -> vector 0x38
     private const int Int21Vector = 0x21;          // DOS-style syscall gate
     private const int PitHz = 100;                 // PIT frequency in Hz
@@ -80,6 +81,12 @@ internal static unsafe class Kernel
         public int head;
         public int tail;
     }
+    private unsafe struct CharRing
+    {
+        public fixed byte data[256];
+        public int head;
+        public int tail;
+    }
     private unsafe struct GdtTable { public fixed byte bytes[7 * 8]; }  // 7 descriptors
     private unsafe struct GdtrTable { public fixed byte data[10]; }
     private unsafe struct TssStruct { public fixed byte bytes[104]; }
@@ -90,6 +97,7 @@ internal static unsafe class Kernel
     private static GdtrTable _gdtr;
     private static TssStruct _tss;
     private static KbdRing _kbd;
+    private static CharRing _ser;                   // serial console input (COM1 RX)
     private static ulong _ticks;                    // 100 Hz heartbeat
 
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
@@ -138,7 +146,7 @@ internal static unsafe class Kernel
 
         WriteLine("OSB - Operating System Basic");
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
-        WriteLine("Keyboard: PS/2 IRQ1 via IDT + PIC (interrupt-driven).");
+        WriteLine("Keyboard: PS/2 IRQ1 + serial console IRQ4 (COM1).");
         WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
         WriteLine("Clock: RTC via IRQ8 (update-ended).");
         WriteLine("Scheduler: preemptive round-robin (PIT preempts, no yields).");
@@ -263,15 +271,21 @@ internal static unsafe class Kernel
     {
         outb(0x3F8 + 1, 0x00);
         outb(0x3F8 + 3, 0x80);
-        outb(0x3F8 + 0, 0x01);
+        outb(0x3F8 + 0, 0x01);   // divisor low  (115200 / 1 = 115200? -> 38400 via DLM)
         outb(0x3F8 + 1, 0x00);
-        outb(0x3F8 + 3, 0x03);
-        outb(0x3F8 + 2, 0xC7);
-        outb(0x3F8 + 4, 0x0B);
+        outb(0x3F8 + 3, 0x03);   // 8N1
+        outb(0x3F8 + 2, 0xC7);   // FIFO: enable, clear, 14-byte trigger
+        outb(0x3F8 + 4, 0x0B);   // DTR|RTS|OUT2
+        outb(0x3F8 + 1, 0x01);   // IER: enable "received data available" (IRQ4)
     }
 
     private static void SerialPut(char c)
     {
+        if (c == '\n')
+        {
+            while ((inb(0x3F8 + 5) & 0x20) == 0) { }
+            outb(0x3F8, (byte)'\r');
+        }
         while ((inb(0x3F8 + 5) & 0x20) == 0) { }
         outb(0x3F8, (byte)c);
     }
@@ -330,8 +344,9 @@ internal static unsafe class Kernel
 
     // 8259A: remap IRQ0-7 -> 0x30-0x37 and IRQ8-15 -> 0x38-0x3F (8086 mode,
     // slave on IRQ2). Vectors 0x20-0x2F are left free; 0x21 is the INT 21h
-    // system-call gate. Masks: master unmask IRQ0 (PIT), IRQ1 (kbd) and IRQ2
-    // (cascade, required for any slave IRQ); slave unmask IRQ8 (RTC).
+    // system-call gate. Masks: master unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2
+    // (cascade, required for any slave IRQ) and IRQ4 (COM1 serial console);
+    // slave unmask IRQ8 (RTC).
     private static void PicInit()
     {
         outb(0x20, 0x11); outb(0x80, 0);  // ICW1: init, edge triggered
@@ -342,7 +357,7 @@ internal static unsafe class Kernel
         outb(0xA1, 0x02); outb(0x80, 0);
         outb(0x21, 0x01); outb(0x80, 0);  // ICW4: 8086/8088 mode
         outb(0xA1, 0x01); outb(0x80, 0);
-        outb(0x21, 0xF8); outb(0x80, 0);  // OCW1: unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2 cascade
+        outb(0x21, 0xE8); outb(0x80, 0);  // OCW1: unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2 cascade, IRQ4 (COM1)
         outb(0xA1, 0xFE); outb(0x80, 0);  // OCW1: unmask IRQ8 (RTC) only
     }
 
@@ -420,6 +435,29 @@ internal static unsafe class Kernel
         return sc;
     }
 
+    // Serial console ring (ASCII bytes) filled by the IRQ4 handler and drained by
+    // the shell, so a headless session (-serial stdio) can drive the shell too.
+    private static void SerPush(byte c)
+    {
+        int next = _ser.tail + 1;
+        if (next >= 256) next = 0;
+        if (next != _ser.head)
+        {
+            _ser.data[_ser.tail] = c;
+            _ser.tail = next;
+        }
+    }
+
+    private static int SerPop()
+    {
+        if (_ser.head == _ser.tail) return -1;
+        byte c = _ser.data[_ser.head];
+        int next = _ser.head + 1;
+        if (next >= 256) next = 0;
+        _ser.head = next;
+        return c;
+    }
+
     // Dispatcher called from isr_common. Frame layout (ulong offsets):
     //   0..14 = rax..r15, 15 = vector, 16 = dummy error code,
     //   17..21 = rip, cs, rflags, rsp, ss.
@@ -439,6 +477,15 @@ internal static unsafe class Kernel
             byte sc = inb(0x60);
             KbdPush(sc);
             PicEoi(1);
+            return;
+        }
+
+        if (vector == SerVector) // IRQ4: COM1 received byte(s) (serial console)
+        {
+            // Drain the UART receive FIFO: LSR bit0 = data ready.
+            while ((inb(0x3F8 + 5) & 0x01) != 0)
+                SerPush(inb(0x3F8));
+            PicEoi(4);
             return;
         }
 
@@ -768,8 +815,13 @@ internal static unsafe class Kernel
 
         while (true)
         {
-            // Drain the IRQ1 ring buffer. When empty, sleep: the PIT handler
-            // preempts us and schedules the demo task (preemptive round-robin).
+            // Serial console first: this is how a headless session
+            // (-display none -serial stdio) drives the shell.
+            int ch = SerPop();
+            if (ch >= 0) { FeedChar((char)ch, line, ref len); continue; }
+
+            // Then the IRQ1 scancode ring. When both are empty, sleep: the PIT
+            // handler preempts us and schedules the other tasks.
             int sc = KbdPop();
             if (sc < 0) { halt(); continue; }
 
@@ -777,34 +829,43 @@ internal static unsafe class Kernel
             if (sc == 0xAA || sc == 0xB6) { shift = false; continue; }
             if ((sc & 0x80) != 0) continue; // ignore other break codes
 
-            if (sc == 0x1C) // Enter
-            {
-                PutChar('\n');
-                line[len] = '\0';
-                ExecuteLine(line, len);
-                len = 0;
-                Write("OSB> ");
-                continue;
-            }
-
-            if (sc == 0x0E) // Backspace
-            {
-                if (len > 0)
-                {
-                    len--;
-                    PutChar('\b');
-                    PutChar(' ');
-                    PutChar('\b');
-                }
-                continue;
-            }
+            if (sc == 0x1C) { FeedChar('\r', line, ref len); continue; } // Enter
+            if (sc == 0x0E) { FeedChar('\b', line, ref len); continue; } // Backspace
 
             char c = MapScancode((byte)sc, shift);
-            if (c != 0 && len < 127)
+            if (c != 0) FeedChar(c, line, ref len);
+        }
+    }
+
+    // Apply one logical character (from PS/2 or the serial console) to the input
+    // line: echo printable characters, handle Backspace, and run the line on
+    // Enter. Keeps both input paths identical.
+    private static void FeedChar(char c, char* line, ref int len)
+    {
+        if (c == '\r' || c == '\n')
+        {
+            PutChar('\n');
+            line[len] = '\0';
+            ExecuteLine(line, len);
+            len = 0;
+            Write("OSB> ");
+            return;
+        }
+        if (c == '\b' || c == (char)0x7F)
+        {
+            if (len > 0)
             {
-                line[len++] = c;
-                PutChar(c);
+                len--;
+                PutChar('\b');
+                PutChar(' ');
+                PutChar('\b');
             }
+            return;
+        }
+        if (c >= ' ' && c < 127 && len < 127)
+        {
+            line[len++] = c;
+            PutChar(c);
         }
     }
 
