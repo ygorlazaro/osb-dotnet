@@ -11,7 +11,9 @@ internal static unsafe class Kernel
 {
     // ---- hardware access (implemented in boot.S / interrupts.S) ----
     [DllImport("osbnative")] private static extern void outb(ushort port, byte value);
+    [DllImport("osbnative")] private static extern void outw(ushort port, ushort value);
     [DllImport("osbnative")] private static extern byte inb(ushort port);
+    [DllImport("osbnative")] private static extern ushort inw(ushort port);
     [DllImport("osbnative")] private static extern void lidt(byte* idtr);
     [DllImport("osbnative")] private static extern ulong osb_get_stub_table();
     [DllImport("osbnative")] private static extern void sti();
@@ -255,6 +257,7 @@ internal static unsafe class Kernel
         WriteLine("Processes: private address space per process (CR3).");
         WriteLine("Ring 3: user segments + TSS; syscalls via INT 21h (DOS-style).");
         WriteLine("Jobs: DEMO / SPAWN / RING3; TASK / KILL / TAB / WAIT.");
+        WriteLine("Files: ATA PIO + ext4 on A: (DIR / CD / TYPE)");
         WriteLine("Type HELP for commands.");
         WriteLine("");
 
@@ -390,11 +393,526 @@ internal static unsafe class Kernel
         AtaWaitBusy();
         AtaWaitDrq();
         for (int i = 0; i < 256; i++)
+            ((ushort*)buffer)[i] = inw(AtaPrimaryData);
+    }
+
+// ------------------------------------------------------------ ATA write
+    private static unsafe void AtaWriteSector(ulong lba, byte* buffer)
+    {
+        AtaWaitBusy();
+        outb(AtaPrimaryDriveHead, (byte)(0xE0 | (byte)((lba >> 24) & 0x0F)));
+        outb(AtaPrimarySecCount, 1);
+        outb(AtaPrimaryLbaLow, (byte)(lba & 0xFF));
+        outb(AtaPrimaryLbaMid, (byte)((lba >> 8) & 0xFF));
+        outb(AtaPrimaryLbaHigh, (byte)((lba >> 16) & 0xFF));
+        outb(AtaPrimaryCommand, AtaCmdWriteSectors);
+        AtaWaitBusy();
+        AtaWaitDrq();
+        for (int i = 0; i < 256; i++)
+            outw(AtaPrimaryData, ((ushort*)buffer)[i]);
+        AtaWaitBusy();
+    }
+
+    // ------------------------------------------------------------- FS: ext4    // ------------------------------------------------------------- FS: ext4
+    // Simplified ext4 (as formatted by build.sh): 4096-byte blocks, no
+    // journal, no extents, no flex_bg, no metadata_csum, case-sensitive.
+    // One group; primary superblock at byte 1024 of block 0, GDT at block 1.
+    private const int Ext4BlockSize = 4096;
+
+    private static unsafe void FsReadBlock(ulong block, byte* buf)
+    {
+        ulong lba = block * 8UL;
+        for (int i = 0; i < 8; i++) AtaReadSector(lba + (ulong)i, buf + (i * 512));
+    }
+
+    private static unsafe void FsWriteBlock(ulong block, byte* buf)
+    {
+        ulong lba = block * 8UL;
+        for (int i = 0; i < 8; i++) AtaWriteSector(lba + (ulong)i, buf + (i * 512));
+    }
+
+    // little-endian 16/32-bit accessors
+    private static unsafe ushort Rd16(byte* p, int o) { return (ushort)(p[o] | (p[o + 1] << 8)); }
+    private static unsafe uint Rd32(byte* p, int o) { return (uint)(p[o] | (p[o + 1] << 8) | (p[o + 2] << 16) | (p[o + 3] << 24)); }
+    private static unsafe void Wr16(byte* p, int o, ushort v) { p[o] = (byte)(v & 0xFF); p[o + 1] = (byte)(v >> 8); }
+    private static unsafe void Wr32(byte* p, int o, uint v) { p[o] = (byte)(v & 0xFF); p[o + 1] = (byte)((v >> 8) & 0xFF); p[o + 2] = (byte)((v >> 16) & 0xFF); p[o + 3] = (byte)((v >> 24) & 0xFF); }
+
+    // superblock (sb points at block-bytes + 1024)
+    private static unsafe ushort SbMagic(byte* sb) { return Rd16(sb, 56); }
+    private static unsafe ushort SbInodeSize(byte* sb) { ushort r = Rd16(sb, 88); return r >= 128 ? r : (ushort)128; }
+    private static unsafe uint SbInodesPerGroup(byte* sb) { return Rd32(sb, 40); }
+    private static unsafe uint SbBlocksPerGroup(byte* sb) { return Rd32(sb, 32); }
+    private static unsafe uint SbBlocksCount(byte* sb) { return Rd32(sb, 4); }
+
+    // group descriptor entry (32 bytes each)
+    private static unsafe uint GdBlockBitmap(byte* gdt, uint group) { return Rd32(gdt, (int)group * 32); }
+    private static unsafe uint GdInodeBitmap(byte* gdt, uint group) { return Rd32(gdt, (int)group * 32 + 4); }
+    private static unsafe uint GdInodeTable(byte* gdt, uint group) { return Rd32(gdt, (int)group * 32 + 8); }
+
+    // fs state (filled by FsMountA)
+    private static bool _fsMounted;
+    private static int _inodeSize = 256;
+    private static uint _inodesPerGroup, _blocksPerGroup, _groupCount;
+    private static uint _blkBitmapBlock, _inoBitmapBlock, _inoTableBlock;
+    private static readonly uint _rootInode = 2;
+
+    private static unsafe bool FsMountA()
+    {
+        if (_fsMounted) return true;
+        byte* sbuf = stackalloc byte[Ext4BlockSize];
+        FsReadBlock(0UL, sbuf);
+        byte* sb = sbuf + 1024;
+        if (SbMagic(sb) != 0xEF53) return false;
+        _inodeSize = SbInodeSize(sb);
+        _inodesPerGroup = SbInodesPerGroup(sb);
+        _blocksPerGroup = SbBlocksPerGroup(sb);
+        uint blocks = SbBlocksCount(sb);
+        _groupCount = (blocks + _blocksPerGroup - 1) / _blocksPerGroup;
+        if (_groupCount == 0) _groupCount = 1;
+        byte* gdt = stackalloc byte[Ext4BlockSize];
+        FsReadBlock(1UL, gdt);
+        _blkBitmapBlock = GdBlockBitmap(gdt, 0);
+        _inoBitmapBlock = GdInodeBitmap(gdt, 0);
+        _inoTableBlock = GdInodeTable(gdt, 0);
+        _fsMounted = true;
+        return true;
+    }
+
+    // ---- inode table (contiguous blocks; an inode spans at most 2 blocks) ----
+    private static unsafe bool FsReadInode(uint ino, byte* outBuf)
+    {
+        if (!_fsMounted || ino == 0) return false;
+        ulong abs = (ulong)_inoTableBlock * (ulong)Ext4BlockSize + (ulong)(ino - 1) * (ulong)_inodeSize;
+        byte* blk0 = stackalloc byte[Ext4BlockSize];
+        FsReadBlock(abs / (ulong)Ext4BlockSize, blk0);
+        ulong off0 = abs % (ulong)Ext4BlockSize;
+        ulong first = (ulong)Ext4BlockSize - off0;
+        if (first > (ulong)_inodeSize) first = (ulong)_inodeSize;
+        for (ulong i = 0; i < first; i++) outBuf[i] = blk0[off0 + i];
+        if (first < (ulong)_inodeSize)
         {
-            ushort v = (ushort)inb(AtaPrimaryData);
-            v |= (ushort)(inb(AtaPrimaryData) << 8);
-            ((ushort*)buffer)[i] = v;
+            byte* blk1 = stackalloc byte[Ext4BlockSize];
+            FsReadBlock((abs + first) / (ulong)Ext4BlockSize, blk1);
+            for (ulong i = first; i < (ulong)_inodeSize; i++) outBuf[i] = blk1[(off0 + i) - (ulong)Ext4BlockSize];
         }
+        return true;
+    }
+
+    private static unsafe bool FsWriteInode(uint ino, byte* inBuf)
+    {
+        if (!_fsMounted || ino == 0) return false;
+        ulong abs = (ulong)_inoTableBlock * (ulong)Ext4BlockSize + (ulong)(ino - 1) * (ulong)_inodeSize;
+        byte* blk0 = stackalloc byte[Ext4BlockSize];
+        FsReadBlock(abs / (ulong)Ext4BlockSize, blk0);
+        ulong off0 = abs % (ulong)Ext4BlockSize;
+        ulong first = (ulong)Ext4BlockSize - off0;
+        if (first > (ulong)_inodeSize) first = (ulong)_inodeSize;
+        for (ulong i = 0; i < first; i++) blk0[off0 + i] = inBuf[i];
+        FsWriteBlock(abs / (ulong)Ext4BlockSize, blk0);
+        if (first < (ulong)_inodeSize)
+        {
+            byte* blk1 = stackalloc byte[Ext4BlockSize];
+            FsReadBlock((abs + first) / (ulong)Ext4BlockSize, blk1);
+            for (ulong i = first; i < (ulong)_inodeSize; i++) blk1[(off0 + i) - (ulong)Ext4BlockSize] = inBuf[i];
+            FsWriteBlock((abs + first) / (ulong)Ext4BlockSize, blk1);
+        }
+        return true;
+    }
+
+    // ---- inode fields ----
+    private const int InoMode = 0, InoUid = 2, InoSizeLo = 4, InoMtime = 16,
+                      InoGid = 24, InoLinks = 26, InoBlocksLo = 28, InoFlags = 32,
+                      InoBlock = 40, InoSizeHi = 108, InoBlocksHi = 116;
+
+    private static unsafe ushort InoGetMode(byte* n) { return Rd16(n, InoMode); }
+    private static unsafe uint InoGetUid(byte* n) { return Rd16(n, InoUid); }
+    private static unsafe uint InoGetGid(byte* n) { return Rd16(n, InoGid); }
+    private static unsafe uint InoGetLinks(byte* n) { return Rd16(n, InoLinks); }
+    private static unsafe uint InoGetSize(byte* n)
+    {
+        ulong hi = Rd32(n, InoSizeHi);
+        ulong lo = Rd32(n, InoSizeLo);
+        ulong sz = (hi << 32) | lo;
+        return sz > 0xFFFFFFFFUL ? 0xFFFFFFFFU : (uint)sz;
+    }
+    private static unsafe uint InoGetBlocks(byte* n)
+    {
+        ulong lo = Rd32(n, InoBlocksLo);
+        ulong hi = (ulong)Rd16(n, InoBlocksHi);
+        ulong b = lo | (hi << 32);
+        return b > 0xFFFFFFFFUL ? 0xFFFFFFFFU : (uint)b;
+    }
+    private static unsafe uint InoGetBlockPtr(byte* n, int idx) { return (idx < 0 || idx > 14) ? 0U : Rd32(n, InoBlock + idx * 4); }
+
+    private static bool FsIsDir(ushort mode) { return (mode & 0xF000) == 0x4000; }
+    private static bool FsIsReg(ushort mode) { return (mode & 0xF000) == 0x8000; }
+
+    // logical -> physical block: 12 direct + single indirect
+    private static unsafe uint FsInodeGetBlock(byte* inode, ulong logical)
+    {
+        if (logical < 12) return InoGetBlockPtr(inode, (int)logical);
+        if (logical < 12 + 1024)
+        {
+            uint ib = InoGetBlockPtr(inode, 12);
+            if (ib == 0) return 0;
+            byte* ibuf = stackalloc byte[Ext4BlockSize];
+            FsReadBlock(ib, ibuf);
+            return Rd32(ibuf, (int)(logical - 12) * 4);
+        }
+        return 0; // double indirect: not needed for the OSB dev image
+    }
+
+    // ---- ext4 directory entries (ext4_dir_entry_2) ----
+    private const int DirIno = 0, DirRecLen = 4, DirNameLen = 6, DirType = 7, DirName = 8;
+    private static unsafe uint DirGetIno(byte* de) { return Rd32(de, DirIno); }
+    private static unsafe ushort DirGetRecLen(byte* de) { return Rd16(de, DirRecLen); }
+    private static unsafe byte DirGetNameLen(byte* de) { return de[DirNameLen]; }
+    private static unsafe byte DirGetType(byte* de) { return de[DirType]; }
+
+    // Case-sensitive child lookup: name must match exactly.
+    private static unsafe bool FsFindInDir(byte* dirIno, byte* name, int nameLen, out uint childIno, out byte childType)
+    {
+        childIno = 0;
+        childType = 0;
+        if (!FsIsDir(InoGetMode(dirIno))) return false;
+        uint size = InoGetSize(dirIno);
+        ulong blocks = ((ulong)size + (ulong)Ext4BlockSize - 1) / (ulong)Ext4BlockSize;
+        if (blocks == 0) blocks = 1;
+        byte* blk = stackalloc byte[Ext4BlockSize];
+        for (ulong b = 0; b < blocks; b++)
+        {
+            uint bnum = FsInodeGetBlock(dirIno, b);
+            if (bnum == 0) continue;
+            FsReadBlock(bnum, blk);
+            int off = 0;
+            while (off + 8 <= Ext4BlockSize)
+            {
+                byte* de = blk + off;
+                uint iino = DirGetIno(de);
+                ushort rlen = DirGetRecLen(de);
+                if (rlen == 0) break;
+                byte nlen = DirGetNameLen(de);
+                if (iino != 0 && nlen == (byte)nameLen)
+                {
+                    bool same = true;
+                    for (int k = 0; k < nameLen; k++)
+                        if (de[DirName + k] != name[k]) { same = false; break; }
+                    if (same) { childIno = iino; childType = DirGetType(de); return true; }
+                }
+                off += rlen;
+                if (off > Ext4BlockSize - 8) break;
+            }
+        }
+        return false;
+    }
+
+    // Resolves "A:\OSB\BIN", "\OSB", "OSB", "A:OSB", "." and ".." using the
+    // current directory of drive A: (_cwd). Returns the inode and builds the
+    // canonical absolute path ("A:\OSB\BIN") in canon.
+    private static unsafe bool FsResolveCanon(char* path, int len, out uint ino, byte* canon, ref int canonLen)
+    {
+        ino = 0;
+        if (!_fsMounted && !FsMountA()) return false;
+        byte* abs = stackalloc byte[300];
+        int al = 0;
+        int i = 0;
+        bool absolute = false;
+        // drive prefix
+        if (len >= 2 && path[1] == ':')
+        {
+            char d = path[0];
+            if (d >= 'a' && d <= 'z') d = (char)(d - 32);
+            if (d != 'A') { WriteLine("Drive not ready."); return false; }
+            i = 2;
+            while (i < len && (path[i] == '\\' || path[i] == '/')) { i++; absolute = true; }
+        }
+        if (!absolute && len >= 1 && (path[0] == '\\' || path[0] == '/'))
+        {
+            i = 1;
+            absolute = true;
+        }
+        if (absolute)
+        {
+            abs[0] = (byte)'A'; abs[1] = (byte)':'; abs[2] = (byte)'\\'; al = 3;
+        }
+        else
+        {
+            CwdInit();
+            for (int k = 0; k < _cwdALen && al < 299; k++) abs[al++] = _cwd.path[k];
+        }
+        // append the input segments
+        while (i < len)
+        {
+            while (i < len && (path[i] == '\\' || path[i] == '/' || path[i] == ' ')) i++;
+            int s = i;
+            while (i < len && path[i] != '\\' && path[i] != '/') i++;
+            int segLen = i - s;
+            if (segLen > 0)
+            {
+                if (al > 0 && abs[al - 1] != '\\') abs[al++] = (byte)'\\';
+                if (al + segLen > 299) return false;
+                for (int k = 0; k < segLen; k++) abs[al++] = (byte)path[s + k];
+            }
+        }
+
+        // walk the segments from the root
+        byte* din = stackalloc byte[256];
+        ino = _rootInode;
+        uint cl = 0;
+        canon[cl++] = (byte)'A'; canon[cl++] = (byte)':'; canon[cl++] = (byte)'\\';
+        int pos = 3;
+        while (pos < al)
+        {
+            while (pos < al && (abs[pos] == (byte)'\\' || abs[pos] == (byte)'/')) pos++;
+            int s = pos;
+            while (pos < al && abs[pos] != (byte)'\\' && abs[pos] != (byte)'/') pos++;
+            int segLen = pos - s;
+            if (segLen <= 0) continue;
+            if (segLen == 1 && abs[s] == (byte)'.') continue;
+            if (segLen == 2 && abs[s] == (byte)'.' && abs[s + 1] == (byte)'.')
+            {
+                // parent: shrink canon to the previous separator
+                if (cl > 3)
+                {
+                    cl--;
+                    while (cl > 3 && canon[cl - 1] != (byte)'\\') cl--;
+                }
+                // resolve parent inode via the ".." entry
+                if (!FsReadInode(ino, din)) return false;
+                byte* dd = stackalloc byte[2];
+                dd[0] = (byte)'.'; dd[1] = (byte)'.';
+                uint pino; byte pt;
+                if (!FsFindInDir(din, dd, 2, out pino, out pt)) return false;
+                ino = pino;
+                continue;
+            }
+            // normal segment: look it up in the current directory
+            if (!FsReadInode(ino, din)) return false;
+            uint cino;
+            byte ct;
+            if (!FsFindInDir(din, abs + s, segLen, out cino, out ct)) return false;
+            ino = cino;
+            if (cl > 3 && canon[cl - 1] != (byte)'\\') { if (cl >= 299) return false; canon[cl++] = (byte)'\\'; }
+            for (int k = 0; k < segLen; k++) { if (cl >= 299) return false; canon[cl++] = abs[s + k]; }
+        }
+        canon[cl] = 0;
+        canonLen = (int)cl;
+        return true;
+    }
+
+    private static unsafe bool FsResolveIno(char* path, int len, out uint ino)
+    {
+        byte* canon = stackalloc byte[300];
+        int clen = 0;
+        return FsResolveCanon(path, len, out ino, canon, ref clen);
+    }
+
+    // ------------------------------------------------------------- DIR
+    private static void PrintPerms(ushort mode)
+    {
+        PutChar(FsIsDir(mode) ? 'd' : '-');
+        for (int g = 2; g >= 0; g--)
+        {
+            int bits = (mode >> (g * 3)) & 7;
+            PutChar((bits & 4) != 0 ? 'r' : '-');
+            PutChar((bits & 2) != 0 ? 'w' : '-');
+            PutChar((bits & 1) != 0 ? 'x' : '-');
+        }
+    }
+
+    private static void FmtUnix(ulong ts, out int day, out int mon, out int year, out int hh, out int mm)
+    {
+        ulong days = ts / 86400UL;
+        ulong rem = ts % 86400UL;
+        hh = (int)(rem / 3600UL);
+        mm = (int)((rem % 3600UL) / 60UL);
+        ulong z = days + 719468UL;
+        ulong era = z / 146097UL;
+        ulong doe = z - era * 146097UL;
+        ulong yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        long y = (long)yoe + (long)era * 400;
+        ulong doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        ulong mp = (5 * doy + 2) / 153;
+        day = (int)(doy - (153 * mp + 2) / 5 + 1);
+        mon = (int)(mp < 10 ? mp + 3 : mp - 9);
+        year = (int)(y + (mon <= 2 ? 1 : 0));
+    }
+
+    private static void PrintDate(ulong ts)
+    {
+        int d, mo, y, h, mi;
+        FmtUnix(ts, out d, out mo, out y, out h, out mi);
+        WriteTwo(mo); PutChar('/'); WriteTwo(d); PutChar('/'); WriteDec((ulong)y);
+        PutChar(' '); WriteTwo(h); PutChar(':'); WriteTwo(mi);
+    }
+
+    private static unsafe void DirPrint(byte* din, bool wide)
+    {
+        ushort dmode = InoGetMode(din);
+        uint dsize = InoGetSize(din);
+        ulong blocks = ((ulong)dsize + (ulong)Ext4BlockSize - 1) / (ulong)Ext4BlockSize;
+        if (blocks == 0) blocks = 1;
+        byte* blk = stackalloc byte[Ext4BlockSize];
+        bool any = false;
+        for (ulong b = 0; b < blocks; b++)
+        {
+            uint bnum = FsInodeGetBlock(din, b);
+            if (bnum == 0) continue;
+            FsReadBlock(bnum, blk);
+            int off = 0;
+            while (off + 8 <= Ext4BlockSize)
+            {
+                byte* de = blk + off;
+                uint iino = DirGetIno(de);
+                ushort rlen = DirGetRecLen(de);
+                if (rlen == 0) break;
+                byte nlen = DirGetNameLen(de);
+                byte dtype = DirGetType(de);
+                if (iino != 0 && nlen > 0)
+                {
+                    any = true;
+                    byte* cin = stackalloc byte[256];
+                    if (FsReadInode(iino, cin))
+                    {
+                        ushort cmode = InoGetMode(cin);
+                        if (wide)
+                        {
+                            for (int k = 0; k < nlen; k++) PutChar((char)de[DirName + k]);
+                            PutChar('\t');
+                            if (!FsIsDir(cmode)) { PutChar(' '); }
+                        }
+                        else
+                        {
+                            PrintPerms(cmode);
+                            WriteDecPad((ulong)InoGetLinks(cin), 4);
+                            WriteDecPad((ulong)InoGetUid(cin), 5);
+                            WriteDecPad((ulong)InoGetGid(cin), 5);
+                            WriteDecPad((ulong)InoGetSize(cin), 8);
+                            PutChar(' ');
+                            PrintDate(Rd32(cin, InoMtime));
+                            PutChar(' ');
+                            for (int k = 0; k < nlen; k++) PutChar((char)de[DirName + k]);
+                            PutChar('\n');
+                        }
+                    }
+                    else
+                    {
+                        for (int k = 0; k < nlen; k++) PutChar((char)de[DirName + k]);
+                        if (wide) PutChar('\t');
+                        else PutChar('\n');
+                    }
+                }
+                off += rlen;
+                if (off > Ext4BlockSize - 8) break;
+            }
+        }
+        if (wide && any) PutChar('\n');
+    }
+
+    private static unsafe void DirCmd(char* line, int len)
+    {
+        bool wide = false;
+        int pathS = -1, pathE = -1;
+        int i = 3;
+        while (i < len)
+        {
+            while (i < len && line[i] == ' ') i++;
+            if (i >= len) break;
+            int s = i;
+            while (i < len && line[i] != ' ') i++;
+            int e = i;
+            if (e > s)
+            {
+                if ((line[s] == '/' || line[s] == '-') && e == s + 2 &&
+                    (line[s + 1] == 'W' || line[s + 1] == 'w')) { wide = true; continue; }
+                if (line[s] == '/' || line[s] == '-') continue; // ignore other switches
+                if (pathS < 0) { pathS = s; pathE = e; }
+            }
+        }
+        uint ino;
+        if (pathS < 0)
+        {
+            // No path: use the current directory. Build a char* copy of the
+            // cwd bytes (the cwd is stored as bytes; the resolver reads chars).
+            CwdInit();
+            char* cb = stackalloc char[300];
+            byte* outbuf = stackalloc byte[300];
+            int cl = 0;
+            for (int k = 0; k < _cwdALen && k < 300; k++) cb[cl++] = (char)_cwd.path[k];
+            if (!FsResolveCanon(cb, cl, out ino, outbuf, ref cl))
+            {
+                WriteLine("Path not found");
+                return;
+            }
+        }
+        else if (!FsResolveIno(line + pathS, pathE - pathS, out ino))
+        {
+            WriteLine("Path not found");
+            return;
+        }
+        byte* din = stackalloc byte[256];
+        if (!FsReadInode(ino, din)) { WriteLine("Error reading inode"); return; }
+        if (!FsIsDir(InoGetMode(din))) { WriteLine("Not a directory"); return; }
+        DirPrint(din, wide);
+    }
+
+    // ------------------------------------------------------------- CD
+    private static unsafe void CdCmd(char* line, int len)
+    {
+        int i = 2;
+        while (i < len && line[i] == ' ') i++;
+        if (i >= len) { PrintCwd(); PutChar('\n'); return; }
+        uint ino;
+        int clen = 0;
+        bool ok;
+        fixed (byte* cp = _cwd.path)
+        {
+            ok = FsResolveCanon(line + i, len - i, out ino, cp, ref clen);
+        }
+        if (!ok)
+        {
+            WriteLine("Invalid directory");
+            return;
+        }
+        byte* din = stackalloc byte[256];
+        if (!FsReadInode(ino, din)) { WriteLine("Invalid directory"); return; }
+        if (!FsIsDir(InoGetMode(din))) { WriteLine("Invalid directory"); return; }
+        _cwdALen = clen;
+        WriteLine("OK");
+    }
+
+    // ------------------------------------------------------------- TYPE
+    private static unsafe void TypeCmd(char* line, int len)
+    {
+        int i = 4;
+        while (i < len && line[i] == ' ') i++;
+        if (i >= len) { WriteLine("TYPE [file]"); return; }
+        uint ino;
+        if (!FsResolveIno(line + i, len - i, out ino)) { WriteLine("File not found"); return; }
+        byte* cin = stackalloc byte[256];
+        if (!FsReadInode(ino, cin)) { WriteLine("Error"); return; }
+        if (!FsIsReg(InoGetMode(cin))) { WriteLine("Not a file"); return; }
+        uint sz = InoGetSize(cin);
+        byte* blk = stackalloc byte[Ext4BlockSize];
+        ulong off = 0;
+        while (off < sz)
+        {
+            ulong lblk = off / (ulong)Ext4BlockSize;
+            int boff = (int)(off % (ulong)Ext4BlockSize);
+            uint bnum = FsInodeGetBlock(cin, lblk);
+            if (bnum == 0) break;
+            FsReadBlock(bnum, blk);
+            int take = Ext4BlockSize - boff;
+            if ((ulong)(off + (ulong)take) > sz) take = (int)(sz - off);
+            for (int k = 0; k < take; k++)
+            {
+                byte c = blk[boff + k];
+                if (c == 0) break;
+                PutChar((char)c);
+            }
+            off += (ulong)take;
+        }
+        PutChar('\n');
     }
 
     // ---------------------------------------------------------------- serial
@@ -1595,10 +2113,26 @@ internal static unsafe class Kernel
             CmdSet(line, len);
             return;
         }
+        if (Eq(line, len, "DIR") || StartsWith(line, len, "DIR "))
+        {
+            DirCmd(line, len);
+            return;
+        }
+        if (Eq(line, len, "CD") || StartsWith(line, len, "CD "))
+        {
+            CdCmd(line, len);
+            return;
+        }
+        if (Eq(line, len, "TYPE") || StartsWith(line, len, "TYPE "))
+        {
+            TypeCmd(line, len);
+            return;
+        }
         if (Eq(line, len, "HELP"))
         {
             WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
             WriteLine("          SET [NAME=value]  env ($VAR, case-insensitive names)");
+            WriteLine("Files:    DIR [path] [/W]  CD [path]  TYPE <file>  (ext4/A:)");
             WriteLine("          SLEEP <s>  TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
             WriteLine("Processes:SPAWN [BAD|SPAWNER] [&]  start a ring-3 process");
             WriteLine("          RING3 [BAD] [&]  synonym for SPAWN");

@@ -37,11 +37,10 @@ mkdir /OSB/CONF
 mkdir /OSB/HELP
 mkdir /OSB/HOME
 mkdir /OSB/TEMP
-cd /OSB/CONF
-write /dev/null /README.txt
-quit
 EOF
-debugfs -w -f "$OBJ/fs/populate.txt" "$OUT_IMG" >/dev/null 2>&1
+printf 'OSB File System test.\nCase-sensitive filenames: ON\nHome is A:\\HOME.\n' > "$OBJ/fs/welcome.txt"
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; } > "$OBJ/fs/populate2.txt"
+debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 
 # Locate the native AOT compiler shipped with the SDK (NuGet cache).

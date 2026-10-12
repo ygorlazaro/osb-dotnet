@@ -143,12 +143,30 @@ outb:
     outb %al, %dx
     ret
 
+/* 16-bit port output. */
+.global outw
+.type outw, @function
+outw:
+    movw %di, %dx
+    movw %si, %ax
+    outw %ax, %dx
+    ret
+
 .global inb
 .type inb, @function
 inb:
     movw %di, %dx
     xorl %eax, %eax
     inb  %dx, %al
+    ret
+
+/* 16-bit port input (ATA data register is a word port). */
+.global inw
+.type inw, @function
+inw:
+    movw %di, %dx
+    xorl %eax, %eax
+    inw  %dx, %ax
     ret
 
 .global memcpy
