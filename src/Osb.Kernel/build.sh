@@ -17,8 +17,32 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 OBJ="$ROOT/obj/kernel"
 ISO_DIR="$ROOT/iso"
 OUT_ISO="$ROOT/osb.iso"
+OUT_IMG="$ROOT/osb.img"
 
 mkdir -p "$OBJ"
+
+# Generate the ext4 disk image (drive A:) if it does not exist or is older than
+# the population script markers (for now, always regenerate small dev image).
+echo "[0/6] Building ext4 disk image (A:)"
+mkdir -p "$OBJ/fs"
+rm -f "$OUT_IMG"
+dd if=/dev/zero of="$OUT_IMG" bs=1M count=16 >/dev/null 2>&1
+mke2fs -t ext4 -b 4096 \
+  -O ^has_journal,^extent,^64bit,^metadata_csum,^flex_bg,^dir_index \
+  -L "OSB" "$OUT_IMG" >/dev/null 2>&1
+cat > "$OBJ/fs/populate.txt" <<'EOF'
+mkdir /OSB
+mkdir /OSB/BIN
+mkdir /OSB/CONF
+mkdir /OSB/HELP
+mkdir /OSB/HOME
+mkdir /OSB/TEMP
+cd /OSB/CONF
+write /dev/null /README.txt
+quit
+EOF
+debugfs -w -f "$OBJ/fs/populate.txt" "$OUT_IMG" >/dev/null 2>&1
+echo "OK -> $OUT_IMG"
 
 # Locate the native AOT compiler shipped with the SDK (NuGet cache).
 ILC="$(ls -1d "$HOME"/.nuget/packages/runtime.linux-x64.microsoft.dotnet.ilcompiler/*/tools/ilc 2>/dev/null | sort -V | tail -n1)"
@@ -28,20 +52,20 @@ if [[ -z "$ILC" || ! -x "$ILC" ]]; then
     exit 1
 fi
 
-echo "[1/5] Compiling C# (managed, mini-CoreLib) ..."
+echo "[1/6] Compiling C# (managed, mini-CoreLib) ..."
 dotnet build -c Release "$ROOT/Osb.Kernel.csproj" -v q -nologo
 
 DLL="$ROOT/bin/Release/net10.0/OsbKernel.dll"
 test -f "$DLL" || { echo "ERROR: $DLL not produced"; exit 1; }
 
-echo "[2/5] NativeAOT (ilc) ..."
+echo "[2/6] NativeAOT (ilc) ..."
 "$ILC" "$DLL" -o "$OBJ/OsbKernel.o" \
     --systemmodule OsbKernel \
     --targetarch x64 --targetos linux \
     -O -g --directpinvoke:osbnative \
     --map "$OBJ/kernel.map"
 
-echo "[3/5] Generating ISR stubs + assembling ..."
+echo "[3/6] Generating ISR stubs + assembling ..."
 # Generate interrupts.S: one 2-instruction stub per IDT vector plus a common
 # frame save/restore entry. Vectors with a CPU error code (8,10-14,17) and a
 # uniform [vector][dummy] pushed-frame layout for the C# handler.
@@ -150,15 +174,16 @@ clang -c -nostdlib -ffreestanding -o "$OBJ/boot.o" "$ROOT/boot.S"
 clang -c -nostdlib -ffreestanding -o "$OBJ/sched.o" "$ROOT/sched.S"
 clang -c -nostdlib -ffreestanding -o "$OBJ/user.o" "$ROOT/user.S"
 
-echo "[4/5] Linking kernel.elf ..."
+echo "[4/6] Linking kernel.elf ..."
 ld.lld -T "$ROOT/linker.ld" -o "$OBJ/kernel.elf" \
     "$OBJ/boot.o" "$OBJ/interrupts.o" "$OBJ/sched.o" "$OBJ/user.o" "$OBJ/OsbKernel.o" --no-relax
 
-echo "[5/5] Building ISO ..."
+echo "[5/6] Building ISO ..."
 rm -rf "$ISO_DIR"
 mkdir -p "$ISO_DIR/boot/grub"
 cp "$OBJ/kernel.elf" "$ISO_DIR/boot/kernel.elf"
 cp "$ROOT/grub.cfg" "$ISO_DIR/boot/grub/grub.cfg"
+cp "$OUT_IMG" "$ISO_DIR/osb.img" 2>/dev/null || true
 grub-mkrescue -o "$OUT_ISO" "$ISO_DIR" >/dev/null
 
 echo "OK -> $OUT_ISO"
@@ -171,6 +196,7 @@ case "${1:-}" in
     # everything. Quit: `POWEROFF` at the OSB prompt (ACPI S5 -> QEMU exits).
     echo "Booting in QEMU (serial on stdio, no display) ..."
     exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M \
+      -drive file="$OUT_IMG",if=ide,index=0 \
       -display none -serial stdio -no-reboot
     ;;
   run-gui)
@@ -179,7 +205,8 @@ case "${1:-}" in
     # use POWEROFF at the OSB prompt to shut the emulator down cleanly.
     echo "Booting in QEMU (GUI window + serial on stdio) ..."
     echo "  Grab escape: Ctrl+Alt+G  |  monitor: Ctrl+Alt+2 then 'quit'"
-    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M -serial stdio -no-reboot
+    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M -serial stdio -no-reboot \
+      -drive file="$OUT_IMG",if=ide,index=0
     ;;
   check)
     grub-file --is-x86-multiboot2 "$OBJ/kernel.elf" && echo "kernel.elf: Multiboot2 OK"
