@@ -92,6 +92,25 @@ internal static unsafe class Kernel
     private const byte RtcIndex = 0x70;            // CMOS register select
     private const byte RtcData = 0x71;             // CMOS data port
 
+    // ---- ATA PIO (IDE) ----
+    // Primary IDE: data 0x1F0, error/features 0x1F1, sector count 0x1F2,
+    // LBA low/mid/high 0x1F3-0x1F5, drive/head 0x1F6, status/command 0x1F7
+    private const ushort AtaPrimaryData = 0x1F0;
+    private const ushort AtaPrimaryError = 0x1F1;
+    private const ushort AtaPrimarySecCount = 0x1F2;
+    private const ushort AtaPrimaryLbaLow = 0x1F3;
+    private const ushort AtaPrimaryLbaMid = 0x1F4;
+    private const ushort AtaPrimaryLbaHigh = 0x1F5;
+    private const ushort AtaPrimaryDriveHead = 0x1F6;
+    private const ushort AtaPrimaryStatus = 0x1F7;
+    private const ushort AtaPrimaryCommand = 0x1F7;
+    private const byte AtaCmdReadSectors = 0x20;
+    private const byte AtaCmdWriteSectors = 0x30;
+    private const byte AtaCmdIdentify = 0xEC;
+    private const byte AtaStatusBusy = 0x80;
+    private const byte AtaStatusDrq = 0x08;
+    private const byte AtaStatusReady = 0x40;
+
     private unsafe struct IdtTable { public fixed byte bytes[256 * 16]; }
     private unsafe struct IdtrTable { public fixed byte data[10]; } // lidt operand
     private unsafe struct KbdRing
@@ -317,6 +336,35 @@ internal static unsafe class Kernel
             v = v * 10 + (ulong)(s[i] - '0');
         }
         return v;
+    }
+
+    private static void AtaWaitBusy()
+    {
+        while ((inb(AtaPrimaryStatus) & AtaStatusBusy) != 0) { }
+    }
+
+    private static void AtaWaitDrq()
+    {
+        while ((inb(AtaPrimaryStatus) & AtaStatusDrq) == 0) { }
+    }
+
+    private static unsafe void AtaReadSector(ulong lba, byte* buffer)
+    {
+        AtaWaitBusy();
+        outb(AtaPrimaryDriveHead, (byte)(0xE0 | (byte)((lba >> 24) & 0x0F)));
+        outb(AtaPrimarySecCount, 1);
+        outb(AtaPrimaryLbaLow, (byte)(lba & 0xFF));
+        outb(AtaPrimaryLbaMid, (byte)((lba >> 8) & 0xFF));
+        outb(AtaPrimaryLbaHigh, (byte)((lba >> 16) & 0xFF));
+        outb(AtaPrimaryCommand, AtaCmdReadSectors);
+        AtaWaitBusy();
+        AtaWaitDrq();
+        for (int i = 0; i < 256; i++)
+        {
+            ushort v = (ushort)inb(AtaPrimaryData);
+            v |= (ushort)(inb(AtaPrimaryData) << 8);
+            ((ushort*)buffer)[i] = v;
+        }
     }
 
     // ---------------------------------------------------------------- serial
