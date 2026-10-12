@@ -63,19 +63,19 @@ _start:
     movl $3072, %ecx
     rep stosl
 
-    /* pml4[0] -> pdpt */
+    /* pml4[0] -> pdpt (P|RW|US: the user subtree lives under here) */
     movl $pml4, %edi
     movl $pdpt, %eax
-    orl  $3, %eax
+    orl  $7, %eax
     movl %eax, (%edi)
 
-    /* pdpt[0] -> pd */
+    /* pdpt[0] -> pd (P|RW|US) */
     movl $pdpt, %edi
     movl $pd, %eax
-    orl  $3, %eax
+    orl  $7, %eax
     movl %eax, (%edi)
 
-    /* pd[*]: identity-map the first 1 GiB with 2 MiB pages */
+    /* pd[*]: identity-map the first 1 GiB with 2 MiB pages (P|RW|PS) */
     movl $pd, %edi
     xorl %ecx, %ecx
 1:
@@ -87,6 +87,11 @@ _start:
     incl %ecx
     cmpl $512, %ecx
     jne 1b
+
+    /* pd[2] = 0x400000..0x5FFFFF: mark U/S=1 so ring-3 code/data is reachable
+     * (kernel pages stay U=0 -> ring 3 cannot touch the kernel). */
+    movl $0x400087, %eax
+    movl %eax, pd+16
 
     /* enable PAE */
     movl %cr4, %eax
@@ -238,5 +243,51 @@ osb_reboot:
     outb %al, %dx
 2:  hlt
     jmp 2b
+
+/* Load a new GDT from a 10-byte descriptor {limit:16, base:64}. */
+.global osb_lgdt
+.type osb_lgdt, @function
+osb_lgdt:
+    lgdt (%rdi)
+    ret
+
+/* Load the task register with a TSS selector (argument in %di). */
+.global osb_ltr
+.type osb_ltr, @function
+osb_ltr:
+    ltr %di
+    ret
+
+/* Reload the data segment registers with the kernel data selector 0x10.
+ * CS is left untouched (still 0x08 = kernel code). */
+.global osb_reload_segments
+.type osb_reload_segments, @function
+osb_reload_segments:
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %ss
+    movw %ax, %fs
+    movw %ax, %gs
+    ret
+
+/* Enter ring 3: rdi = user entry RIP, rsi = user stack top.
+ * Builds the iretq frame (SS,RSP,RFLAGS,CS,RIP) and drops to CPL3. Never
+ * returns; the kernel stack is (re)entered later via TSS.RSP0 on INT/syscall. */
+.global osb_enter_user
+.type osb_enter_user, @function
+osb_enter_user:
+    movq %rdi, %rax          /* RIP  = entry */
+    movq %rsi, %rdx          /* RSP  = user stack top */
+    movw $0x23, %cx          /* user data selector (0x20 | RPL3) */
+    movw %cx, %ds
+    movw %cx, %es
+    pushq %rcx               /* SS   = 0x23 */
+    pushq %rdx               /* RSP */
+    pushq $0x202             /* RFLAGS: IF=1 */
+    movw $0x1B, %cx          /* user code selector (0x18 | RPL3) */
+    pushq %rcx               /* CS   = 0x1B */
+    pushq %rax               /* RIP */
+    iretq
 
 .section .note.GNU-stack, "", @progbits

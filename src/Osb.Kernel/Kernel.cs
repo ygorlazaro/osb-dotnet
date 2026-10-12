@@ -18,10 +18,21 @@ internal static unsafe class Kernel
     [DllImport("osbnative")] private static extern void cli();
     [DllImport("osbnative")] private static extern void halt();   // sti; hlt
     [DllImport("osbnative")] private static extern void hlt_cpu(); // bare hlt
-    [DllImport("osbnative")] private static extern void osb_switch(ref ulong saveSp, ref ulong loadSp);
+    [DllImport("osbnative")] private static extern void osb_switch(ulong* saveSp, ulong* loadSp);
     [DllImport("osbnative")] private static extern ulong osb_sched_get_demo_entry();
+    [DllImport("osbnative")] private static extern ulong osb_sched_get_user_entry();
     [DllImport("osbnative")] private static extern void osb_poweroff(); // ACPI S5 (QEMU exits)
     [DllImport("osbnative")] private static extern void osb_reboot();   // 8042 reset pulse
+    // ring-3 plumbing (boot.S)
+    [DllImport("osbnative")] private static extern void osb_lgdt(byte* gdtr);
+    [DllImport("osbnative")] private static extern void osb_ltr(ushort selector);
+    [DllImport("osbnative")] private static extern void osb_reload_segments();
+    [DllImport("osbnative")] private static extern void osb_enter_user(ulong entry, ulong stackTop);
+    // user-blob bounds (user.S)
+    [DllImport("osbnative")] private static extern ulong osb_userstub_begin();
+    [DllImport("osbnative")] private static extern ulong osb_userstub_end();
+    [DllImport("osbnative")] private static extern ulong osb_userbad_begin();
+    [DllImport("osbnative")] private static extern ulong osb_userbad_end();
 
     private const uint VgaBase = 0xB8000;
     private const int VgaWidth = 80;
@@ -35,10 +46,28 @@ internal static unsafe class Kernel
     private const int IdtSize = 256 * 16;          // 256 entries x 16 bytes
     private const ushort KernelSelector = 0x08;    // GDT: 64-bit code at offset 8
     private const byte IdtInterruptGate = 0x8E;    // present, DPL0, 64-bit gate
-    private const int KbdVector = 32 + 1;          // IRQ1 remapped to vector 33
-    private const int TimerVector = 32 + 0;        // IRQ0 (PIT) -> vector 32
-    private const int RtcVector = 32 + 8;          // IRQ8 (RTC) -> vector 40
+    private const byte IdtUserGate = 0xEE;         // present, DPL3 (callable via INT)
+    // The PIC is remapped to vectors 0x30..0x3F so that vector 0x21 is free for
+    // the DOS-style system-call entry point (INT 21h).
+    private const int PicBase = 0x30;
+    private const int KbdVector = PicBase + 1;     // IRQ1 -> vector 0x31
+    private const int TimerVector = PicBase + 0;   // IRQ0 -> vector 0x30
+    private const int RtcVector = PicBase + 8;     // IRQ8 -> vector 0x38
+    private const int Int21Vector = 0x21;          // DOS-style syscall gate
     private const int PitHz = 100;                 // PIT frequency in Hz
+
+    // ---- ring 3 / user memory layout ----
+    private const ulong UserBase = 0x400000;       // user code/data region start
+    private const ulong UserLimit = 0x600000;      // end of the U/S=1 2 MiB page
+    private const ulong UserProgramAddr = 0x400000;// normal stub (copied here)
+    private const ulong UserBadAddr = 0x401000;    // "supervisor escape" stub
+    private const ulong UserStackTop = 0x480000;   // user stack grows down from here
+
+    // GDT selectors (64-bit flat, base 0)
+    private const ushort KernelDataSel = 0x10;
+    private const ushort UserCodeSel = 0x18;       // RPL3 -> 0x1B in CS
+    private const ushort UserDataSel = 0x20;       // RPL3 -> 0x23 in SS/DS
+    private const ushort TssSel = 0x28;
 
     private const byte RtcIndex = 0x70;            // CMOS register select
     private const byte RtcData = 0x71;             // CMOS data port
@@ -51,25 +80,43 @@ internal static unsafe class Kernel
         public int head;
         public int tail;
     }
+    private unsafe struct GdtTable { public fixed byte bytes[7 * 8]; }  // 7 descriptors
+    private unsafe struct GdtrTable { public fixed byte data[10]; }
+    private unsafe struct TssStruct { public fixed byte bytes[104]; }
 
     private static IdtTable _idt;
     private static IdtrTable _idtr;
+    private static GdtTable _gdt;
+    private static GdtrTable _gdtr;
+    private static TssStruct _tss;
     private static KbdRing _kbd;
     private static ulong _ticks;                    // 100 Hz heartbeat
 
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
     private static byte _rtcSec, _rtcMin, _rtcHour, _rtcDay, _rtcMonth, _rtcYear;
 
-    // Preemptive round-robin scheduler: task 0 = shell (kernel stack), task 1 =
-    // demo (its own fixed stack, seeded by SchedInit). The PIT handler switches
-    // tasks (SchedulerTick); neither task yields explicitly.
-    private unsafe struct TaskRegion { public fixed byte bytes[8192]; }
+    // Preemptive round-robin scheduler. Task 0 = shell (kernel stack), task 1 =
+    // demo, task 2 = user program (runs in ring 3 on its own kernel stack, whose
+    // top is TSS.RSP0). The PIT handler switches tasks; nothing yields.
+    private const int TaskShell = 0;
+    private const int TaskDemo = 1;
+    private const int TaskUser = 2;
+    private const int TaskCount = 3;
+    private const int TaskDone = 0;
+    private const int TaskReady = 1;
+    private unsafe struct TaskTable
+    {
+        public fixed ulong sp[TaskCount];
+        public fixed int state[TaskCount];
+    }
+    private unsafe struct TaskRegion { public fixed byte bytes[16384]; }
+    private static TaskTable _tasks;
     private static TaskRegion _demoStack;
-    private static ulong _schedSp0;          // saved SP of the shell task
-    private static ulong _schedSp1;          // saved SP of the demo task
-    private static int _currentTask;         // task currently running (0 or 1)
+    private static TaskRegion _userKStack;
+    private static int _currentTask;
     private static ulong _demoDeadline;
     private static ulong _demoCount;
+    private static ulong _userEntry;                // where ring 3 starts for the user task
 
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -81,11 +128,13 @@ internal static unsafe class Kernel
         SerialInit();
         VgaClear();
 
-        PicInit();          // remap 8259A (IRQ0-15 -> vectors 32-47)
+        PicInit();          // remap 8259A (IRQ0-15 -> vectors 0x30-0x3F)
         PitInit();          // 8254 channel 0: square wave @ 100 Hz
         RtcInit();          // CMOS/RTC: 24h + binary + update-ended IRQ (~1 Hz)
+        GdtInit();          // user segments + TSS, then load the new GDT + ltr
+        LoadUserBlobs();    // copy the ring-3 test programs into user memory
         IdtInit();          // fill + load the IDT (exception + IRQ stubs)
-        SchedInit();        // seed the cooperative task-1 (demo) stack
+        SchedInit();        // seed the demo and user task stacks
 
         WriteLine("OSB - Operating System Basic");
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
@@ -93,6 +142,7 @@ internal static unsafe class Kernel
         WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
         WriteLine("Clock: RTC via IRQ8 (update-ended).");
         WriteLine("Scheduler: preemptive round-robin (PIT preempts, no yields).");
+        WriteLine("Ring 3: user segments + TSS; syscalls via INT 21h (DOS-style).");
         Write("Multiboot2 info @ ");
         WriteHex(multibootInfo);
         PutChar('\n');
@@ -252,9 +302,11 @@ internal static unsafe class Kernel
     private static void IdtInit()
     {
         // One stub per vector, address table exported by interrupts.S.
+        // Vector 0x21 is the system-call gate: DPL3 so ring 3 may invoke it.
         ulong table = osb_get_stub_table();
         for (int i = 0; i < 256; i++)
-            IdtWriteEntry(i, *(ulong*)(table + (ulong)i * 8), IdtInterruptGate);
+            IdtWriteEntry(i, *(ulong*)(table + (ulong)i * 8),
+                i == Int21Vector ? IdtUserGate : IdtInterruptGate);
 
         // IDTR = { limit: 16 bits, base: 64 bits } -> 10 bytes, contiguous.
         int limit = IdtSize - 1; // 4095
@@ -276,15 +328,16 @@ internal static unsafe class Kernel
         }
     }
 
-    // 8259A: remap IRQ0-7 -> 0x20-0x27 and IRQ8-15 -> 0x28-0x2F (8086 mode,
-    // slave on IRQ2). Masks: master unmask IRQ0 (PIT), IRQ1 (kbd) and IRQ2
+    // 8259A: remap IRQ0-7 -> 0x30-0x37 and IRQ8-15 -> 0x38-0x3F (8086 mode,
+    // slave on IRQ2). Vectors 0x20-0x2F are left free; 0x21 is the INT 21h
+    // system-call gate. Masks: master unmask IRQ0 (PIT), IRQ1 (kbd) and IRQ2
     // (cascade, required for any slave IRQ); slave unmask IRQ8 (RTC).
     private static void PicInit()
     {
         outb(0x20, 0x11); outb(0x80, 0);  // ICW1: init, edge triggered
         outb(0xA0, 0x11); outb(0x80, 0);
-        outb(0x21, 0x20); outb(0x80, 0);  // ICW2: master base vector 0x20
-        outb(0xA1, 0x28); outb(0x80, 0);  // ICW2: slave base vector 0x28
+        outb(0x21, PicBase);  outb(0x80, 0);  // ICW2: master base vector 0x30
+        outb(0xA1, PicBase + 8); outb(0x80, 0); // ICW2: slave base vector 0x38
         outb(0x21, 0x04); outb(0x80, 0);  // ICW3: slave on master IRQ2
         outb(0xA1, 0x02); outb(0x80, 0);
         outb(0x21, 0x01); outb(0x80, 0);  // ICW4: 8086/8088 mode
@@ -375,6 +428,12 @@ internal static unsafe class Kernel
     {
         ulong vector = frame[15];
 
+        if (vector == Int21Vector) // DOS-style system call from ring 3
+        {
+            HandleSyscall(frame);
+            return;
+        }
+
         if (vector == KbdVector) // IRQ1: PS/2 controller has a scancode
         {
             byte sc = inb(0x60);
@@ -387,7 +446,7 @@ internal static unsafe class Kernel
         {
             _ticks++;
             PicEoi(0);            // EOI before switching: the PIC may deliver
-            SchedulerTick();      // the next tick while the other task runs
+            SchedulerTick();      // the next tick while another task runs
             return;
         }
 
@@ -401,11 +460,69 @@ internal static unsafe class Kernel
 
         if (vector < 32)
         {
-            ExceptionPanic(vector, frame); // fatal CPU exception
+            // A fault raised by ring-3 code is recovered: kill the user task and
+            // keep the system running. Anything from CPL0 is fatal.
+            if ((frame[18] & 3) == 3) { UserFault(vector, frame); return; }
+            ExceptionPanic(vector, frame);
             return;
         }
 
-        PicEoi((int)(vector - 32)); // masked IRQ that still slipped through
+        PicEoi((int)(vector - PicBase)); // masked IRQ that still slipped through
+    }
+
+    // Handle an INT 21h from ring 3. Function number in AH, arguments in
+    // RSI/RDI/..., result written back to RAX in the saved frame.
+    private static void HandleSyscall(ulong* frame)
+    {
+        ulong rax = frame[14];           // full RAX as passed by the user
+        ulong rsi = frame[10];           // arg0 (e.g. string pointer)
+        ulong func = (rax >> 8) & 0xFF;  // AH = function number
+
+        if (func == 0x09) // print '$'-terminated string at RSI
+        {
+            if (rsi < UserBase || rsi >= UserLimit)
+            {
+                frame[14] = unchecked((ulong)-1); // EFAULT
+                return;
+            }
+            byte* p = (byte*)rsi;
+            int n = 0;
+            while (n < 4096 && p[n] != (byte)'$')
+            {
+                PutChar((char)p[n]);
+                n++;
+            }
+            frame[14] = 0;
+            return;
+        }
+
+        if (func == 0x4C) // terminate the program
+        {
+            WriteLine("[kernel] user program exited via INT 21h/AH=4Ch.");
+            _tasks.state[TaskUser] = TaskDone;
+            PickNext();          // switch away for good (never returns)
+            for (;;) halt();
+        }
+
+        frame[14] = unchecked((ulong)-2); // ENOSYS
+    }
+
+    // A ring-3 program faulted (bad instruction, page fault, ...). Report it and
+    // terminate just that task; the kernel and other tasks keep running.
+    private static void UserFault(ulong vector, ulong* frame)
+    {
+        PutChar('\n');
+        Write("[kernel] user program fault at CPL3: vector=");
+        WriteHex(vector);
+        Write(" err=");
+        WriteHex(frame[16]);
+        Write(" RIP=");
+        WriteHex(frame[17]);
+        PutChar('\n');
+        WriteLine("[kernel] terminating the user task; system continues.");
+        _tasks.state[TaskUser] = TaskDone;
+        PickNext();              // switch away (never returns)
+        for (;;) halt();
     }
 
     private static void ExceptionPanic(ulong vector, ulong* frame)
@@ -422,50 +539,149 @@ internal static unsafe class Kernel
         for (;;) hlt_cpu();
     }
 
-    // ------------------------------------------------- round-robin (cooperative)
-    // Seed task 1's stack so the first switch into it lands at
-    // osb_demo_trampoline (which calls osb_demo_task_main). Layout mirrors what
-    // osb_switch pushes: [r15][r14][r13][r12][rbp][rbx][ret-addr].
+    // -------------------------------------------------- ring 3 / GDT + TSS
+    // Build a GDT with kernel + user segments and a TSS descriptor, load it,
+    // reload the data segment registers and load the task register. The TSS's
+    // RSP0 points at the user task's kernel stack: the CPU switches to it when
+    // an interrupt/syscall arrives from ring 3.
+    private static void GdtInit()
+    {
+        // --- descriptor table ---
+        for (int i = 0; i < 7 * 8; i++) _gdt.bytes[i] = 0;
+
+        WriteGdtQuad(0x08, 0x00AF9A000000FFFF); // kernel code (DPL0)
+        WriteGdtQuad(0x10, 0x00AF92000000FFFF); // kernel data (DPL0)
+        WriteGdtQuad(0x18, 0x00AFFA000000FFFF); // user code   (DPL3)
+        WriteGdtQuad(0x20, 0x00AFF2000000FFFF); // user data   (DPL3)
+
+        // --- TSS descriptor at 0x28 (16 bytes, system type 0x9) ---
+        ulong tssBase;
+        fixed (byte* tp = _tss.bytes) { tssBase = (ulong)tp; }
+        int o = 0x28;
+        _gdt.bytes[o + 0] = 0x67; _gdt.bytes[o + 1] = 0x00;         // limit 0x0067
+        _gdt.bytes[o + 2] = (byte)tssBase;
+        _gdt.bytes[o + 3] = (byte)(tssBase >> 8);
+        _gdt.bytes[o + 4] = (byte)(tssBase >> 16);
+        _gdt.bytes[o + 5] = 0x89;                                    // present, type 0x9
+        _gdt.bytes[o + 6] = 0x00;                                    // flags | limit hi
+        _gdt.bytes[o + 7] = (byte)(tssBase >> 24);
+        _gdt.bytes[o + 8]  = (byte)(tssBase >> 32);
+        _gdt.bytes[o + 9]  = (byte)(tssBase >> 40);
+        _gdt.bytes[o + 10] = (byte)(tssBase >> 48);
+        _gdt.bytes[o + 11] = (byte)(tssBase >> 56);
+        // bytes o+12..o+15 stay zero (reserved)
+
+        // --- TSS body: RSP0 = user-task kernel stack top; no I/O bitmap ---
+        for (int i = 0; i < 104; i++) _tss.bytes[i] = 0;
+        ulong ktop;
+        fixed (byte* p = _userKStack.bytes) { ktop = ((ulong)p + 16384) & ~(ulong)15; }
+        fixed (byte* tp = _tss.bytes)
+        {
+            *(ulong*)(tp + 4) = ktop;                         // RSP0
+            tp[100] = 0x68; tp[101] = 0x00;                   // IOPB = 104 (none)
+        }
+
+        // --- GDTR = { limit, base }, then load ---
+        int limit = 7 * 8 - 1;
+        ulong base_;
+        fixed (byte* p = _gdt.bytes) { base_ = (ulong)p; }
+        fixed (byte* p = _gdtr.data)
+        {
+            p[0] = (byte)limit; p[1] = (byte)(limit >> 8);
+            p[2] = (byte)base_; p[3] = (byte)(base_ >> 8);
+            p[4] = (byte)(base_ >> 16); p[5] = (byte)(base_ >> 24);
+            p[6] = (byte)(base_ >> 32); p[7] = (byte)(base_ >> 40);
+            p[8] = (byte)(base_ >> 48); p[9] = (byte)(base_ >> 56);
+            osb_lgdt(p);
+        }
+        osb_reload_segments();
+        osb_ltr(TssSel);
+    }
+
+    private static void WriteGdtQuad(int offset, ulong value)
+    {
+        for (int i = 0; i < 8; i++)
+            _gdt.bytes[offset + i] = (byte)(value >> (i * 8));
+    }
+
+    // Copy the ring-3 test programs from the kernel image into the U/S=1 page.
+    private static void LoadUserBlobs()
+    {
+        CopyBlob(osb_userstub_begin(), osb_userstub_end(), UserProgramAddr);
+        CopyBlob(osb_userbad_begin(), osb_userbad_end(), UserBadAddr);
+    }
+
+    private static void CopyBlob(ulong src, ulong end, ulong dst)
+    {
+        byte* s = (byte*)src;
+        byte* d = (byte*)dst;
+        for (ulong i = 0; i < end - src; i++) d[i] = s[i];
+    }
+
+    // ------------------------------------------------- round-robin (preemptive)
+    // Seed a task's kernel stack so the first switch into it lands at `entry`.
+    // Layout mirrors what osb_switch pushes: [r15][r14][r13][r12][rbp][rbx][ret].
+    private static ulong SeedTask(byte* stackBase, int size, ulong entry)
+    {
+        ulong top = (ulong)stackBase + (ulong)size;
+        ulong sp = (top - 64) & ~(ulong)15;           // 16-byte aligned
+        for (int i = 0; i < 6; i++) *(ulong*)(sp + (ulong)i * 8) = 0;
+        *(ulong*)(sp + 48) = entry;
+        return sp;
+    }
+
     private static void SchedInit()
     {
-        ulong top;
-        fixed (byte* p = _demoStack.bytes) { top = (ulong)p + 8192; }
-        ulong savedSp = (top - 64) & ~(ulong)15;      // 16-byte aligned
-        *(ulong*)(savedSp + 0) = 0;                   // r15
-        *(ulong*)(savedSp + 8) = 0;                   // r14
-        *(ulong*)(savedSp + 16) = 0;                  // r13
-        *(ulong*)(savedSp + 24) = 0;                  // r12
-        *(ulong*)(savedSp + 32) = 0;                  // rbp
-        *(ulong*)(savedSp + 40) = 0;                  // rbx
-        *(ulong*)(savedSp + 48) = osb_sched_get_demo_entry();
-        _schedSp0 = 0;
-        _schedSp1 = savedSp;
-        _currentTask = 0;
+        fixed (byte* p = _demoStack.bytes)
+            _tasks.sp[TaskDemo] = SeedTask(p, 16384, osb_sched_get_demo_entry());
+        fixed (byte* p = _userKStack.bytes)
+            _tasks.sp[TaskUser] = SeedTask(p, 16384, osb_sched_get_user_entry());
+
+        _tasks.sp[TaskShell] = 0;                     // set on the first switch out
+        _tasks.state[TaskShell] = TaskReady;
+        _tasks.state[TaskDemo] = TaskReady;
+        _tasks.state[TaskUser] = TaskDone;            // started on demand via RING3
+        _currentTask = TaskShell;
+        _userEntry = UserProgramAddr;
         _demoDeadline = 0;
     }
 
-    // Called from the IRQ0 handler on every tick. Switches to the other task by
-    // swapping stacks; both tasks run the same code path, so each always knows
-    // who it is via _currentTask. The switch is atomic (we are inside an
-    // interrupt gate, IF=0) and the interrupted ISR frame stays parked on the
-    // stopped task's stack until it is scheduled again.
+    // Called from the IRQ0 handler on every tick. Round-robins to the next ready
+    // task by swapping kernel stacks; the switch is atomic (interrupt gate) and
+    // the interrupted ISR frame stays parked on the stopped task's stack.
     private static void SchedulerTick()
     {
-        if (_currentTask == 0)
-        {
-            _currentTask = 1;
-            osb_switch(ref _schedSp0, ref _schedSp1);
-        }
-        else
-        {
-            _currentTask = 0;
-            osb_switch(ref _schedSp1, ref _schedSp0);
-        }
+        PickNext();
     }
 
-    // Task 1: runs on its own stack, prints a line once per second and sleeps in
-    // between. It never yields: the PIT preempts it, so the shell keeps getting
-    // scheduled even while the demo is mid-work.
+    private static void PickNext()
+    {
+        int cur = _currentTask;
+        int next = cur;
+        for (int i = 0; i < TaskCount; i++)
+        {
+            next++;
+            if (next >= TaskCount) next = 0;
+            if (_tasks.state[next] == TaskReady) break;
+        }
+        if (next == cur) return;                      // only one runnable task
+
+        _currentTask = next;
+        fixed (ulong* sp = _tasks.sp)
+            osb_switch(sp + cur, sp + next);
+    }
+
+    // Task 2 body: runs on the task's kernel stack; drops to ring 3 and never
+    // comes back (the program exits via INT 21h or faults).
+    [RuntimeExport("osb_user_task_main")]
+    private static void UserTaskMain()
+    {
+        osb_enter_user(_userEntry, UserStackTop);
+        for (;;) halt();                              // not reached
+    }
+
+    // Task 1: demo. Runs on its own stack, prints once per second and sleeps in
+    // between. It never yields: the PIT preempts it.
     [RuntimeExport("osb_demo_task_main")]
     private static void DemoTaskMain()
     {
@@ -602,11 +818,22 @@ internal static unsafe class Kernel
         {
             WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
             WriteLine("          SLEEP <seconds>  TIME  DATE");
+            WriteLine("          RING3 [BAD]  (run a ring-3 program)");
             WriteLine("          HALT  POWEROFF  REBOOT");
             // note: ECHO is handled below
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
+        if (Eq(line, len, "RING3") || StartsWith(line, len, "RING3 "))
+        {
+            bool bad = false;
+            int i = 5;
+            while (i < len && line[i] == ' ') i++;
+            if (i + 2 < len && Up(line[i]) == 'B' && Up(line[i + 1]) == 'A' && Up(line[i + 2]) == 'D')
+                bad = true;
+            LaunchUserProgram(bad);
+            return;
+        }
         if (Eq(line, len, "HALT"))
         {
             WriteLine("System halted. (CPU stopped; in QEMU press Ctrl+Alt+2 then");
@@ -704,5 +931,24 @@ internal static unsafe class Kernel
             }
         }
         return true;
+    }
+
+    private static char Up(char c)
+    {
+        return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c;
+    }
+
+    // Re-seed the ring-3 task and mark it runnable; the PIT will schedule it and
+    // it will drop to user mode on its own (multitasking preserved).
+    private static void LaunchUserProgram(bool bad)
+    {
+        _userEntry = bad ? UserBadAddr : UserProgramAddr;
+        fixed (byte* p = _userKStack.bytes)
+            _tasks.sp[TaskUser] = SeedTask(p, 16384, osb_sched_get_user_entry());
+        _tasks.state[TaskUser] = TaskReady;
+
+        WriteLine(bad
+            ? "Launching ring-3 program (supervisor-escape test) ..."
+            : "Launching ring-3 program ...");
     }
 }

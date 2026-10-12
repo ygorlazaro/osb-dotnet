@@ -19,6 +19,7 @@ SECTIONS
         __rodata_start = .;
         *(.rodata .rodata.*)
         *(.dotnet_eh_table)
+        *(.userstub)
         __rodata_end = .;
     }
 

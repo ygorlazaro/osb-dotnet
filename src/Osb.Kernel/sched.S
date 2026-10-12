@@ -46,4 +46,21 @@ osb_sched_get_demo_entry:
     leaq osb_demo_trampoline(%rip), %rax
     ret
 
+/* First time the user task is scheduled in, its seeded stack "returns" here.
+ * Runs on the task's kernel stack and calls the C# body, which sets up and
+ * drops to ring 3 (osb_enter_user) and never returns. */
+.global osb_user_entry
+.type osb_user_entry, @function
+osb_user_entry:
+    call osb_user_task_main
+1:  hlt
+    jmp 1b
+
+/* Expose the user-task entry address to C# for stack seeding. */
+.global osb_sched_get_user_entry
+.type osb_sched_get_user_entry, @function
+osb_sched_get_user_entry:
+    leaq osb_user_entry(%rip), %rax
+    ret
+
 .section .note.GNU-stack, "", @progbits

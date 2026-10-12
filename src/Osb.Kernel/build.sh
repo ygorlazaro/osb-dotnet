@@ -148,10 +148,11 @@ ASM
 clang -c -nostdlib -ffreestanding -o "$OBJ/interrupts.o" "$ISR"
 clang -c -nostdlib -ffreestanding -o "$OBJ/boot.o" "$ROOT/boot.S"
 clang -c -nostdlib -ffreestanding -o "$OBJ/sched.o" "$ROOT/sched.S"
+clang -c -nostdlib -ffreestanding -o "$OBJ/user.o" "$ROOT/user.S"
 
 echo "[4/5] Linking kernel.elf ..."
 ld.lld -T "$ROOT/linker.ld" -o "$OBJ/kernel.elf" \
-    "$OBJ/boot.o" "$OBJ/interrupts.o" "$OBJ/sched.o" "$OBJ/OsbKernel.o" --no-relax
+    "$OBJ/boot.o" "$OBJ/interrupts.o" "$OBJ/sched.o" "$OBJ/user.o" "$OBJ/OsbKernel.o" --no-relax
 
 echo "[5/5] Building ISO ..."
 rm -rf "$ISO_DIR"
