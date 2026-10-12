@@ -130,9 +130,9 @@ teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor
 - **Processos com espaço de endereço próprio já funcionam** (Fatia 2): CR3 por processo,
   `spawn`/`exit`/`wait` e isolamento comprovado — ver `ROADMAP.md`, Fatia 2.
 - **Multiusuário** (Fatias 3/6): contas, `LOGIN`, sessões/consoles, permissões vindas do ext4.
-- **ext4** (Fatias 4/5): driver ATA PIO (leitura já operacional) + camada de leitura/escrita
-  da imagem `mke2fs`; o disco vira `A:`/`C:` no idioma DOS. É o que permitirá `INIT.EXE`/
-  serviços (Fatia 7) e comandos externos. Comandos pendentes: `DIR CD MD RD TYPE COPY DEL REN`.
+- **ext4** (Fatias 4/5): leitura já operacional (`DIR`/`CD`/`TYPE`); falta a
+  **escrita** (bitmaps de bloco/inode → `MD`/`RD`) e depois `COPY DEL REN`. O disco
+  é `A:` no idioma DOS; é o que permitirá comandos externos (`.EXE`) e scripts.
 - **Conforto da shell já implementado:** variáveis de ambiente `$VAR` (nomes case-insensitive),
   `SET [NAME]` / `SET NAME=value`, `PROMPT` DOS (`$P$G` e tokens `$D/$T/$N/...`) com
   defaults de boot `PATH PROMPT USER HOME TEMP COMSPEC OS VER LASTDRIVE`.

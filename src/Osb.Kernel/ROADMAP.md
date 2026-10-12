@@ -6,12 +6,13 @@ para um sistema **multitarefa e multiusuário**, com **interface estilo MS-DOS**
 
 > Estado atual: ring 3 com ABI `INT 21h`, escalonador preemptivo, **processos com
 > espaço de endereço próprio (CR3)**, `spawn`/`exit`/`wait`, console VGA/serial,
-> teclado/timer/RTC por IRQ, ATA PIO (leitura de setor) e imagem ext4 (16 MiB)
-> gerada pelo build. **Já implementado:** variáveis de ambiente (`$VAR`, nomes
-> case-insensitive), `SET`, `PROMPT` DOS (`$P$G`) com valores de boot
-> (`PATH`, `PROMPT`, `USER`, `HOME`, `TEMP`, `COMSPEC`, `OS`, `VER`, `LASTDRIVE`).
-> Ainda **sem** sistema de arquivos operacional: falta a camada ext4 de
-> leitura/escrita e os comandos `DIR CD MD RD TYPE COPY DEL REN`.
+> teclado/timer/RTC por IRQ, ATA PIO (leitura+escrita de setor, words 16-bit via
+> `inw`/`outw`) e imagem ext4 (16 MiB) gerada pelo build. **Implementado:**
+> variáveis de ambiente (`$VAR`, nomes case-insensitive), `SET`, `PROMPT` DOS
+> (`$P$G`) com defaults de boot, e **leitura ext4**: mount (superbloco+GDT),
+> inode, diretórios case-sensitive, resolução de caminho (`.`/`..`, relativo,
+> absoluto), `DIR [path] [/W]` (estilo `ls -la`), `CD` (o prompt segue o cwd),
+> `TYPE`. **Faltam:** o lado de escrita (bitmaps → `MD`, `RD`) e `COPY DEL REN`.
 
 ---
 
@@ -139,12 +140,14 @@ dependem de FS com dono (L4) que depende de processos isolados (L2).
 
 ## 5. Plano do ext4 (Fatia 4–5)
 
-- **Dispositivo:** ATA PIO (portas 0x1F0–0x1F7), IRQ14 opcional (polling primeiro).
-- **Imagem:** gerada no build se não existir:
-  `mke2fs -t ext4 -O ^has_journal,^extent,^64bit,^metadata_csum -b 4096 disk.img`
-- **Ordem de implementação:** superbloco → group desc → bitmap de inodes → inode →
-  ponteiros de bloco (diretos/indiretos) → diretório → leitura; em seguida escrita e extents.
-- **Ferramenta de teste:** `debugfs` no host para criar/listar arquivos na imagem.
+- **Dispositivo:** ATA PIO (portas 0x1F0–0x1F7), words 16-bit (`inw`/`outw`).
+- **Imagem:** gerada no build a cada vez:
+  `mke2fs -t ext4 -O ^has_journal,^extent,^64bit,^metadata_csum,^flex_bg,^dir_index -b 4096 disk.img`
+  e populada (dirs `A:\OSB\*`, arquivo `README.TXT`) via `debugfs -w`.
+- **Pronto ✅** leitura: superbloco, group desc, inode (direto+indireto),
+  `ext4_dir_entry_2` (case-sensitive), resolução de caminho, `DIR`/`CD`/`TYPE`.
+- **Falta (escrita):** bitmaps de bloco/inode, alocação, gravação de inode +
+  diretório → `MD`/`RD`, depois `COPY DEL REN`.
 
 ## 6. Riscos e questões abertas
 
