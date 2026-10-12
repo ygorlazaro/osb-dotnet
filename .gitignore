@@ -31,6 +31,10 @@ Thumbs.db
 .osb/
 *.osbconfig
 
+# OSB kernel build artifacts (bootable ISO + scratch dirs)
+osb.iso
+src/Osb.Kernel/iso/
+
 # Test results
 TestResults/
 coverage.opencover.xml
