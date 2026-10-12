@@ -17,8 +17,16 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   (IRQ1 → vetor 33, fila circular de scancodes, EOI explícito) — sem polling.
 - **Timer PIT** (8254, canal 0) a **100 Hz via IRQ0** (vetor 32): contador global de ticks,
   uptime em segundos e os comandos `TICKS`/`SLEEP <segundos>` (espera dirigida por ticks).
+- **Clock RTC** (CMOS, IRQ8 → vetor 40): modo 24h + binário, interrupção "update-ended"
+  (~1 Hz) que mantém o relógio de software do kernel; comandos `TIME` e `DATE` exibem
+  hora e data reais.
+- **Agendador round-robin cooperativo**: a shell (tarefa 0) e uma tarefa "demo" (tarefa 1,
+  pilha própria de 8 KiB) alternam o CPU via troca de contexto em assembly (`osb_switch`,
+  registradores callee-saved, sem preempção). A demo imprime uma linha a cada segundo e
+  cede a fatia; o idle da shell dorme com `sti;hlt` quando a demo está esperando o deadline
+  (queda de CPU quase zero, sem busy-spin).
 - Entrada de **teclado PS/2** (scancodes set 1) com um mini-shell:
-  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `HALT`.
+  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`, `HALT`.
 
 ## Arquitetura
 
@@ -27,9 +35,11 @@ src/Osb.Kernel/
 ├── Osb.Kernel.csproj   # projeto C# "sem .NET": NoStdLib, nada referenciado
 ├── MiniCoreLib.cs      # mini-CoreLib: System.Object/String/primitivas + stubs que o
 │                       # ilc exige do "system module" (ThrowHelpers, Buffer, TypeCast...)
-├── Kernel.cs           # kernel: VGA + serial + IDT/PIC + teclado IRQ1 + shell OSB
+├── Kernel.cs           # kernel: VGA + serial + IDT/PIC + teclado IRQ1 + RTC IRQ8
+│                       # + agendador RR cooperativo + shell OSB
 ├── boot.S              # bootstrap Multiboot2: 32-bit -> long mode -> chama kmain
 │                       # (+ helpers: outb/inb, mem*, lidt, sti/cli, halt)
+├── sched.S             # troca de contexto cooperativa (osb_switch) + trampoline da demo
 ├── interrupts.S        # gerado no build: 256 stubs de ISR + isr_common + tabela de stubs
 ├── linker.ld           # layout ELF (carregado em 0x100000)
 ├── grub.cfg            # menu do GRUB (multiboot2)
@@ -41,8 +51,8 @@ Pipeline de build:
 ```
 C# (mini-CoreLib)  ──csc──▶  OsbKernel.dll (IL)
 OsbKernel.dll      ──ilc──▶  OsbKernel.o   (objeto x86-64 freestanding)
-boot.S + interrupts.S ─clang▶ boot.o + interrupts.o
-boot.o + interrupts.o + OsbKernel.o ──ld.lld + linker.ld─▶ kernel.elf (Multiboot2 ELF)
+boot.S + sched.S + interrupts.S ─clang▶ boot.o + sched.o + interrupts.o
+boot.o + sched.o + interrupts.o + OsbKernel.o ──ld.lld + linker.ld─▶ kernel.elf (Multiboot2 ELF)
 kernel.elf         ──grub-mkrescue─▶       osb.iso
 ```
 
@@ -72,9 +82,9 @@ O kernel também escreve na tela VGA; para ver a janela, basta remover `-display
 
 ## Próximos passos sugeridos
 
-- **RTC (IRQ8)** com hora de verdade e mantendo a contagem durante o boot (hoje o
-  uptime começa no `kmain`).
-- **Agendador**: múltiplas "tarefas" cooperativas no kernel usando o tick (round-robin).
+- **Preempção**: transformar o round-robin cooperativo em preemptivo usando o PIT
+  (fatia por tick + save/restore completo do contexto na IRQ0) — acaba com o problema
+  de uma tarefa guardar o CPU.
 - ACPI + MMIO, framebuffer via `multiboot2` (modo gráfico) em vez de VGA text.
 - Migrar comandos do `Osb.Shell` ("VER", "DIR" em memória, OSLANG) para o kernel.
 - ABI de saída: hoje o "sistema" é o kernel; depois, um user-space.
@@ -92,6 +102,14 @@ O kernel também escreve na tela VGA; para ver a janela, basta remover `-display
   `osb_handle_interrupt` e faz `iretq`.
 - O shell "dorme" com `sti; hlt` quando a fila de scancodes está vazia; a IRQ1
   entrega o scancode e a IRQ0 (100 Hz) acorda o idle a cada tick.
+- **Qualquer IRQ do slave (IRQ8-15) exige o cascateamento no master**: sem IRQ2
+  desmascarado no 8259A master (OCW1 = `0xF8` = IRQ0/IRQ1/IRQ2), a IRQ8 do RTC nunca
+  chega à CPU. `0xF8`, e não `0xFB` (que mascara justamente IRQ0 e IRQ1).
+- `osb_switch` só salva os registradores **callee-saved** (rbx, rbp, r12-r15). Isso é
+  seguro em cooperação porque, na ABI SysV, os voláteis (incl. XMM) já são *spilled*
+  pelo compilador ao redor da chamada — a troca acontece sempre num ponto de chamada.
+- A tarefa demo tem pilha fixa de 8 KiB em `.bss`; a IRQ pode interrompê-la e roda na
+  própria pilha da tarefa (sem TSS), então o espaço precisa cobrir ISR + handler.
 - **SSE requer CR0.EM=0**: com `CR0.EM=1` toda instrução SSE do código C# (ex.
   `movups` de um stackalloc) sofre `#UD`. O `boot.S` força CR0 (PG|NE|WP, EM/TS=0)
   e CR4 (PAE|OSFXSR|OSXMMEXCPT) na entrada do long mode.
