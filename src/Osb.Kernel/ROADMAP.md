@@ -4,9 +4,10 @@ Este documento planeja a evolução do OSB de *kernel único rodando tudo em rin
 para um sistema **multitarefa e multiusuário**, com **interface estilo MS-DOS** e
 **ext4** como sistema de arquivos on-disk.
 
-> Estado atual (após `feat(kernel): preemptive round-robin`): ring 0 apenas,
-> escalonador preemptivo de kernel, console VGA/serial, teclado/timer/RTC por IRQ.
-> Tudo ainda é o próprio kernel.
+> Estado atual (após `feat(kernel): per-process address spaces`): ring 3 com
+> ABI `INT 21h`, escalonador preemptivo, **processos com espaço de endereço
+> próprio (CR3)**, `spawn`/`exit`/`wait`, console VGA/serial, teclado/timer/RTC
+> por IRQ. Ainda **sem** sistema de arquivos: os programas são embutidos no kernel.
 
 ---
 
@@ -35,7 +36,7 @@ L6  Privilégio em user mode: conta ADMIN, elevação autenticada (≈ "sudo" DO
 L5  Identidade: contas, grupos, LOGIN, autenticação (hash de senha), sessões/consoles
 L4  FS: ext4 (leitura→escrita), drive letters, dono+modo vindos do disco
 L3  Programas de usuário: loader + runtime mínimo (.EXE)
-L2  Processos: espaço de endereço próprio (CR3 por processo), spawn/exit/wait
+L2  Processos: espaço de endereço próprio (CR3 por processo), spawn/exit/wait ✅
 L1  ABI de syscalls: INT 21h, validação de ponteiros, falhas de usuário recuperáveis
 L0  Privilégio de CPU: ring 3 (GDT user + TSS + paging U/S + gate DPL3)
 ```
@@ -74,11 +75,30 @@ dependem de FS com dono (L4) que depende de processos isolados (L2).
 - **Aceite:** o blob imprime via `INT 21h` e termina; `RING3 BAD` mostra o #GP tratado; os
   jobs rodam em paralelo e podem ser listados/mortos/trazidos ao foreground.
 
-### Fatia 2 — Processos com espaço de endereço próprio
-- Struct de processo (PID, pai, estado, CR3, pilhas, uid, dir/drive corrente).
-- Page tables próprias por processo; troca de CR3 no escalonador; `TSS.RSP0` por processo.
-- `spawn`/`exit`/`wait` (ou `fork`-like + `exec`-like).
-- **Aceite:** dois processos isolados — um não consegue ler a memória do outro (#PF).
+### Fatia 2 — Processos com espaço de endereço próprio  ✅ **concluída**
+- **Alocador de frames físico** (bitmap de 4 KiB) sobre a mmap do Multiboot2;
+  pool a partir de `0x200000` até o topo da RAM (aqui, 64 MiB). A janela
+  `0x400000–0x5FFFFF` (o `pd[2]` de todo espaço) fica reservada.
+- **Espaço de endereço por processo**: `PML4+PDPT+PD` próprios (3 frames),
+  copiando o mapa de identidade do kernel e apontando `pd[2]` para um **bloco
+  físico privado de 2 MiB** (código em `0x400000`, pilha em `0x480000`).
+  O escalonador faz `mov cr3` a cada troca e ajusta `TSS.RSP0`.
+- **Struct de processo** na tabela de tarefas: `pid`, `ppid`, estado
+  (`Free/Ready/Zombie`), `cr3`, bloco/pilhas, `exitCode`, `uid` (reservado).
+- **`spawn`/`exit`/`wait`**: `KernelSpawn` (cria processo), `AH=4Ch` marca zumbi
+  com código de saída, `WAIT <pid>` (e `AH=81h`) coleta o código e libera o
+  espaço (reaping). `KILL` mata e libera na hora; zombis não escalonam.
+- **Syscalls novas**: `AH=30h` (getpid), `AH=80h` (spawn), `AH=81h` (wait);
+  `AH=4Ch` agora é zumbi + reaping. Endereços de usuário validados no `AH=09h`.
+- **Comandos**: `SPAWN [BAD] [&]`, `RING3 [BAD] [&]` (sinônimo), `TASK`/`PS`
+  (mostra estado e bloco físico), `KILL <pid>`, `WAIT <pid>`, `TAB <pid>`, `MEM`.
+- **Ctrl+C** detectado nas IRQs (flag, sem consumir o buffer) — type-ahead
+  preservado durante um job em foreground.
+- **Aceite:** dois `HELLO` sobrepostos rodam em paralelo; cada um escreve o
+  próprio PID em `0x500000` e, após ~0,8 s de preempção, relê e confirma
+  `memory is private (OK)` — se a página fosse compartilhada, leria o PID do
+  outro. Um processo malicioso (`SPAWN BAD`, `cli` em ring 3) leva #GP e é
+  terminado sem afetar o sistema.
 
 ### Fatia 3 — Consoles/sessões + LOGIN (multiusuário)
 - Múltiplos consoles (ex.: Alt+F1..F4) ou sessões serial.
@@ -122,5 +142,8 @@ dependem de FS com dono (L4) que depende de processos isolados (L2).
 - **`INT 21h` × IRQ1:** resolvido remapeando o PIC (Fatia 1).
 - **Permissões:** substrato ext4 (`mode/uid/gid`) × atributos DOS — decidir na Fatia 4/6.
 - **Formato `.EXE`:** ELF renomeado × formato próprio — decidir na Fatia 3.
-- **Isolamento real** exige CR3 por processo (Fatia 2) — ring 3 sozinho só dá privilégio.
+- **Isolamento real:** resolvido na Fatia 2 (CR3 por processo). O kernel roda
+  *identity-mapped* em `pd[0..1]`; cada processo só difere em `pd[2]`.
+- **Higher-half:** fica para depois, se/quando o kernel passar dos primeiros
+  2 MiB ou se quisermos usar PCID/`KPTI`. Hoje não é necessário.
 - **Sem GC no kernel:** evitar alocação; usar buffers fixos em `.bss` (como já é feito).

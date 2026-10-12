@@ -28,11 +28,17 @@ internal static unsafe class Kernel
     [DllImport("osbnative")] private static extern void osb_ltr(ushort selector);
     [DllImport("osbnative")] private static extern void osb_reload_segments();
     [DllImport("osbnative")] private static extern void osb_enter_user(ulong entry, ulong stackTop);
+    // per-process address spaces (boot.S)
+    [DllImport("osbnative")] private static extern void osb_load_cr3(ulong cr3);
+    [DllImport("osbnative")] private static extern ulong osb_master_pml4();
+    [DllImport("osbnative")] private static extern ulong osb_master_pd();
     // user-blob bounds (user.S)
     [DllImport("osbnative")] private static extern ulong osb_userstub_begin();
     [DllImport("osbnative")] private static extern ulong osb_userstub_end();
     [DllImport("osbnative")] private static extern ulong osb_userbad_begin();
     [DllImport("osbnative")] private static extern ulong osb_userbad_end();
+    [DllImport("osbnative")] private static extern ulong osb_spawner_begin();
+    [DllImport("osbnative")] private static extern ulong osb_spawner_end();
 
     private const uint VgaBase = 0xB8000;
     private const int VgaWidth = 80;
@@ -58,10 +64,24 @@ internal static unsafe class Kernel
     private const int PitHz = 100;                 // PIT frequency in Hz
 
     // ---- ring 3 / user memory layout ----
+    // Every process has the same user virtual layout (code at 0x400000, stack
+    // just below 0x480000) but a *private* 2 MiB physical block behind it, so
+    // one process cannot see another's memory. The block is mapped at pd[2].
     private const ulong UserBase = 0x400000;       // user code/data region start
     private const ulong UserLimit = 0x600000;      // end of the U/S=1 2 MiB page
-    private const ulong UserProgramAddr = 0x400000;// normal stub (copied here)
-    private const ulong UserBadAddr = 0x401000;    // "supervisor escape" stub
+    private const ulong UserStackTop = 0x480000;   // user stack grows down from here
+
+    // ---- physical memory (frame allocator) ----
+    private const ulong PhysFloorDefault = 0x200000;   // just above the kernel image
+    private const ulong PhysTopDefault = 0x4000000;    // 64 MiB (QEMU -m 64M)
+    private const int FrameSize = 4096;
+    private const int BlockFrames = 512;               // 2 MiB user block
+    private const ulong BlockAlign = 0x200000;
+    // Frames are never handed out from [0x400000,0x600000): that 2 MiB window is
+    // pd[2] in every address space, so the kernel cannot address a fresh block
+    // through its physical address there (VA != phys inside the user window).
+    private const ulong ReservedLo = 0x400000;
+    private const ulong ReservedHi = 0x600000;
 
     // GDT selectors (64-bit flat, base 0)
     private const ushort KernelDataSel = 0x10;
@@ -98,18 +118,21 @@ internal static unsafe class Kernel
     private static KbdRing _kbd;
     private static CharRing _ser;                   // serial console input (COM1 RX)
     private static ulong _ticks;                    // 100 Hz heartbeat
+    private static bool _ctrlC;                     // Ctrl+C was pressed (consumed by the shell)
+    private static bool _kbdCtrl;                   // PS/2 Ctrl is currently held down
 
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
     private static byte _rtcSec, _rtcMin, _rtcHour, _rtcDay, _rtcMonth, _rtcYear;
 
     // Preemptive round-robin scheduler over a fixed table of task slots.
-    // Slot 0 is the console/shell (runs on the boot stack); the others are jobs
-    // spawned by shell commands (DEMO, RING3), each with its own 16 KiB kernel
-    // stack. The PIT handler switches tasks; nothing yields.
+    // Slot 0 is the console/shell (PID 1, kernel address space); the others are
+    // processes/jobs, each with its own kernel stack. A ring-3 process also owns
+    // a private address space (CR3) and a 2 MiB user block.
     private const int SlotConsole = 0;             // the shell / console (PID 1)
-    private const int TaskCount = 6;               // console + 5 job slots
+    private const int TaskCount = 8;               // console + 7 process slots
     private const int TaskFree = 0;                // slot not in use
     private const int TaskReady = 1;               // runnable (or running)
+    private const int TaskZombie = 2;              // exited, not yet reaped
     private const int KindNone = 0;
     private const int KindShell = 1;
     private const int KindDemo = 2;
@@ -117,24 +140,44 @@ internal static unsafe class Kernel
     private const int StackSize = 16384;
     private const int MaxName = 12;
 
+    // Built-in ring-3 programs (no filesystem yet).
+    private const int ProgHello = 0;
+    private const int ProgBad = 1;
+    private const int ProgSpawner = 2;             // exercises INT 21h AH=80h/81h
+
     private unsafe struct TaskTable
     {
         public fixed ulong sp[TaskCount];          // saved kernel SP (osb_switch)
         public fixed int pid[TaskCount];
+        public fixed int ppid[TaskCount];
         public fixed int state[TaskCount];
         public fixed int kind[TaskCount];
         public fixed int fg[TaskCount];            // 1 = foreground job
+        public fixed int exitCode[TaskCount];
         public fixed ulong arg[TaskCount];         // kind-specific (user entry RIP)
+        public fixed ulong cr3[TaskCount];         // address space (page table root)
+        public fixed ulong ublock[TaskCount];      // 2 MiB user block (phys), 0 if none
+        public fixed ulong ptphys[TaskCount];      // 3 page-table frames (phys), 0 if none
         public fixed ulong round[TaskCount];       // demo: rounds printed
         public fixed ulong deadline[TaskCount];    // demo: next print tick
         public fixed byte name[TaskCount * MaxName];
     }
     private unsafe struct StackPool { public fixed byte bytes[TaskCount * StackSize]; }
+
+    // Physical frame bitmap: covers up to 1 GiB at 4 KiB granularity.
+    private const int MaxFrames = 262144;          // 1 GiB / 4 KiB
+    private unsafe struct FrameMap { public fixed byte bits[MaxFrames / 8]; }
+
     private static TaskTable _tasks;
     private static StackPool _stacks;
+    private static FrameMap _frames;
     private static int _currentTask;               // slot currently on the CPU
     private static int _nextPid;                   // next pid to hand out
     private static int _fgSlot;                    // foreground job slot, or -1
+    private static ulong _physFloor;               // first allocatable physical address
+    private static ulong _physTop;                 // end of allocatable RAM
+    private static ulong _frameTotal;              // allocatable frame count
+    private static ulong _frameUsed;               // allocated frame count
 
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -150,9 +193,10 @@ internal static unsafe class Kernel
         PitInit();          // 8254 channel 0: square wave @ 100 Hz
         RtcInit();          // CMOS/RTC: 24h + binary + update-ended IRQ (~1 Hz)
         GdtInit();          // user segments + TSS, then load the new GDT + ltr
-        LoadUserBlobs();    // copy the ring-3 test programs into user memory
+        ParseMmap(multibootInfo);   // find how much RAM we can hand out
+        FramesInit();       // physical frame allocator (bitmap)
         IdtInit();          // fill + load the IDT (exception + IRQ stubs)
-        SchedInit();        // seed the demo and user task stacks
+        SchedInit();        // console (slot 0) + kernel address space
 
         WriteLine("OSB - Operating System Basic");
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
@@ -160,11 +204,9 @@ internal static unsafe class Kernel
         WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
         WriteLine("Clock: RTC via IRQ8 (update-ended).");
         WriteLine("Scheduler: preemptive round-robin over a task table.");
+        WriteLine("Processes: private address space per process (CR3).");
         WriteLine("Ring 3: user segments + TSS; syscalls via INT 21h (DOS-style).");
-        WriteLine("Jobs: DEMO / RING3, background with '&'; TASK / KILL / TAB.");
-        Write("Multiboot2 info @ ");
-        WriteHex(multibootInfo);
-        PutChar('\n');
+        WriteLine("Jobs: DEMO / SPAWN / RING3; TASK / KILL / TAB / WAIT.");
         WriteLine("Type HELP for commands.");
         WriteLine("");
 
@@ -486,7 +528,10 @@ internal static unsafe class Kernel
         if (vector == KbdVector) // IRQ1: PS/2 controller has a scancode
         {
             byte sc = inb(0x60);
-            KbdPush(sc);
+            if (sc == 0x1D) _kbdCtrl = true;             // Ctrl pressed
+            else if (sc == 0x9D) _kbdCtrl = false;       // Ctrl released
+            else if (sc == 0x2E && _kbdCtrl) _ctrlC = true;  // Ctrl+C (consume it)
+            else KbdPush(sc);
             PicEoi(1);
             return;
         }
@@ -495,7 +540,11 @@ internal static unsafe class Kernel
         {
             // Drain the UART receive FIFO: LSR bit0 = data ready.
             while ((inb(0x3F8 + 5) & 0x01) != 0)
-                SerPush(inb(0x3F8));
+            {
+                byte c = inb(0x3F8);
+                if (c == 0x03) _ctrlC = true;            // Ctrl+C (consume it)
+                else SerPush(c);
+            }
             PicEoi(4);
             return;
         }
@@ -554,12 +603,34 @@ internal static unsafe class Kernel
             return;
         }
 
-        if (func == 0x4C) // terminate the program
+        if (func == 0x30) // getpid: current process id in EAX
         {
-            WriteLine("[kernel] user program exited via INT 21h/AH=4Ch.");
-            KillSlot(_currentTask);
+            frame[14] = (ulong)_tasks.pid[_currentTask];
+            return;
+        }
+
+        if (func == 0x4C) // exit(code in AL): become a zombie; wait() reaps us
+        {
+            int slot = _currentTask;
+            _tasks.exitCode[slot] = (int)(rax & 0xFF);
+            _tasks.state[slot] = TaskZombie;
+            _tasks.fg[slot] = 0;
+            if (_fgSlot == slot) _fgSlot = -1;
             PickNext();          // switch away for good (never returns)
             for (;;) halt();
+        }
+
+        if (func == 0x80) // spawn(program id in AL): returns the child's pid, or -1
+        {
+            int prog = (int)(rax & 0xFF);
+            frame[14] = unchecked((ulong)KernelSpawn(prog, _currentTask));
+            return;
+        }
+
+        if (func == 0x81) // wait(pid in RSI): blocks until the child exits
+        {
+            frame[14] = unchecked((ulong)WaitFor((int)rsi));
+            return;
         }
 
         frame[14] = unchecked((ulong)-2); // ENOSYS
@@ -578,7 +649,10 @@ internal static unsafe class Kernel
         WriteHex(frame[17]);
         PutChar('\n');
         WriteLine("[kernel] terminating the user task; system continues.");
-        KillSlot(_currentTask);
+        _tasks.exitCode[_currentTask] = -1;   // fault code
+        _tasks.state[_currentTask] = TaskZombie;
+        _tasks.fg[_currentTask] = 0;
+        if (_fgSlot == _currentTask) _fgSlot = -1;
         PickNext();              // switch away (never returns)
         for (;;) halt();
     }
@@ -660,18 +734,158 @@ internal static unsafe class Kernel
             _gdt.bytes[offset + i] = (byte)(value >> (i * 8));
     }
 
-    // Copy the ring-3 test programs from the kernel image into the U/S=1 page.
-    private static void LoadUserBlobs()
+    // --------------------------------------------------- physical memory
+    // Walk the Multiboot2 memory map to find the biggest usable RAM region
+    // above the kernel (falls back to 64 MiB, the QEMU default).
+    private static void ParseMmap(ulong info)
     {
-        CopyBlob(osb_userstub_begin(), osb_userstub_end(), UserProgramAddr);
-        CopyBlob(osb_userbad_begin(), osb_userbad_end(), UserBadAddr);
+        ulong floor = PhysFloorDefault;
+        ulong top = PhysTopDefault;
+        ulong bestLen = 0;
+
+        if (info != 0)
+        {
+            uint total = *(uint*)info;
+            ulong p = info + 8;
+            ulong end = info + total;
+            while (p + 8 <= end)
+            {
+                uint type = *(uint*)p;
+                uint size = *(uint*)(p + 4);
+                if (type == 0) break;              // end tag
+                if (size < 8) break;
+                if (type == 6 && size >= 16)       // memory map tag
+                {
+                    uint entrySize = *(uint*)(p + 8);
+                    ulong e = p + 16;
+                    ulong eend = p + size;
+                    while (entrySize != 0 && e + entrySize <= eend)
+                    {
+                        ulong baddr = *(ulong*)e;
+                        ulong len = *(ulong*)(e + 8);
+                        uint mtype = *(uint*)(e + 16);
+                        if (mtype == 1 && baddr >= 0x100000 && len > bestLen)
+                        {
+                            bestLen = len;
+                            floor = baddr < PhysFloorDefault ? PhysFloorDefault : baddr;
+                            top = baddr + len;
+                        }
+                        e += entrySize;
+                    }
+                }
+                p += size;
+            }
+        }
+        if (top > 0x40000000UL) top = 0x40000000UL;    // identity map is 1 GiB
+        _physFloor = (floor + 0xFFF) & ~0xFFFUL;
+        _physTop = top & ~0xFFFUL;
+        if (_physTop <= _physFloor) { _physFloor = PhysFloorDefault; _physTop = PhysTopDefault; }
     }
 
-    private static void CopyBlob(ulong src, ulong end, ulong dst)
+    private static void FramesInit()
     {
-        byte* s = (byte*)src;
-        byte* d = (byte*)dst;
-        for (ulong i = 0; i < end - src; i++) d[i] = s[i];
+        _frameTotal = (_physTop - _physFloor) / FrameSize;
+        if (_frameTotal > (ulong)MaxFrames) _frameTotal = (ulong)MaxFrames;
+        for (int i = 0; i < MaxFrames / 8; i++) _frames.bits[i] = 0;
+        _frameUsed = 0;
+        // Never hand out the pd[2] window: inside VA 0x400000..0x5FFFFF the
+        // virtual address is remapped, so the kernel could not reach a fresh
+        // block through its physical address there.
+        ReserveRange(ReservedLo, ReservedHi);
+    }
+
+    private static void ReserveRange(ulong lo, ulong hi)
+    {
+        if (lo < _physFloor) lo = _physFloor;
+        if (hi > _physTop) hi = _physTop;
+        ulong i = (lo - _physFloor) / FrameSize;
+        ulong j = (hi - _physFloor) / FrameSize;
+        for (; i < j; i++) FrameSet(i);
+    }
+
+    private static bool FrameGet(ulong i)
+    {
+        return (_frames.bits[i >> 3] & (byte)(1 << (int)(i & 7))) != 0;
+    }
+
+    private static void FrameSet(ulong i)
+    {
+        _frames.bits[i >> 3] |= (byte)(1 << (int)(i & 7));
+        _frameUsed++;
+    }
+
+    private static void FrameClear(ulong i)
+    {
+        _frames.bits[i >> 3] &= (byte)~(1 << (int)(i & 7));
+    }
+
+    // Find n consecutive free frames at the given alignment (bytes).
+    private static ulong AllocFrames(int n, ulong align)
+    {
+        ulong stride = align / FrameSize;
+        if (stride < 1) stride = 1;
+        for (ulong i = 0; i + (ulong)n <= _frameTotal; i += stride)
+        {
+            bool ok = true;
+            for (int j = 0; j < n; j++)
+                if (FrameGet(i + (ulong)j)) { ok = false; break; }
+            if (!ok) continue;
+            for (int j = 0; j < n; j++) FrameSet(i + (ulong)j);
+            return _physFloor + i * FrameSize;
+        }
+        return 0;
+    }
+
+    private static void FreeFrames(ulong phys, int n)
+    {
+        if (phys < _physFloor || phys >= _physTop) return;
+        ulong i = (phys - _physFloor) / FrameSize;
+        for (int j = 0; j < n; j++)
+        {
+            ulong k = i + (ulong)j;
+            if (k >= _frameTotal) break;
+            if (FrameGet(k)) { FrameClear(k); if (_frameUsed > 0) _frameUsed--; }
+        }
+    }
+
+    // Results of the last CreateAddressSpace call (avoids out-parameters).
+    private static ulong _asBlock, _asCr3, _asPt;
+
+    // Build a fresh address space for a process: copy the kernel's identity
+    // mappings, then point pd[2] at a private 2 MiB block holding the program
+    // image at VA 0x400000 (stack near VA 0x480000). Returns false if no memory.
+    private static bool CreateAddressSpace(ulong blobSrc, ulong blobEnd)
+    {
+        ulong block = AllocFrames(BlockFrames, BlockAlign);
+        if (block == 0) return false;
+        ulong pt = AllocFrames(3, FrameSize);
+        if (pt == 0) { FreeFrames(block, BlockFrames); return false; }
+
+        byte* b = (byte*)block;
+        for (ulong i = 0; i < (ulong)BlockFrames * FrameSize; i++) b[i] = 0;
+        byte* s = (byte*)blobSrc;
+        for (ulong i = 0; i < blobEnd - blobSrc; i++) b[i] = s[i];
+
+        ulong pml4 = pt, pdpt = pt + 4096, pd = pt + 8192;
+        ulong* P = (ulong*)pml4;
+        ulong* D = (ulong*)pdpt;
+        ulong* T = (ulong*)pd;
+        for (int i = 0; i < 512; i++) { P[i] = 0; D[i] = 0; }
+        ulong* M = (ulong*)osb_master_pd();
+        for (int i = 0; i < 512; i++) T[i] = M[i];
+        T[2] = block | 0x87;                 // present, rw, user, PS (2 MiB)
+        P[0] = pdpt | 0x7;                   // present, rw, user
+        D[0] = pd | 0x7;
+
+        _asBlock = block; _asCr3 = pml4; _asPt = pt;
+        return true;
+    }
+
+    private static void DestroyAddressSpace(int slot)
+    {
+        if (_tasks.ublock[slot] != 0) { FreeFrames(_tasks.ublock[slot], BlockFrames); _tasks.ublock[slot] = 0; }
+        if (_tasks.ptphys[slot] != 0) { FreeFrames(_tasks.ptphys[slot], 3); _tasks.ptphys[slot] = 0; }
+        _tasks.cr3[slot] = osb_master_pml4();
     }
 
     // ----------------------------------------------- task table / job control
@@ -694,10 +908,15 @@ internal static unsafe class Kernel
             _tasks.kind[i] = KindNone;
             _tasks.fg[i] = 0;
             _tasks.pid[i] = 0;
+            _tasks.ppid[i] = 0;
+            _tasks.exitCode[i] = 0;
             _tasks.sp[i] = 0;
+            _tasks.cr3[i] = osb_master_pml4();
+            _tasks.ublock[i] = 0;
+            _tasks.ptphys[i] = 0;
         }
-        // Slot 0 is the shell/console. It runs on the boot stack; its saved SP is
-        // captured by the first osb_switch out of it.
+        // Slot 0 is the shell/console, running on the boot stack in the kernel
+        // address space. Its saved SP is captured by the first osb_switch out.
         _tasks.state[SlotConsole] = TaskReady;
         _tasks.kind[SlotConsole] = KindShell;
         _tasks.pid[SlotConsole] = 1;
@@ -721,7 +940,7 @@ internal static unsafe class Kernel
     private static int AllocSlot()
     {
         for (int i = SlotConsole + 1; i < TaskCount; i++)
-            if (_tasks.state[i] != TaskReady) return i;
+            if (_tasks.state[i] == TaskFree) return i;   // skip zombies (not yet reaped)
         return -1;
     }
 
@@ -744,28 +963,46 @@ internal static unsafe class Kernel
             sp = SeedTask(p + slot * StackSize, StackSize, entry);
         _tasks.sp[slot] = sp;
         _tasks.pid[slot] = _nextPid++;
+        _tasks.ppid[slot] = _tasks.pid[_currentTask];
         _tasks.state[slot] = TaskReady;
         _tasks.kind[slot] = kind;
         _tasks.fg[slot] = 0;
+        _tasks.exitCode[slot] = 0;
         _tasks.arg[slot] = 0;
+        _tasks.cr3[slot] = osb_master_pml4();
+        _tasks.ublock[slot] = 0;
+        _tasks.ptphys[slot] = 0;
         _tasks.round[slot] = 0;
         _tasks.deadline[slot] = 0;
         SetName(slot, name);
     }
 
+    // Force-terminate a slot: release its address space and free the slot. Used
+    // by KILL and by Ctrl+C on a foreground job.
     private static void KillSlot(int slot)
     {
+        if (slot <= SlotConsole) return;
+        DestroyAddressSpace(slot);
         _tasks.state[slot] = TaskFree;
         _tasks.kind[slot] = KindNone;
         _tasks.fg[slot] = 0;
-        SetName(slot, "zombie");
+        SetName(slot, "free");
         if (_fgSlot == slot) _fgSlot = -1;
     }
 
+    // Reap a zombie: collect its exit code, then release everything.
+    private static int ReapSlot(int slot)
+    {
+        int code = _tasks.exitCode[slot];
+        KillSlot(slot);
+        return code;
+    }
+
+    // Find a live (ready) or zombie slot by pid; -1 if unknown.
     private static int FindPid(int pid)
     {
         for (int i = 0; i < TaskCount; i++)
-            if (_tasks.pid[i] == pid && (i == SlotConsole || _tasks.state[i] == TaskReady))
+            if (_tasks.pid[i] == pid && (i == SlotConsole || _tasks.state[i] != TaskFree))
                 return i;
         return -1;
     }
@@ -786,6 +1023,7 @@ internal static unsafe class Kernel
         if (next == cur) return;                      // only one runnable task
 
         if (_tasks.kind[next] == KindUser) SetTssRsp0(next);
+        osb_load_cr3(_tasks.cr3[next]);               // per-process address space
         _currentTask = next;
         fixed (ulong* sp = _tasks.sp)
             osb_switch(sp + cur, sp + next);
@@ -817,20 +1055,15 @@ internal static unsafe class Kernel
         }
     }
 
-    // Job body: ring-3 program. Drops to CPL3 and never comes back (it exits via
-    // INT 21h or faults).
+    // Job body: ring-3 program. The scheduler has already loaded this process's
+    // CR3, so VA 0x400000 is its private block. Drops to CPL3 and never comes
+    // back (it exits via INT 21h or faults).
     [RuntimeExport("osb_user_task_main")]
     private static void UserTaskMain()
     {
         int slot = _currentTask;
-        osb_enter_user(_tasks.arg[slot], UserStackTopFor(slot));
+        osb_enter_user(_tasks.arg[slot], UserStackTop);
         for (;;) halt();                              // not reached
-    }
-
-    // A distinct user stack page-area per slot (the U/S page is 0x400000-0x5FFFFF).
-    private static ulong UserStackTopFor(int slot)
-    {
-        return 0x480000 - (ulong)slot * 0x10000;
     }
 
     // ---------------------------------------------------------------- keyboard
@@ -900,6 +1133,8 @@ internal static unsafe class Kernel
 
         while (true)
         {
+            if (_ctrlC) { _ctrlC = false; len = 0; PutChar('\n'); Write("OSB> "); continue; }
+
             // Serial console first: this is how a headless session
             // (-display none -serial stdio) drives the shell.
             int ch = SerPop();
@@ -974,29 +1209,34 @@ internal static unsafe class Kernel
         if (Eq(line, len, "HELP"))
         {
             WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
-            WriteLine("          SLEEP <s>  TIME  DATE  HALT  POWEROFF  REBOOT");
-            WriteLine("Jobs:     DEMO            start a demo task");
-            WriteLine("          RING3 [BAD]     run a ring-3 program");
-            WriteLine("          Add '&' to run in the background (e.g. DEMO &)");
-            WriteLine("          TASK            list tasks (simple ps)");
-            WriteLine("          KILL <pid>      terminate a task");
-            WriteLine("          TAB <pid>       bring a task to the foreground");
-            WriteLine("          (in the foreground, Ctrl+C returns to the shell)");
+            WriteLine("          SLEEP <s>  TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
+            WriteLine("Processes:SPAWN [BAD|SPAWNER] [&]  start a ring-3 process");
+            WriteLine("          RING3 [BAD] [&]  synonym for SPAWN");
+            WriteLine("          TASK / PS        list processes (a simple ps)");
+            WriteLine("          KILL <pid>       terminate a process");
+            WriteLine("          WAIT <pid>       wait for a child and collect its code");
+            WriteLine("          TAB <pid>        bring a process to the foreground");
+            WriteLine("          DEMO [&]         start a demo (kernel) task");
+            WriteLine("          Add '&' to run in the background; Ctrl+C aborts a");
+            WriteLine("          foreground job and returns to the shell.");
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
+        if (Eq(line, len, "MEM")) { PrintMem(); return; }
         if (Eq(line, len, "DEMO")) { SpawnDemo(background); return; }
         if (Eq(line, len, "TASK") || Eq(line, len, "PS")) { PrintTaskList(); return; }
         if (Eq(line, len, "KILL") || StartsWith(line, len, "KILL ")) { CmdKill(line, len); return; }
+        if (Eq(line, len, "WAIT") || StartsWith(line, len, "WAIT ")) { CmdWait(line, len); return; }
         if (Eq(line, len, "TAB") || StartsWith(line, len, "TAB ")) { CmdTab(line, len); return; }
-        if (Eq(line, len, "RING3") || StartsWith(line, len, "RING3 "))
+        if (Eq(line, len, "SPAWN") || StartsWith(line, len, "SPAWN ") ||
+            Eq(line, len, "RING3") || StartsWith(line, len, "RING3 "))
         {
-            bool bad = false;
             int i = 5;
             while (i < len && line[i] == ' ') i++;
-            if (i + 2 < len && Up(line[i]) == 'B' && Up(line[i + 1]) == 'A' && Up(line[i + 2]) == 'D')
-                bad = true;
-            SpawnUser(bad, background);
+            int prog = ProgHello;
+            if (StartsWithAt(line, len, i, "SPAWNER")) prog = ProgSpawner;
+            else if (StartsWithAt(line, len, i, "BAD")) prog = ProgBad;
+            SpawnProcess(prog, background);
             return;
         }
         if (Eq(line, len, "HALT"))
@@ -1103,9 +1343,21 @@ internal static unsafe class Kernel
         return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c;
     }
 
+    // Case-insensitive match of `lit` starting at `line[at]`.
+    private static bool StartsWithAt(char* line, int len, int at, string lit)
+    {
+        if (at < 0 || at + lit.Length > len) return false;
+        fixed (char* p = lit)
+        {
+            for (int i = 0; i < lit.Length; i++)
+                if (Up(line[at + i]) != p[i]) return false;
+        }
+        return true;
+    }
+
     // ------------------------------------------------------------ job control
-    // Start a DEMO job. Without '&' it becomes the foreground job and the shell
-    // waits (Ctrl+C returns); with '&' the prompt comes back immediately.
+    // Start a DEMO job (kernel task; no user address space). Without '&' it
+    // becomes the foreground job and the shell waits; with '&' the prompt returns.
     private static void SpawnDemo(bool background)
     {
         int slot = AllocSlot();
@@ -1117,38 +1369,63 @@ internal static unsafe class Kernel
         if (!background) { _fgSlot = slot; _tasks.fg[slot] = 1; WaitForeground(slot); }
     }
 
-    // Start a ring-3 program (normal or the supervisor-escape test).
-    private static void SpawnUser(bool bad, bool background)
+    // Create a process running a built-in ring-3 program, in its own address
+    // space. Returns the new pid (or -1). Does not wait.
+    private static int KernelSpawn(int prog, int parentSlot)
     {
         int slot = AllocSlot();
-        if (slot < 0) { WriteLine("No free task slot."); return; }
-        SeedSlot(slot, osb_sched_get_user_entry(), bad ? "RING3!" : "RING3", KindUser);
-        _tasks.arg[slot] = bad ? UserBadAddr : UserProgramAddr;
-        Write("Started RING3 [");
-        WriteDec((ulong)_tasks.pid[slot]);
-        WriteLine(background ? "] in the background." : "] in the foreground.");
+        if (slot < 0) { WriteLine("No free task slot."); return -1; }
+
+        ulong src, end;
+        if (prog == ProgBad) { src = osb_userbad_begin(); end = osb_userbad_end(); }
+        else if (prog == ProgSpawner) { src = osb_spawner_begin(); end = osb_spawner_end(); }
+        else { src = osb_userstub_begin(); end = osb_userstub_end(); }
+
+        if (!CreateAddressSpace(src, end)) { WriteLine("Out of memory."); return -1; }
+
+        SeedSlot(slot, osb_sched_get_user_entry(), ProgName(prog), KindUser);
+        _tasks.arg[slot] = UserBase;                 // entry RIP in the private block
+        _tasks.cr3[slot] = _asCr3;
+        _tasks.ublock[slot] = _asBlock;
+        _tasks.ptphys[slot] = _asPt;
+        _tasks.ppid[slot] = _tasks.pid[parentSlot];
+        return _tasks.pid[slot];
+    }
+
+    private static string ProgName(int prog)
+    {
+        if (prog == ProgBad) return "BAD";
+        if (prog == ProgSpawner) return "SPAWNER";
+        return "HELLO";
+    }
+
+    private static void SpawnProcess(int prog, bool background)
+    {
+        int pid = KernelSpawn(prog, SlotConsole);
+        if (pid < 0) return;
+        int slot = FindPid(pid);
+        Write("Spawned ");
+        Write(ProgName(prog));
+        Write(" [");
+        WriteDec((ulong)pid);
+        Write(background ? "] in the background" : "] in the foreground");
+        Write(" (block ");
+        WriteHex(_tasks.ublock[slot]);
+        WriteLine(").");
         if (!background) { _fgSlot = slot; _tasks.fg[slot] = 1; WaitForeground(slot); }
     }
 
-    // Block the shell until the foreground job ends or the user presses Ctrl+C.
+    // Block until the foreground job ends (zombie), is aborted (Ctrl+C), or is
+    // otherwise gone. A zombie is reaped here and its exit code shown.
     private static void WaitForeground(int slot)
     {
         Write("Foreground [");
         WriteDec((ulong)_tasks.pid[slot]);
         WriteLine("]  (Ctrl+C returns to the shell)");
-        bool ctrl = false;
         bool aborted = false;
         while (_tasks.state[slot] == TaskReady)
         {
-            int ch = SerPop();
-            if (ch == 0x03) { aborted = true; break; }   // Ctrl+C over serial
-            int sc = KbdPop();
-            if (sc >= 0)
-            {
-                if (sc == 0x1D) ctrl = true;
-                else if (sc == 0x9D) ctrl = false;
-                else if ((sc & 0x80) == 0 && ctrl && sc == 0x2E) { aborted = true; break; }
-            }
+            if (_ctrlC) { _ctrlC = false; aborted = true; break; }  // set by the IRQ
             halt();
         }
         PutChar('\n');
@@ -1157,12 +1434,45 @@ internal static unsafe class Kernel
             KillSlot(slot);
             WriteLine("Foreground job aborted (Ctrl+C).");
         }
+        else if (_tasks.state[slot] == TaskZombie)
+        {
+            int code = ReapSlot(slot);
+            Write("Job finished, exit code ");
+            WriteDec((ulong)(code & 0xFF));
+            WriteLine(".");
+        }
         else
         {
-            _tasks.fg[slot] = 0;
-            WriteLine("Foreground job finished.");
+            WriteLine("Job ended.");
         }
         _fgSlot = -1;
+    }
+
+    // wait(pid): block until the process exits, then reap it. Returns the exit
+    // code, or -1 if the pid is unknown / already gone.
+    private static int WaitFor(int pid)
+    {
+        int slot = FindPid(pid);
+        if (slot < 0) return -1;
+        while (_tasks.state[slot] == TaskReady) halt();
+        if (_tasks.state[slot] == TaskZombie) return ReapSlot(slot) & 0xFF;
+        return -1;   // vanished (e.g. killed)
+    }
+
+    private static void CmdWait(char* line, int len)
+    {
+        int pid = ParseIntAt(line, 4, len);
+        if (pid == 0) { WriteLine("Usage: WAIT <pid>"); return; }
+        Write("Waiting for pid ");
+        WriteDec((ulong)pid);
+        WriteLine(" ...");
+        int code = WaitFor(pid);
+        if (code < 0) { WriteLine("No such process (or already gone)."); return; }
+        Write("Process ");
+        WriteDec((ulong)pid);
+        Write(" exited, code ");
+        WriteDec((ulong)code);
+        WriteLine(".");
     }
 
     private static void CmdKill(char* line, int len)
@@ -1183,25 +1493,46 @@ internal static unsafe class Kernel
         int slot = FindPid(pid);
         if (pid == 0 || slot < 0) { WriteLine("No such process."); return; }
         if (slot == SlotConsole) { WriteLine("The console is already in the foreground."); return; }
+        if (_tasks.state[slot] != TaskReady) { WriteLine("Process is not running."); return; }
         _fgSlot = slot;
         _tasks.fg[slot] = 1;
         WaitForeground(slot);
     }
 
-    // A simple "ps": one line per live task (plus the console).
+    // A simple "ps": pid, name, state, memory and foreground/background.
     private static void PrintTaskList()
     {
-        WriteLine(" PID  NAME        STATE  WHERE");
+        WriteLine(" PID  NAME        STATE    MEMORY      ROLE");
         for (int i = 0; i < TaskCount; i++)
         {
-            if (i != SlotConsole && _tasks.state[i] != TaskReady) continue;
+            if (i != SlotConsole && _tasks.state[i] == TaskFree) continue;
             WriteDecPad((ulong)_tasks.pid[i], 4);
             PutChar(' ');
             WriteNamePad(i, 10);
             PutChar(' ');
-            Write("run    ");
-            WriteLine((i == SlotConsole || i == _fgSlot) ? "fg" : "bg");
+            Write(_tasks.state[i] == TaskZombie ? "zombie   " : "run      ");
+            if (_tasks.ublock[i] != 0) WriteHex(_tasks.ublock[i]);
+            else Write("kernel    ");
+            PutChar(' ');
+            if (i == SlotConsole) WriteLine("fg");
+            else WriteLine(_tasks.state[i] == TaskZombie ? "-" : (i == _fgSlot ? "fg" : "bg"));
         }
+    }
+
+    private static void PrintMem()
+    {
+        Write("Physical frames: ");
+        WriteDec(_frameUsed);
+        Write(" used / ");
+        WriteDec(_frameTotal);
+        Write(" total  (");
+        WriteDec((_physTop - _physFloor) / 1024);
+        WriteLine(" KiB usable)");
+        Write("Range: ");
+        WriteHex(_physFloor);
+        Write(" - ");
+        WriteHex(_physTop);
+        WriteLine("");
     }
 
     private static int ParseIntAt(char* line, int start, int len)

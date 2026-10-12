@@ -271,6 +271,33 @@ osb_reload_segments:
     movw %ax, %gs
     ret
 
+/* Load a new address space (CR3). Argument in %rdi. */
+.global osb_load_cr3
+.type osb_load_cr3, @function
+osb_load_cr3:
+    movq %rdi, %cr3
+    ret
+
+/* Address of the boot (kernel) page tables, so C# can copy the kernel's
+ * identity mappings into each process's own page tables. */
+.global osb_master_pml4
+.type osb_master_pml4, @function
+osb_master_pml4:
+    leaq pml4(%rip), %rax
+    ret
+
+.global osb_master_pdpt
+.type osb_master_pdpt, @function
+osb_master_pdpt:
+    leaq pdpt(%rip), %rax
+    ret
+
+.global osb_master_pd
+.type osb_master_pd, @function
+osb_master_pd:
+    leaq pd(%rip), %rax
+    ret
+
 /* Enter ring 3: rdi = user entry RIP, rsi = user stack top.
  * Builds the iretq frame (SS,RSP,RFLAGS,CS,RIP) and drops to CPL3. Never
  * returns; the kernel stack is (re)entered later via TSS.RSP0 on INT/syscall. */

@@ -25,34 +25,47 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
 - **Clock RTC** (CMOS, IRQ8 → vetor 0x38): modo 24h + binário, interrupção "update-ended"
   (~1 Hz) que mantém o relógio de software do kernel; comandos `TIME` e `DATE` exibem
   hora e data reais.
-- **Agendador round-robin preemptivo** sobre uma **tabela de tarefas** (6 slots): o slot 0 é
-  o **console/shell** (roda na pilha de boot) e os demais são *jobs* criados por comandos
-  (`DEMO`, `RING3`), cada um com **16 KiB de pilha de kernel** própria. Alternância por
-  **preempção**: o handler do PIT (IRQ0) troca de contexto a cada tick (troca de pilha via
+- **Agendador round-robin preemptivo** sobre uma **tabela de tarefas** (8 slots): o slot 0 é
+  o **console/shell** (roda na pilha de boot) e os demais são tarefas/processos criados por
+  comandos (`DEMO`, `SPAWN`), cada um com **16 KiB de pilha de kernel** própria. Alternância
+  por **preempção**: o handler do PIT (IRQ0) troca de contexto a cada tick (troca de pilha via
   `osb_switch`), sem `yield`; slots livres são pulados. O frame do ISR interrompido fica
   "estacionado" na pilha de cada tarefa até ela ser reescalonada.
+- **Processos com espaço de endereço próprio** (Fatia 2):
+  - **Alocador de frames físico** (bitmap de 4 KiB) sobre a mmap do Multiboot2; pool a partir
+    de `0x200000` até o topo da RAM (aqui 64 MiB; ~15 872 frames). A janela `0x400000-0x5FFFFF`
+    (o `pd[2]` de todo espaço) é reservada. Comando `MEM` mostra uso/faixa.
+  - Cada processo tem `PML4+PDPT+PD` **próprios** (3 frames). O kernel é copiado como mapa de
+    identidade (`pd[0..1]`, U=0) e `pd[2]` aponta para um **bloco físico privado de 2 MiB**:
+    o código vai em `0x400000` e a pilha de usuário em `0x480000` — o *mesmo endereço virtual*
+    em todo processo, mas com memória física distinta. O escalonador faz `mov cr3` a cada troca
+    e ajusta `TSS.RSP0` para a pilha de kernel do processo.
+  - **`spawn`/`exit`/`wait`**: um processo terminado vira **zumbi** (com código de saída) até um
+    `WAIT` coletá-lo e liberar frames (`reaping`); `KILL` mata e libera na hora.
 - **Gestão de tarefas (job control)**, no espírito DOS+multitarefa:
-  - `DEMO [&]` inicia uma tarefa de demonstração; `RING3 [BAD] [&]` inicia um programa ring 3.
-  - **`&` no fim** roda o comando em **background** e devolve o prompt (ex.: `DEMO &`).
-  - **Sem `&`** roda em **foreground**: a shell espera o job terminar; **Ctrl+C** aborta e
-    volta ao prompt.
-  - `TASK` (ou `PS`) lista os PIDs/estados — um `ps` simples; `KILL <pid>` mata a tarefa;
-    `TAB <pid>` traz um job de volta ao **foreground**.
+  - `DEMO [&]` inicia uma tarefa de demonstração; `SPAWN [BAD] [&]` (sinônimo: `RING3`) inicia
+    um processo ring 3 com espaço de endereço próprio.
+  - **`&` no fim** roda o comando em **background** e devolve o prompt (ex.: `SPAWN &`).
+  - **Sem `&`** roda em **foreground**: a shell espera o job terminar e **coleta o código de
+    saída**; **Ctrl+C** aborta e volta ao prompt (type-ahead preservado).
+  - `TASK` (ou `PS`) lista PID/nome/estado (run/zombie)/bloco de memória — um `ps` simples;
+    `KILL <pid>` mata; `WAIT <pid>` espera e coleta; `TAB <pid>` traz ao foreground.
 - **Ring 3 (modo usuário)**: GDT construída em runtime com segmentos de usuário (DPL3) + **TSS**
-  (`ltr`; `RSP0` = topo da pilha de kernel do job ring 3, ajustado no escalonador); paging
+  (`ltr`; `RSP0` = topo da pilha de kernel do processo ring 3, ajustado no escalonador); paging
   marca só a janela `0x400000-0x5FFFFF` como **U/S=1** (o kernel permanece U=0, inacessível ao
-  usuário); o IDT expõe o vetor `0x21` como gate **DPL3**. O programa de teste (blob em
-  `user.S`) é copiado para `0x400000` e entra em CPL3 via `iretq`. **Syscalls DOS-like** via
-  `INT 21h` (função em `AH`): `AH=09h` imprime string terminada em `$` (RSI) e `AH=4Ch`
-  termina. Falhas vindas de CPL3 (ex.: `cli` em ring 3 → **#GP**) são **recuperáveis**: o
-  kernel termina só aquele job e segue rodando.
+  usuário); o IDT expõe o vetor `0x21` como gate **DPL3**. Cada processo recebe seu **próprio
+  bloco** de 2 MiB nessa janela e entra em CPL3 via `iretq`. **Syscalls DOS-like** via
+  `INT 21h` (função em `AH`): `AH=09h` imprime string terminada em `$` (RSI), `AH=30h` getpid,
+  `AH=4Ch` exit(código em AL), `AH=80h` spawn(id do programa), `AH=81h` wait(pid). Falhas vindas
+  de CPL3 (ex.: `cli` em ring 3 → **#GP**) são **recuperáveis**: o kernel termina só aquele
+  processo (vira zumbi, código `-1`) e segue rodando.
 - **Desligamento/reboot**: `POWEROFF` faz ACPI S5 (porta PM1a_CNT 0x604) — no QEMU o
   emulador encerra limpo (útil: nada fica preso capturando teclado/mouse do host);
   `REBOOT` pulsa o reset via controlador 8042.
 - Entrada de **teclado PS/2** e **console serial** com um mini-shell:
-  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`,
-  `DEMO [&]`, `RING3 [BAD] [&]`, `TASK`/`PS`, `KILL <pid>`, `TAB <pid>`,
-  `HALT`, `POWEROFF`, `REBOOT`.
+  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`, `MEM`,
+  `DEMO [&]`, `SPAWN [BAD] [&]`, `RING3 [BAD] [&]`, `TASK`/`PS`, `KILL <pid>`, `WAIT <pid>`,
+  `TAB <pid>`, `HALT`, `POWEROFF`, `REBOOT`.
 
 ## Arquitetura
 
@@ -62,13 +75,13 @@ src/Osb.Kernel/
 ├── MiniCoreLib.cs      # mini-CoreLib: System.Object/String/primitivas + stubs que o
 │                       # ilc exige do "system module" (ThrowHelpers, Buffer, TypeCast...)
 ├── Kernel.cs           # kernel: VGA + serial + IDT/PIC + teclado IRQ1 + RTC IRQ8
-│                       # + agendador RR preemptivo (3 tarefas) + GDT/TSS + ring 3
-│                       # + syscalls INT 21h + shell OSB
+│                       # + agendador RR preemptivo + alocador de frames
+│                       # + GDT/TSS + ring 3 + processos (CR3 próprio) + INT 21h + shell
 ├── boot.S              # bootstrap Multiboot2: 32-bit -> long mode -> chama kmain
 │                       # (+ helpers: outb/inb, mem*, lidt, sti/cli, halt, lgdt/ltr,
-│                       #  enter_user)
+│                       #  enter_user, load_cr3, page tables do kernel)
 ├── sched.S             # troca de contexto (osb_switch) + trampolines (demo/user)
-├── user.S              # programas de usuário (ring 3): syscall + exit; teste cli->#GP
+├── user.S              # programas ring 3: HELLO (teste de isolamento) + BAD (cli->#GP)
 ├── interrupts.S        # gerado no build: 256 stubs de ISR + isr_common + tabela de stubs
 ├── linker.ld           # layout ELF (carregado em 0x100000)
 ├── grub.cfg            # menu do GRUB (multiboot2)
@@ -114,11 +127,11 @@ teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor
 
 ## Próximos passos sugeridos
 
-- **Ring 3 já funciona** (Fatia 1): o próximo passo é **processos com espaço de endereço
-  próprio** (CR3 por processo) e `spawn`/`exit`/`wait` — ver `ROADMAP.md`, Fatia 2.
+- **Processos com espaço de endereço próprio já funcionam** (Fatia 2): CR3 por processo,
+  `spawn`/`exit`/`wait` e isolamento comprovado — ver `ROADMAP.md`, Fatia 2.
 - **Multiusuário** (Fatias 3/6): contas, `LOGIN`, sessões/consoles, permissões vindas do ext4.
 - **ext4** (Fatias 4/5): driver ATA PIO + leitura/escrita de uma imagem `mke2fs` — o disco
-  vira `C:` no idioma DOS.
+  vira `C:` no idioma DOS. É o que permitirá `INIT.EXE`/serviços (Fatia 7) e comandos externos.
 - ACPI + MMIO, framebuffer via `multiboot2` (modo gráfico) em vez de VGA text.
 - **Endurecimento**: IST para exceções, SMAP/SMEP, validar ponteiros de syscall com mais rigor.
 
@@ -155,13 +168,20 @@ teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor
 - **PIC remapeado para 0x30-0x3F** (e não 0x20-0x2F): libera o vetor **0x21** para a
   syscall `INT 21h`, sem colidir com a IRQ1 (teclado). Constantes `PicBase=0x30`,
   `TimerVector=0x30`, `KbdVector=0x31`, `RtcVector=0x38`.
-- **Ring 3**: a GDT é montada em `Kernel.cs` (segmentos user code `0x18` / data `0x20`,
+- **Ring 3 + processos**: a GDT é montada em `Kernel.cs` (segmentos user code `0x18` / data `0x20`,
   ambos DPL3, + descritor TSS em `0x28`), carregada com `osb_lgdt`/`osb_ltr`. O `RSP0` do
-  TSS aponta para o topo da pilha de kernel **da tarefa de usuário** — é para lá que a
+  TSS aponta para o topo da pilha de kernel **do processo de usuário** — é para lá que a
   CPU troca quando chega uma interrupção/syscall de CPL3. Na entrada do usuário usamos
-  seletores com RPL3 (`0x1B`/`0x23`). O programa em ring 3 é um blob de `user.S` copiado
-  para a página U/S=1 em `0x400000` (e um segundo em `0x401000`, que executa `cli` para
-  provar o `#GP`). O paging deixa **só** `0x400000-0x5FFFFF` como U=1; o kernel é U=0.
+  seletores com RPL3 (`0x1B`/`0x23`). Cada processo tem page tables próprias (`PML4/PDPT/PD`);
+  copiamos o mapa de identidade do kernel (`osb_master_pd()`) e trocamos só `pd[2]` por um bloco
+  físico privado de 2 MiB. O programa (`user.S`) é copiado para o início do bloco e o escalonador
+  troca o CR3 (`osb_load_cr3`) a cada contexto. Um segundo blob (`BAD`) executa `cli` para provar
+  o `#GP` em CPL3.
+- **Por que `pd[2]` e a janela reservada**: como o kernel é *identity-mapped* em 0-1 GiB, o
+  endereço físico de um bloco recém-alocado só coincide com o virtual fora da janela do usuário.
+  Por isso o alocador nunca entrega frames em `0x400000-0x600000` (512 frames): assim o kernel
+  consegue inicializar qualquer bloco pela sua identidade, mesmo rodando sob o CR3 de um processo
+  que pediu `spawn`. Zumbis que ninguém espera ocupam um slot, mas os frames só voltam no reaping.
 - **Falta de recurso ao falhar (user fault)**: uma exceção com CS.RPL==3 é tratada como
-  falha do programa (imprime vetor/err/RIP, marca a tarefa como Done e escala para outra);
-  exceções de CPL0 continuam sendo panic fatal.
+  falha do programa (imprime vetor/err/RIP, marca a tarefa como **zumbi** com código `-1` e
+  escala para outra); exceções de CPL0 continuam sendo panic fatal.
