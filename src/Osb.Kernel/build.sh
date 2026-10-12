@@ -68,8 +68,10 @@ osb_get_stub_table:
     leaq osb_isr_stubs(%rip), %rax
     ret
 
-/* Common ISR entry: save all GPRs, realign the stack to 16 bytes for the
- * SysV/C# handler, call osb_handle_interrupt(frame*), then restore + iretq. */
+/* Common ISR entry: save all GPR + XMM regs (the C# handler is a SysV
+ * function and may clobber caller-saved state, including XMM0-15 that the
+ * interrupted C# frame may hold live), realign to 16 bytes, call the
+ * dispatcher with a pointer to the saved frame, then restore + iretq. */
 isr_common:
     pushq %rax
     pushq %rbx
@@ -86,11 +88,45 @@ isr_common:
     pushq %r13
     pushq %r14
     pushq %r15
-    movq %rsp, %rbp          /* frame base (rbp is callee-saved) */
+    subq $256, %rsp
+    movdqu %xmm0,   0(%rsp)
+    movdqu %xmm1,  16(%rsp)
+    movdqu %xmm2,  32(%rsp)
+    movdqu %xmm3,  48(%rsp)
+    movdqu %xmm4,  64(%rsp)
+    movdqu %xmm5,  80(%rsp)
+    movdqu %xmm6,  96(%rsp)
+    movdqu %xmm7, 112(%rsp)
+    movdqu %xmm8, 128(%rsp)
+    movdqu %xmm9, 144(%rsp)
+    movdqu %xmm10, 160(%rsp)
+    movdqu %xmm11, 176(%rsp)
+    movdqu %xmm12, 192(%rsp)
+    movdqu %xmm13, 208(%rsp)
+    movdqu %xmm14, 224(%rsp)
+    movdqu %xmm15, 240(%rsp)
+    movq %rsp, %rbp          /* frame base: XMM save area (below the GPRs) */
     andq $-16, %rsp          /* SysV: rsp%16==0 at the call site */
-    movq %rbp, %rdi          /* arg0: pointer to the saved register frame */
+    leaq 256(%rbp), %rdi     /* arg0: pointer to the GPR frame (vector at +120) */
     call osb_handle_interrupt
     movq %rbp, %rsp
+    movdqu 240(%rsp), %xmm15
+    movdqu 224(%rsp), %xmm14
+    movdqu 208(%rsp), %xmm13
+    movdqu 192(%rsp), %xmm12
+    movdqu 176(%rsp), %xmm11
+    movdqu 160(%rsp), %xmm10
+    movdqu 144(%rsp), %xmm9
+    movdqu 128(%rsp), %xmm8
+    movdqu 112(%rsp), %xmm7
+    movdqu  96(%rsp), %xmm6
+    movdqu  80(%rsp), %xmm5
+    movdqu  64(%rsp), %xmm4
+    movdqu  48(%rsp), %xmm3
+    movdqu  32(%rsp), %xmm2
+    movdqu  16(%rsp), %xmm1
+    movdqu   0(%rsp), %xmm0
+    addq $256, %rsp
     popq %r15
     popq %r14
     popq %r13

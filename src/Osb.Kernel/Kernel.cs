@@ -32,6 +32,8 @@ internal static unsafe class Kernel
     private const ushort KernelSelector = 0x08;    // GDT: 64-bit code at offset 8
     private const byte IdtInterruptGate = 0x8E;    // present, DPL0, 64-bit gate
     private const int KbdVector = 32 + 1;          // IRQ1 remapped to vector 33
+    private const int TimerVector = 32 + 0;        // IRQ0 (PIT) -> vector 32
+    private const int PitHz = 100;                 // PIT frequency in Hz
 
     private unsafe struct IdtTable { public fixed byte bytes[256 * 16]; }
     private unsafe struct IdtrTable { public fixed byte data[10]; } // lidt operand
@@ -45,6 +47,7 @@ internal static unsafe class Kernel
     private static IdtTable _idt;
     private static IdtrTable _idtr;
     private static KbdRing _kbd;
+    private static ulong _ticks;                    // 100 Hz heartbeat
 
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -56,12 +59,14 @@ internal static unsafe class Kernel
         SerialInit();
         VgaClear();
 
-        PicInit();          // remap 8259A (IRQ0-15 -> vectors 32-47), unmask IRQ1
+        PicInit();          // remap 8259A (IRQ0-15 -> vectors 32-47), unmask IRQ0+IRQ1
+        PitInit();          // 8254 channel 0: square wave @ 100 Hz
         IdtInit();          // fill + load the IDT (exception + IRQ stubs)
 
         WriteLine("OSB - Operating System Basic");
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
         WriteLine("Keyboard: PS/2 IRQ1 via IDT + PIC (interrupt-driven).");
+        WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
         Write("Multiboot2 info @ ");
         WriteHex(multibootInfo);
         PutChar('\n');
@@ -147,6 +152,30 @@ internal static unsafe class Kernel
         }
     }
 
+    private static void WriteDec(ulong v)
+    {
+        char* buf = stackalloc char[20];
+        int n = 0;
+        if (v == 0) { PutChar('0'); return; }
+        while (v != 0)
+        {
+            buf[n++] = (char)('0' + (int)(v % 10));
+            v /= 10;
+        }
+        while (n > 0) PutChar(buf[--n]);
+    }
+
+    private static ulong ParseUInt(char* s, int start, int end)
+    {
+        ulong v = 0;
+        for (int i = start; i < end; i++)
+        {
+            if (s[i] < '0' || s[i] > '9') break;
+            v = v * 10 + (ulong)(s[i] - '0');
+        }
+        return v;
+    }
+
     // ---------------------------------------------------------------- serial
     private static void SerialInit()
     {
@@ -216,7 +245,7 @@ internal static unsafe class Kernel
     }
 
     // 8259A: remap IRQ0-7 -> 0x20-0x27 and IRQ8-15 -> 0x28-0x2F (8086 mode,
-    // slave on IRQ2), then mask everything except IRQ1 (keyboard).
+    // slave on IRQ2), then mask everything except IRQ0 (timer) and IRQ1 (keyboard).
     private static void PicInit()
     {
         outb(0x20, 0x11); outb(0x80, 0);  // ICW1: init, edge triggered
@@ -227,8 +256,17 @@ internal static unsafe class Kernel
         outb(0xA1, 0x02); outb(0x80, 0);
         outb(0x21, 0x01); outb(0x80, 0);  // ICW4: 8086/8088 mode
         outb(0xA1, 0x01); outb(0x80, 0);
-        outb(0x21, 0xFD); outb(0x80, 0);  // OCW1: unmask IRQ1 only
+        outb(0x21, 0xFC); outb(0x80, 0);  // OCW1: unmask IRQ0 (timer) + IRQ1 (kbd)
         outb(0xA1, 0xFF); outb(0x80, 0);  // OCW1: mask all slave IRQs
+    }
+
+    // 8254 PIT, channel 0: 1193182 Hz / divisor -> ~100 Hz square wave on IRQ0.
+    private static void PitInit()
+    {
+        uint divisor = (uint)(1193182 / PitHz); // 11931 ~= 100.000 Hz
+        outb(0x43, 0x36);                      // ch0, lobyte/hibyte, mode 3, binary
+        outb(0x40, (byte)(divisor & 0xFF));
+        outb(0x40, (byte)(divisor >> 8));
     }
 
     private static void PicEoi(int irq)
@@ -272,6 +310,13 @@ internal static unsafe class Kernel
             byte sc = inb(0x60);
             KbdPush(sc);
             PicEoi(1);
+            return;
+        }
+
+        if (vector == TimerVector) // IRQ0: PIT heartbeat (100 Hz)
+        {
+            _ticks++;
+            PicEoi(0);
             return;
         }
 
@@ -413,12 +458,33 @@ internal static unsafe class Kernel
         if (Eq(line, len, "ABOUT")) { WriteLine("OSB: Operating System Basic, created in 2000, rebooted in C#."); return; }
         if (Eq(line, len, "HELP"))
         {
-            WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  HALT");
+            WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
+            WriteLine("          SLEEP <seconds>  HALT");
             // note: ECHO is handled below
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
         if (Eq(line, len, "HALT")) { WriteLine("System halted."); cli(); for (;;) hlt_cpu(); }
+        if (Eq(line, len, "TICKS"))
+        {
+            Write("Uptime: ");
+            WriteDec(_ticks / (ulong)PitHz);
+            Write(" s (");
+            WriteDec(_ticks);
+            WriteLine(" ticks)");
+            return;
+        }
+        if (StartsWith(line, len, "SLEEP"))
+        {
+            int i = 5;
+            while (i < len && line[i] == ' ') i++;
+            ulong secs = ParseUInt(line, i, len);
+            WriteLine("Sleeping ...");
+            ulong target = _ticks + secs * (ulong)PitHz;
+            while (_ticks < target) halt(); // tick-driven wait; keys queue up
+            WriteLine("Done.");
+            return;
+        }
         if (StartsWith(line, len, "ECHO"))
         {
             int i = 4;

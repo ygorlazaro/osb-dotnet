@@ -90,7 +90,7 @@ _start:
 
     /* enable PAE */
     movl %cr4, %eax
-    orl  $(1<<5), %eax
+    orl  $((1<<5) | (1<<9) | (1<<10)), %eax   /* PAE | OSFXSR | OSXMMEXCPT */
     movl %eax, %cr4
 
     /* load cr3 */
@@ -103,9 +103,12 @@ _start:
     orl  $(1<<8), %eax
     wrmsr
 
-    /* enable paging (enters long mode) */
+    /* enable paging (enters long mode); force a known-good CR0. Most bootloaders
+     * leave EM set, and with CR0.EM=1 every SSE instruction in the C# kernel
+     * (e.g. movups to zero a stackalloc buffer) raises #UD. */
     movl %cr0, %eax
-    orl  $(1<<31), %eax
+    andl $~((1<<2) | (1<<3)), %eax                 /* clear EM, TS */
+    orl  $((1<<31) | (1<<5) | (1<<16)), %eax       /* set   PG | NE | WP */
     movl %eax, %cr0
 
     lgdt gdt64_ptr
