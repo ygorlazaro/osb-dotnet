@@ -62,7 +62,6 @@ internal static unsafe class Kernel
     private const ulong UserLimit = 0x600000;      // end of the U/S=1 2 MiB page
     private const ulong UserProgramAddr = 0x400000;// normal stub (copied here)
     private const ulong UserBadAddr = 0x401000;    // "supervisor escape" stub
-    private const ulong UserStackTop = 0x480000;   // user stack grows down from here
 
     // GDT selectors (64-bit flat, base 0)
     private const ushort KernelDataSel = 0x10;
@@ -103,28 +102,39 @@ internal static unsafe class Kernel
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
     private static byte _rtcSec, _rtcMin, _rtcHour, _rtcDay, _rtcMonth, _rtcYear;
 
-    // Preemptive round-robin scheduler. Task 0 = shell (kernel stack), task 1 =
-    // demo, task 2 = user program (runs in ring 3 on its own kernel stack, whose
-    // top is TSS.RSP0). The PIT handler switches tasks; nothing yields.
-    private const int TaskShell = 0;
-    private const int TaskDemo = 1;
-    private const int TaskUser = 2;
-    private const int TaskCount = 3;
-    private const int TaskDone = 0;
-    private const int TaskReady = 1;
+    // Preemptive round-robin scheduler over a fixed table of task slots.
+    // Slot 0 is the console/shell (runs on the boot stack); the others are jobs
+    // spawned by shell commands (DEMO, RING3), each with its own 16 KiB kernel
+    // stack. The PIT handler switches tasks; nothing yields.
+    private const int SlotConsole = 0;             // the shell / console (PID 1)
+    private const int TaskCount = 6;               // console + 5 job slots
+    private const int TaskFree = 0;                // slot not in use
+    private const int TaskReady = 1;               // runnable (or running)
+    private const int KindNone = 0;
+    private const int KindShell = 1;
+    private const int KindDemo = 2;
+    private const int KindUser = 3;                // runs in ring 3
+    private const int StackSize = 16384;
+    private const int MaxName = 12;
+
     private unsafe struct TaskTable
     {
-        public fixed ulong sp[TaskCount];
+        public fixed ulong sp[TaskCount];          // saved kernel SP (osb_switch)
+        public fixed int pid[TaskCount];
         public fixed int state[TaskCount];
+        public fixed int kind[TaskCount];
+        public fixed int fg[TaskCount];            // 1 = foreground job
+        public fixed ulong arg[TaskCount];         // kind-specific (user entry RIP)
+        public fixed ulong round[TaskCount];       // demo: rounds printed
+        public fixed ulong deadline[TaskCount];    // demo: next print tick
+        public fixed byte name[TaskCount * MaxName];
     }
-    private unsafe struct TaskRegion { public fixed byte bytes[16384]; }
+    private unsafe struct StackPool { public fixed byte bytes[TaskCount * StackSize]; }
     private static TaskTable _tasks;
-    private static TaskRegion _demoStack;
-    private static TaskRegion _userKStack;
-    private static int _currentTask;
-    private static ulong _demoDeadline;
-    private static ulong _demoCount;
-    private static ulong _userEntry;                // where ring 3 starts for the user task
+    private static StackPool _stacks;
+    private static int _currentTask;               // slot currently on the CPU
+    private static int _nextPid;                   // next pid to hand out
+    private static int _fgSlot;                    // foreground job slot, or -1
 
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -149,8 +159,9 @@ internal static unsafe class Kernel
         WriteLine("Keyboard: PS/2 IRQ1 + serial console IRQ4 (COM1).");
         WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
         WriteLine("Clock: RTC via IRQ8 (update-ended).");
-        WriteLine("Scheduler: preemptive round-robin (PIT preempts, no yields).");
+        WriteLine("Scheduler: preemptive round-robin over a task table.");
         WriteLine("Ring 3: user segments + TSS; syscalls via INT 21h (DOS-style).");
+        WriteLine("Jobs: DEMO / RING3, background with '&'; TASK / KILL / TAB.");
         Write("Multiboot2 info @ ");
         WriteHex(multibootInfo);
         PutChar('\n');
@@ -493,7 +504,7 @@ internal static unsafe class Kernel
         {
             _ticks++;
             PicEoi(0);            // EOI before switching: the PIC may deliver
-            SchedulerTick();      // the next tick while another task runs
+            PickNext();           // the next tick while another task runs
             return;
         }
 
@@ -546,7 +557,7 @@ internal static unsafe class Kernel
         if (func == 0x4C) // terminate the program
         {
             WriteLine("[kernel] user program exited via INT 21h/AH=4Ch.");
-            _tasks.state[TaskUser] = TaskDone;
+            KillSlot(_currentTask);
             PickNext();          // switch away for good (never returns)
             for (;;) halt();
         }
@@ -567,7 +578,7 @@ internal static unsafe class Kernel
         WriteHex(frame[17]);
         PutChar('\n');
         WriteLine("[kernel] terminating the user task; system continues.");
-        _tasks.state[TaskUser] = TaskDone;
+        KillSlot(_currentTask);
         PickNext();              // switch away (never returns)
         for (;;) halt();
     }
@@ -618,15 +629,13 @@ internal static unsafe class Kernel
         _gdt.bytes[o + 11] = (byte)(tssBase >> 56);
         // bytes o+12..o+15 stay zero (reserved)
 
-        // --- TSS body: RSP0 = user-task kernel stack top; no I/O bitmap ---
+        // --- TSS body: no I/O bitmap; RSP0 is set when a ring-3 task runs ---
         for (int i = 0; i < 104; i++) _tss.bytes[i] = 0;
-        ulong ktop;
-        fixed (byte* p = _userKStack.bytes) { ktop = ((ulong)p + 16384) & ~(ulong)15; }
         fixed (byte* tp = _tss.bytes)
         {
-            *(ulong*)(tp + 4) = ktop;                         // RSP0
             tp[100] = 0x68; tp[101] = 0x00;                   // IOPB = 104 (none)
         }
+        SetTssRsp0(1);                                        // sane default (slot 1)
 
         // --- GDTR = { limit, base }, then load ---
         int limit = 7 * 8 - 1;
@@ -665,7 +674,7 @@ internal static unsafe class Kernel
         for (ulong i = 0; i < end - src; i++) d[i] = s[i];
     }
 
-    // ------------------------------------------------- round-robin (preemptive)
+    // ----------------------------------------------- task table / job control
     // Seed a task's kernel stack so the first switch into it lands at `entry`.
     // Layout mirrors what osb_switch pushes: [r15][r14][r13][r12][rbp][rbx][ret].
     private static ulong SeedTask(byte* stackBase, int size, ulong entry)
@@ -679,28 +688,91 @@ internal static unsafe class Kernel
 
     private static void SchedInit()
     {
-        fixed (byte* p = _demoStack.bytes)
-            _tasks.sp[TaskDemo] = SeedTask(p, 16384, osb_sched_get_demo_entry());
-        fixed (byte* p = _userKStack.bytes)
-            _tasks.sp[TaskUser] = SeedTask(p, 16384, osb_sched_get_user_entry());
+        for (int i = 0; i < TaskCount; i++)
+        {
+            _tasks.state[i] = TaskFree;
+            _tasks.kind[i] = KindNone;
+            _tasks.fg[i] = 0;
+            _tasks.pid[i] = 0;
+            _tasks.sp[i] = 0;
+        }
+        // Slot 0 is the shell/console. It runs on the boot stack; its saved SP is
+        // captured by the first osb_switch out of it.
+        _tasks.state[SlotConsole] = TaskReady;
+        _tasks.kind[SlotConsole] = KindShell;
+        _tasks.pid[SlotConsole] = 1;
+        SetName(SlotConsole, "CONSOLE");
+        _currentTask = SlotConsole;
+        _nextPid = 2;
+        _fgSlot = -1;
+    }
 
-        _tasks.sp[TaskShell] = 0;                     // set on the first switch out
-        _tasks.state[TaskShell] = TaskReady;
-        _tasks.state[TaskDemo] = TaskReady;
-        _tasks.state[TaskUser] = TaskDone;            // started on demand via RING3
-        _currentTask = TaskShell;
-        _userEntry = UserProgramAddr;
-        _demoDeadline = 0;
+    private static void SetName(int slot, string name)
+    {
+        int o = slot * MaxName;
+        for (int i = 0; i < MaxName; i++) _tasks.name[o + i] = 0;
+        int n = name.Length; if (n > MaxName - 1) n = MaxName - 1;
+        fixed (char* p = name)
+        {
+            for (int i = 0; i < n; i++) _tasks.name[o + i] = (byte)p[i];
+        }
+    }
+
+    private static int AllocSlot()
+    {
+        for (int i = SlotConsole + 1; i < TaskCount; i++)
+            if (_tasks.state[i] != TaskReady) return i;
+        return -1;
+    }
+
+    // Point the TSS RSP0 at a slot's kernel stack top: the CPU lands there on the
+    // first ring-0 transition from that ring-3 task (and every return to ring 3
+    // re-uses it until another ring-3 task is scheduled).
+    private static void SetTssRsp0(int slot)
+    {
+        ulong ktop;
+        fixed (byte* p = _stacks.bytes)
+            ktop = ((ulong)p + (ulong)slot * StackSize + StackSize) & ~(ulong)15;
+        fixed (byte* tp = _tss.bytes)
+            *(ulong*)(tp + 4) = ktop;
+    }
+
+    private static void SeedSlot(int slot, ulong entry, string name, int kind)
+    {
+        ulong sp;
+        fixed (byte* p = _stacks.bytes)
+            sp = SeedTask(p + slot * StackSize, StackSize, entry);
+        _tasks.sp[slot] = sp;
+        _tasks.pid[slot] = _nextPid++;
+        _tasks.state[slot] = TaskReady;
+        _tasks.kind[slot] = kind;
+        _tasks.fg[slot] = 0;
+        _tasks.arg[slot] = 0;
+        _tasks.round[slot] = 0;
+        _tasks.deadline[slot] = 0;
+        SetName(slot, name);
+    }
+
+    private static void KillSlot(int slot)
+    {
+        _tasks.state[slot] = TaskFree;
+        _tasks.kind[slot] = KindNone;
+        _tasks.fg[slot] = 0;
+        SetName(slot, "zombie");
+        if (_fgSlot == slot) _fgSlot = -1;
+    }
+
+    private static int FindPid(int pid)
+    {
+        for (int i = 0; i < TaskCount; i++)
+            if (_tasks.pid[i] == pid && (i == SlotConsole || _tasks.state[i] == TaskReady))
+                return i;
+        return -1;
     }
 
     // Called from the IRQ0 handler on every tick. Round-robins to the next ready
     // task by swapping kernel stacks; the switch is atomic (interrupt gate) and
     // the interrupted ISR frame stays parked on the stopped task's stack.
-    private static void SchedulerTick()
-    {
-        PickNext();
-    }
-
     private static void PickNext()
     {
         int cur = _currentTask;
@@ -713,39 +785,52 @@ internal static unsafe class Kernel
         }
         if (next == cur) return;                      // only one runnable task
 
+        if (_tasks.kind[next] == KindUser) SetTssRsp0(next);
         _currentTask = next;
         fixed (ulong* sp = _tasks.sp)
             osb_switch(sp + cur, sp + next);
     }
 
-    // Task 2 body: runs on the task's kernel stack; drops to ring 3 and never
-    // comes back (the program exits via INT 21h or faults).
-    [RuntimeExport("osb_user_task_main")]
-    private static void UserTaskMain()
-    {
-        osb_enter_user(_userEntry, UserStackTop);
-        for (;;) halt();                              // not reached
-    }
-
-    // Task 1: demo. Runs on its own stack, prints once per second and sleeps in
-    // between. It never yields: the PIT preempts it.
+    // Job body: demo. Runs on its slot's kernel stack, prints once per second and
+    // sleeps in between. It never yields: the PIT preempts it. Persists until
+    // killed or terminated.
     [RuntimeExport("osb_demo_task_main")]
     private static void DemoTaskMain()
     {
+        int slot = _currentTask;
+        ulong pid = (ulong)_tasks.pid[slot];
         for (;;)
         {
-            if (_ticks >= _demoDeadline)
+            if (_ticks >= _tasks.deadline[slot])
             {
-                _demoCount++;
-                Write("Demo task: round ");
-                WriteDec(_demoCount);
-                Write(" @ tick ");
+                _tasks.round[slot]++;
+                Write("DEMO [");
+                WriteDec(pid);
+                Write("]: round ");
+                WriteDec(_tasks.round[slot]);
+                Write("  (tick ");
                 WriteDec(_ticks);
-                WriteLine("");
-                _demoDeadline = _ticks + (ulong)PitHz;   // next round in 1 s
+                WriteLine(")");
+                _tasks.deadline[slot] = _ticks + (ulong)PitHz;   // next round in 1 s
             }
-            halt(); // sleep until the next interrupt; the PIT schedules the shell
+            halt(); // sleep until the next interrupt; the PIT schedules the rest
         }
+    }
+
+    // Job body: ring-3 program. Drops to CPL3 and never comes back (it exits via
+    // INT 21h or faults).
+    [RuntimeExport("osb_user_task_main")]
+    private static void UserTaskMain()
+    {
+        int slot = _currentTask;
+        osb_enter_user(_tasks.arg[slot], UserStackTopFor(slot));
+        for (;;) halt();                              // not reached
+    }
+
+    // A distinct user stack page-area per slot (the U/S page is 0x400000-0x5FFFFF).
+    private static ulong UserStackTopFor(int slot)
+    {
+        return 0x480000 - (ulong)slot * 0x10000;
     }
 
     // ---------------------------------------------------------------- keyboard
@@ -873,18 +958,37 @@ internal static unsafe class Kernel
     {
         if (len == 0) return;
 
+        // A trailing '&' means "run this command as a background job".
+        bool background = false;
+        while (len > 0 && line[len - 1] == ' ') len--;
+        if (len > 0 && line[len - 1] == '&')
+        {
+            background = true;
+            len--;
+            while (len > 0 && line[len - 1] == ' ') len--;
+        }
+        if (len == 0) return;
+
         if (Eq(line, len, "VER")) { WriteLine("OSB (dotnet) version 0.1 - bootable kernel"); return; }
         if (Eq(line, len, "ABOUT")) { WriteLine("OSB: Operating System Basic, created in 2000, rebooted in C#."); return; }
         if (Eq(line, len, "HELP"))
         {
             WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
-            WriteLine("          SLEEP <seconds>  TIME  DATE");
-            WriteLine("          RING3 [BAD]  (run a ring-3 program)");
-            WriteLine("          HALT  POWEROFF  REBOOT");
-            // note: ECHO is handled below
+            WriteLine("          SLEEP <s>  TIME  DATE  HALT  POWEROFF  REBOOT");
+            WriteLine("Jobs:     DEMO            start a demo task");
+            WriteLine("          RING3 [BAD]     run a ring-3 program");
+            WriteLine("          Add '&' to run in the background (e.g. DEMO &)");
+            WriteLine("          TASK            list tasks (simple ps)");
+            WriteLine("          KILL <pid>      terminate a task");
+            WriteLine("          TAB <pid>       bring a task to the foreground");
+            WriteLine("          (in the foreground, Ctrl+C returns to the shell)");
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
+        if (Eq(line, len, "DEMO")) { SpawnDemo(background); return; }
+        if (Eq(line, len, "TASK") || Eq(line, len, "PS")) { PrintTaskList(); return; }
+        if (Eq(line, len, "KILL") || StartsWith(line, len, "KILL ")) { CmdKill(line, len); return; }
+        if (Eq(line, len, "TAB") || StartsWith(line, len, "TAB ")) { CmdTab(line, len); return; }
         if (Eq(line, len, "RING3") || StartsWith(line, len, "RING3 "))
         {
             bool bad = false;
@@ -892,7 +996,7 @@ internal static unsafe class Kernel
             while (i < len && line[i] == ' ') i++;
             if (i + 2 < len && Up(line[i]) == 'B' && Up(line[i + 1]) == 'A' && Up(line[i + 2]) == 'D')
                 bad = true;
-            LaunchUserProgram(bad);
+            SpawnUser(bad, background);
             return;
         }
         if (Eq(line, len, "HALT"))
@@ -999,17 +1103,135 @@ internal static unsafe class Kernel
         return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c;
     }
 
-    // Re-seed the ring-3 task and mark it runnable; the PIT will schedule it and
-    // it will drop to user mode on its own (multitasking preserved).
-    private static void LaunchUserProgram(bool bad)
+    // ------------------------------------------------------------ job control
+    // Start a DEMO job. Without '&' it becomes the foreground job and the shell
+    // waits (Ctrl+C returns); with '&' the prompt comes back immediately.
+    private static void SpawnDemo(bool background)
     {
-        _userEntry = bad ? UserBadAddr : UserProgramAddr;
-        fixed (byte* p = _userKStack.bytes)
-            _tasks.sp[TaskUser] = SeedTask(p, 16384, osb_sched_get_user_entry());
-        _tasks.state[TaskUser] = TaskReady;
+        int slot = AllocSlot();
+        if (slot < 0) { WriteLine("No free task slot."); return; }
+        SeedSlot(slot, osb_sched_get_demo_entry(), "DEMO", KindDemo);
+        Write("Started DEMO [");
+        WriteDec((ulong)_tasks.pid[slot]);
+        WriteLine(background ? "] in the background." : "] in the foreground.");
+        if (!background) { _fgSlot = slot; _tasks.fg[slot] = 1; WaitForeground(slot); }
+    }
 
-        WriteLine(bad
-            ? "Launching ring-3 program (supervisor-escape test) ..."
-            : "Launching ring-3 program ...");
+    // Start a ring-3 program (normal or the supervisor-escape test).
+    private static void SpawnUser(bool bad, bool background)
+    {
+        int slot = AllocSlot();
+        if (slot < 0) { WriteLine("No free task slot."); return; }
+        SeedSlot(slot, osb_sched_get_user_entry(), bad ? "RING3!" : "RING3", KindUser);
+        _tasks.arg[slot] = bad ? UserBadAddr : UserProgramAddr;
+        Write("Started RING3 [");
+        WriteDec((ulong)_tasks.pid[slot]);
+        WriteLine(background ? "] in the background." : "] in the foreground.");
+        if (!background) { _fgSlot = slot; _tasks.fg[slot] = 1; WaitForeground(slot); }
+    }
+
+    // Block the shell until the foreground job ends or the user presses Ctrl+C.
+    private static void WaitForeground(int slot)
+    {
+        Write("Foreground [");
+        WriteDec((ulong)_tasks.pid[slot]);
+        WriteLine("]  (Ctrl+C returns to the shell)");
+        bool ctrl = false;
+        bool aborted = false;
+        while (_tasks.state[slot] == TaskReady)
+        {
+            int ch = SerPop();
+            if (ch == 0x03) { aborted = true; break; }   // Ctrl+C over serial
+            int sc = KbdPop();
+            if (sc >= 0)
+            {
+                if (sc == 0x1D) ctrl = true;
+                else if (sc == 0x9D) ctrl = false;
+                else if ((sc & 0x80) == 0 && ctrl && sc == 0x2E) { aborted = true; break; }
+            }
+            halt();
+        }
+        PutChar('\n');
+        if (aborted)
+        {
+            KillSlot(slot);
+            WriteLine("Foreground job aborted (Ctrl+C).");
+        }
+        else
+        {
+            _tasks.fg[slot] = 0;
+            WriteLine("Foreground job finished.");
+        }
+        _fgSlot = -1;
+    }
+
+    private static void CmdKill(char* line, int len)
+    {
+        int pid = ParseIntAt(line, 4, len);
+        int slot = FindPid(pid);
+        if (pid == 0 || slot < 0) { WriteLine("No such process."); return; }
+        if (slot == SlotConsole) { WriteLine("Cannot kill the console."); return; }
+        KillSlot(slot);
+        Write("Killed pid ");
+        WriteDec((ulong)pid);
+        WriteLine(".");
+    }
+
+    private static void CmdTab(char* line, int len)
+    {
+        int pid = ParseIntAt(line, 3, len);
+        int slot = FindPid(pid);
+        if (pid == 0 || slot < 0) { WriteLine("No such process."); return; }
+        if (slot == SlotConsole) { WriteLine("The console is already in the foreground."); return; }
+        _fgSlot = slot;
+        _tasks.fg[slot] = 1;
+        WaitForeground(slot);
+    }
+
+    // A simple "ps": one line per live task (plus the console).
+    private static void PrintTaskList()
+    {
+        WriteLine(" PID  NAME        STATE  WHERE");
+        for (int i = 0; i < TaskCount; i++)
+        {
+            if (i != SlotConsole && _tasks.state[i] != TaskReady) continue;
+            WriteDecPad((ulong)_tasks.pid[i], 4);
+            PutChar(' ');
+            WriteNamePad(i, 10);
+            PutChar(' ');
+            Write("run    ");
+            WriteLine((i == SlotConsole || i == _fgSlot) ? "fg" : "bg");
+        }
+    }
+
+    private static int ParseIntAt(char* line, int start, int len)
+    {
+        int i = start;
+        while (i < len && line[i] == ' ') i++;
+        int v = 0;
+        while (i < len && line[i] >= '0' && line[i] <= '9')
+        {
+            v = v * 10 + (line[i] - '0');
+            i++;
+        }
+        return v;
+    }
+
+    private static void WriteDecPad(ulong v, int width)
+    {
+        int digits = 1;
+        ulong t = v;
+        while (t >= 10) { t /= 10; digits++; }
+        for (int i = digits; i < width; i++) PutChar(' ');
+        WriteDec(v);
+    }
+
+    private static void WriteNamePad(int slot, int width)
+    {
+        int o = slot * MaxName;
+        int n = 0;
+        while (n < MaxName && _tasks.name[o + n] != 0) n++;
+        for (int i = 0; i < n; i++) PutChar((char)_tasks.name[o + i]);
+        for (int i = n; i < width; i++) PutChar(' ');
     }
 }

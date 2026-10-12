@@ -25,26 +25,34 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
 - **Clock RTC** (CMOS, IRQ8 → vetor 0x38): modo 24h + binário, interrupção "update-ended"
   (~1 Hz) que mantém o relógio de software do kernel; comandos `TIME` e `DATE` exibem
   hora e data reais.
-- **Agendador round-robin preemptivo** com **N tarefas**: a shell (tarefa 0), uma tarefa
-  "demo" (tarefa 1, pilha própria de 16 KiB) e uma tarefa de **usuário** (tarefa 2, que roda
-  em **ring 3**). Alternância por **preempção**: o handler do PIT (IRQ0) troca de contexto a
-  cada tick (troca de pilha via `osb_switch`), sem `yield`; tarefas concluídas (Done) são
-  puladas pelo escalonador. O frame do ISR interrompido fica "estacionado" na pilha de cada
-  tarefa até ela ser reescalonada.
+- **Agendador round-robin preemptivo** sobre uma **tabela de tarefas** (6 slots): o slot 0 é
+  o **console/shell** (roda na pilha de boot) e os demais são *jobs* criados por comandos
+  (`DEMO`, `RING3`), cada um com **16 KiB de pilha de kernel** própria. Alternância por
+  **preempção**: o handler do PIT (IRQ0) troca de contexto a cada tick (troca de pilha via
+  `osb_switch`), sem `yield`; slots livres são pulados. O frame do ISR interrompido fica
+  "estacionado" na pilha de cada tarefa até ela ser reescalonada.
+- **Gestão de tarefas (job control)**, no espírito DOS+multitarefa:
+  - `DEMO [&]` inicia uma tarefa de demonstração; `RING3 [BAD] [&]` inicia um programa ring 3.
+  - **`&` no fim** roda o comando em **background** e devolve o prompt (ex.: `DEMO &`).
+  - **Sem `&`** roda em **foreground**: a shell espera o job terminar; **Ctrl+C** aborta e
+    volta ao prompt.
+  - `TASK` (ou `PS`) lista os PIDs/estados — um `ps` simples; `KILL <pid>` mata a tarefa;
+    `TAB <pid>` traz um job de volta ao **foreground**.
 - **Ring 3 (modo usuário)**: GDT construída em runtime com segmentos de usuário (DPL3) + **TSS**
-  (`ltr`; `RSP0` = topo da pilha de kernel da tarefa de usuário); paging marca só a janela
-  `0x400000-0x5FFFFF` como **U/S=1** (o kernel permanece U=0, inacessível ao usuário);
-  o IDT expõe o vetor `0x21` como gate **DPL3**. O programa de teste (blob em `user.S`) é
-  copiado para `0x400000` e entra em CPL3 via `iretq`. **Syscalls DOS-like** via `INT 21h`
-  (função em `AH`): `AH=09h` imprime string terminada em `$` (RSI) e `AH=4Ch` termina.
-  Falhas vindas de CPL3 (ex.: `cli` em ring 3 → **#GP**) são **recuperáveis**: o kernel
-  termina só aquela tarefa e segue rodando.
+  (`ltr`; `RSP0` = topo da pilha de kernel do job ring 3, ajustado no escalonador); paging
+  marca só a janela `0x400000-0x5FFFFF` como **U/S=1** (o kernel permanece U=0, inacessível ao
+  usuário); o IDT expõe o vetor `0x21` como gate **DPL3**. O programa de teste (blob em
+  `user.S`) é copiado para `0x400000` e entra em CPL3 via `iretq`. **Syscalls DOS-like** via
+  `INT 21h` (função em `AH`): `AH=09h` imprime string terminada em `$` (RSI) e `AH=4Ch`
+  termina. Falhas vindas de CPL3 (ex.: `cli` em ring 3 → **#GP**) são **recuperáveis**: o
+  kernel termina só aquele job e segue rodando.
 - **Desligamento/reboot**: `POWEROFF` faz ACPI S5 (porta PM1a_CNT 0x604) — no QEMU o
   emulador encerra limpo (útil: nada fica preso capturando teclado/mouse do host);
   `REBOOT` pulsa o reset via controlador 8042.
-- Entrada de **teclado PS/2** (scancodes set 1) com um mini-shell:
+- Entrada de **teclado PS/2** e **console serial** com um mini-shell:
   `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`,
-  `RING3`, `RING3 BAD`, `HALT`, `POWEROFF`, `REBOOT`.
+  `DEMO [&]`, `RING3 [BAD] [&]`, `TASK`/`PS`, `KILL <pid>`, `TAB <pid>`,
+  `HALT`, `POWEROFF`, `REBOOT`.
 
 ## Arquitetura
 

@@ -18,8 +18,7 @@ userstub_begin:
     lea   userstub_msg(%rip), %rsi
     movb  $0x09, %ah                /* AH=09h: print string */
     int   $0x21
-    movb  $0x4c, %ah                /* AH=4Ch: terminate */
-    xorl  %eax, %eax
+    movw  $0x4C00, %ax              /* AH=4Ch, AL=0: terminate (exit code 0) */
     int   $0x21
 1:  jmp   1b                        /* never reached */
 userstub_msg:

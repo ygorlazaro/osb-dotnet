@@ -59,17 +59,20 @@ dependem de FS com dono (L4) que depende de processos isolados (L2).
 
 ## 4. Fatias verticais (cada uma funciona ponta a ponta)
 
-### Fatia 1 — Ring 3 no ar + ABI `INT 21h`  ← **em implementação**
+### Fatia 1 — Ring 3 no ar + ABI `INT 21h`  ✅ **concluída**
 - GDT com segmentos de usuário (DPL3) + TSS + `ltr`; `TSS.RSP0` = pilha de kernel.
 - Paging: marcar `PML4[0]`/`PDPT[0]`/`PD[2]` como U=1 (só a página 0x400000–0x5FFFFF; kernel continua U=0).
 - IDT: vetor `0x21` como gate **DPL3**.
 - `enter_user` (iretq para CPL3) + programa de usuário (blob copiado para 0x400000).
 - Syscalls: `AH=09h` (imprime string `$`), `AH=4Ch` (termina).
 - Falhas vindas de CPL3 são **recuperáveis** (matam a tarefa, não o sistema).
-- Nova tarefa de escalonador (tarefa 2) que roda o programa em ring 3.
+- Nova tarefa de escalonador que roda o programa em ring 3.
 - Comandos: `RING3` e `RING3 BAD` (teste de proteção: `cli` em ring 3 → #GP).
-- **Aceite:** o blob imprime via `INT 21h` e termina; `RING3 BAD` mostra o #GP
-  tratado; o demo/shell continuam rodando (multitarefa preservada).
+- **Extra entregue**: **gestão de tarefas** — tabela de 6 slots, `DEMO [&]`, `&` para
+  background, `TASK`/`PS`, `KILL <pid>`, `TAB <pid>` (foreground) e Ctrl+C para abortar o
+  foreground. Console serial (COM1/IRQ4) para uso headless.
+- **Aceite:** o blob imprime via `INT 21h` e termina; `RING3 BAD` mostra o #GP tratado; os
+  jobs rodam em paralelo e podem ser listados/mortos/trazidos ao foreground.
 
 ### Fatia 2 — Processos com espaço de endereço próprio
 - Struct de processo (PID, pai, estado, CR3, pilhas, uid, dir/drive corrente).
