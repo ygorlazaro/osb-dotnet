@@ -178,4 +178,38 @@ memmove:
     rep movsb
     ret
 
+/* ---------------------------------------------------------------- cpu control */
+.global lidt
+.type lidt, @function
+lidt:
+    lidt (%rdi)
+    ret
+
+.global sti
+.type sti, @function
+sti:
+    sti
+    ret
+
+.global cli
+.type cli, @function
+cli:
+    cli
+    ret
+
+/* Sleep until the next interrupt (used by the shell idle loop). */
+.global halt
+.type halt, @function
+halt:
+    sti
+    hlt
+    ret
+
+/* hlt honoring IF (used after cli to halt the machine for good). */
+.global hlt_cpu
+.type hlt_cpu, @function
+hlt_cpu:
+    hlt
+    ret
+
 .section .note.GNU-stack, "", @progbits

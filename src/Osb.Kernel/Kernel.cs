@@ -1,6 +1,7 @@
-// OSB kernel - first bootable version.
+// OSB kernel - bootable version with IDT + PIC.
 // Freestanding C# (NativeAOT, no runtime): VGA text output + COM1 serial,
-// PS/2 keyboard input (polling), and the first OSB command prompt.
+// PS/2 keyboard input via IRQ1 (interrupt-driven, no polling), and the
+// first OSB command prompt.
 
 using System;
 using System.Runtime;
@@ -8,9 +9,15 @@ using System.Runtime.InteropServices;
 
 internal static unsafe class Kernel
 {
-    // ---- hardware access (implemented in boot.S) ----
+    // ---- hardware access (implemented in boot.S / interrupts.S) ----
     [DllImport("osbnative")] private static extern void outb(ushort port, byte value);
     [DllImport("osbnative")] private static extern byte inb(ushort port);
+    [DllImport("osbnative")] private static extern void lidt(byte* idtr);
+    [DllImport("osbnative")] private static extern ulong osb_get_stub_table();
+    [DllImport("osbnative")] private static extern void sti();
+    [DllImport("osbnative")] private static extern void cli();
+    [DllImport("osbnative")] private static extern void halt();   // sti; hlt
+    [DllImport("osbnative")] private static extern void hlt_cpu(); // bare hlt
 
     private const uint VgaBase = 0xB8000;
     private const int VgaWidth = 80;
@@ -19,6 +26,25 @@ internal static unsafe class Kernel
 
     private static int _row;
     private static int _col;
+
+    // ---- IDT + PIC state (fixed buffers in .bss, zero-initialized) ----
+    private const int IdtSize = 256 * 16;          // 256 entries x 16 bytes
+    private const ushort KernelSelector = 0x08;    // GDT: 64-bit code at offset 8
+    private const byte IdtInterruptGate = 0x8E;    // present, DPL0, 64-bit gate
+    private const int KbdVector = 32 + 1;          // IRQ1 remapped to vector 33
+
+    private unsafe struct IdtTable { public fixed byte bytes[256 * 16]; }
+    private unsafe struct IdtrTable { public fixed byte data[10]; } // lidt operand
+    private unsafe struct KbdRing
+    {
+        public fixed byte data[128];
+        public int head;
+        public int tail;
+    }
+
+    private static IdtTable _idt;
+    private static IdtrTable _idtr;
+    private static KbdRing _kbd;
 
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -30,8 +56,12 @@ internal static unsafe class Kernel
         SerialInit();
         VgaClear();
 
+        PicInit();          // remap 8259A (IRQ0-15 -> vectors 32-47), unmask IRQ1
+        IdtInit();          // fill + load the IDT (exception + IRQ stubs)
+
         WriteLine("OSB - Operating System Basic");
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
+        WriteLine("Keyboard: PS/2 IRQ1 via IDT + PIC (interrupt-driven).");
         Write("Multiboot2 info @ ");
         WriteHex(multibootInfo);
         PutChar('\n');
@@ -135,13 +165,140 @@ internal static unsafe class Kernel
         outb(0x3F8, (byte)c);
     }
 
-    // ---------------------------------------------------------------- keyboard
-    private static int PollScancode()
+    // ------------------------------------------------------------ interrupts
+    // IDT entry: block of 16 bytes written manually (byte 0: offset bits 0-7).
+    private static void IdtWriteEntry(int i, ulong handler, byte typeAttr)
     {
-        if ((inb(0x64) & 0x01) == 0) return -1;
-        return inb(0x60);
+        int o = i * 16;
+        _idt.bytes[o + 0] = (byte)handler;
+        _idt.bytes[o + 1] = (byte)(handler >> 8);
+        _idt.bytes[o + 2] = (byte)KernelSelector;  // selector: kernel code
+        _idt.bytes[o + 3] = 0x00;
+        _idt.bytes[o + 4] = 0x00;                  // IST = 0
+        _idt.bytes[o + 5] = typeAttr;
+        _idt.bytes[o + 6] = (byte)(handler >> 16);
+        _idt.bytes[o + 7] = (byte)(handler >> 24);
+        _idt.bytes[o + 8] = (byte)(handler >> 32);
+        _idt.bytes[o + 9] = (byte)(handler >> 40);
+        _idt.bytes[o + 10] = (byte)(handler >> 48);
+        _idt.bytes[o + 11] = (byte)(handler >> 56);
+        _idt.bytes[o + 12] = 0x00;
+        _idt.bytes[o + 13] = 0x00;
+        _idt.bytes[o + 14] = 0x00;
+        _idt.bytes[o + 15] = 0x00;
     }
 
+    private static void IdtInit()
+    {
+        // One stub per vector, address table exported by interrupts.S.
+        ulong table = osb_get_stub_table();
+        for (int i = 0; i < 256; i++)
+            IdtWriteEntry(i, *(ulong*)(table + (ulong)i * 8), IdtInterruptGate);
+
+        // IDTR = { limit: 16 bits, base: 64 bits } -> 10 bytes, contiguous.
+        int limit = IdtSize - 1; // 4095
+        ulong idtBase;
+        fixed (byte* p = _idt.bytes) { idtBase = (ulong)p; }
+        fixed (byte* p = _idtr.data)
+        {
+            p[0] = (byte)limit;
+            p[1] = (byte)(limit >> 8);
+            p[2] = (byte)idtBase;
+            p[3] = (byte)(idtBase >> 8);
+            p[4] = (byte)(idtBase >> 16);
+            p[5] = (byte)(idtBase >> 24);
+            p[6] = (byte)(idtBase >> 32);
+            p[7] = (byte)(idtBase >> 40);
+            p[8] = (byte)(idtBase >> 48);
+            p[9] = (byte)(idtBase >> 56);
+            lidt(p);
+        }
+    }
+
+    // 8259A: remap IRQ0-7 -> 0x20-0x27 and IRQ8-15 -> 0x28-0x2F (8086 mode,
+    // slave on IRQ2), then mask everything except IRQ1 (keyboard).
+    private static void PicInit()
+    {
+        outb(0x20, 0x11); outb(0x80, 0);  // ICW1: init, edge triggered
+        outb(0xA0, 0x11); outb(0x80, 0);
+        outb(0x21, 0x20); outb(0x80, 0);  // ICW2: master base vector 0x20
+        outb(0xA1, 0x28); outb(0x80, 0);  // ICW2: slave base vector 0x28
+        outb(0x21, 0x04); outb(0x80, 0);  // ICW3: slave on master IRQ2
+        outb(0xA1, 0x02); outb(0x80, 0);
+        outb(0x21, 0x01); outb(0x80, 0);  // ICW4: 8086/8088 mode
+        outb(0xA1, 0x01); outb(0x80, 0);
+        outb(0x21, 0xFD); outb(0x80, 0);  // OCW1: unmask IRQ1 only
+        outb(0xA1, 0xFF); outb(0x80, 0);  // OCW1: mask all slave IRQs
+    }
+
+    private static void PicEoi(int irq)
+    {
+        if (irq >= 8) outb(0xA0, 0x20);
+        outb(0x20, 0x20);
+    }
+
+    // Scancode ring buffer filled by the IRQ1 handler, drained by the shell.
+    private static void KbdPush(byte sc)
+    {
+        int next = _kbd.tail + 1;
+        if (next >= 128) next = 0;
+        if (next != _kbd.head)
+        {
+            _kbd.data[_kbd.tail] = sc;
+            _kbd.tail = next;
+        }
+    }
+
+    private static int KbdPop()
+    {
+        if (_kbd.head == _kbd.tail) return -1;
+        byte sc = _kbd.data[_kbd.head];
+        int next = _kbd.head + 1;
+        if (next >= 128) next = 0;
+        _kbd.head = next;
+        return sc;
+    }
+
+    // Dispatcher called from isr_common. Frame layout (ulong offsets):
+    //   0..14 = rax..r15, 15 = vector, 16 = dummy error code,
+    //   17..21 = rip, cs, rflags, rsp, ss.
+    [RuntimeExport("osb_handle_interrupt")]
+    private static void HandleInterrupt(ulong* frame)
+    {
+        ulong vector = frame[15];
+
+        if (vector == KbdVector) // IRQ1: PS/2 controller has a scancode
+        {
+            byte sc = inb(0x60);
+            KbdPush(sc);
+            PicEoi(1);
+            return;
+        }
+
+        if (vector < 32)
+        {
+            ExceptionPanic(vector, frame); // fatal CPU exception
+            return;
+        }
+
+        PicEoi((int)(vector - 32)); // masked IRQ that still slipped through
+    }
+
+    private static void ExceptionPanic(ulong vector, ulong* frame)
+    {
+        PutChar('\n');
+        Write("!! CPU EXCEPTION vector=0x");
+        WriteHex(vector);
+        Write(" ERR=0x");
+        WriteHex(frame[16]);
+        Write(" RIP=0x");
+        WriteHex(frame[17]);
+        WriteLine("  -- system halted.");
+        cli();
+        for (;;) hlt_cpu();
+    }
+
+    // ---------------------------------------------------------------- keyboard
     private static char MapScancode(byte sc, bool shift)
     {
         switch (sc)
@@ -208,8 +365,10 @@ internal static unsafe class Kernel
 
         while (true)
         {
-            int sc = PollScancode();
-            if (sc < 0) continue;
+            // Drain the IRQ1 ring buffer. When empty, sleep until the next
+            // keyboard interrupt instead of polling the controller.
+            int sc = KbdPop();
+            if (sc < 0) { halt(); continue; }
 
             if (sc == 0x2A || sc == 0x36) { shift = true; continue; }
             if (sc == 0xAA || sc == 0xB6) { shift = false; continue; }
@@ -259,7 +418,7 @@ internal static unsafe class Kernel
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
-        if (Eq(line, len, "HALT")) { WriteLine("System halted."); while (true) { } }
+        if (Eq(line, len, "HALT")) { WriteLine("System halted."); cli(); for (;;) hlt_cpu(); }
         if (StartsWith(line, len, "ECHO"))
         {
             int i = 4;

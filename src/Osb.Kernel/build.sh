@@ -41,11 +41,80 @@ echo "[2/5] NativeAOT (ilc) ..."
     -O -g --directpinvoke:osbnative \
     --map "$OBJ/kernel.map"
 
-echo "[3/5] Assembling boot stub ..."
+echo "[3/5] Generating ISR stubs + assembling ..."
+# Generate interrupts.S: one 2-instruction stub per IDT vector plus a common
+# frame save/restore entry. Vectors with a CPU error code (8,10-14,17) and a
+# uniform [vector][dummy] pushed-frame layout for the C# handler.
+ISR="$OBJ/interrupts.S"
+: > "$ISR"
+printf '.section .text\n\n' >> "$ISR"
+ERRVECS=" 8 10 11 12 13 14 17 "
+for i in $(seq 0 255); do
+  printf '.global isr%s\nisr%s:\n' "$i" "$i" >> "$ISR"
+  if [[ "$ERRVECS" == *" $i "* ]]; then
+    printf '    addq $8, %%rsp    /* discard CPU error code */\n' >> "$ISR"
+  fi
+  printf '    pushq $0\n    pushq $%s\n    jmp isr_common\n\n' "$i" >> "$ISR"
+done
+printf '.global osb_isr_stubs\nosb_isr_stubs:\n' >> "$ISR"
+for i in $(seq 0 255); do
+  printf '    .quad isr%s\n' "$i" >> "$ISR"
+done
+cat >> "$ISR" <<'ASM'
+
+.global osb_get_stub_table
+.type osb_get_stub_table, @function
+osb_get_stub_table:
+    leaq osb_isr_stubs(%rip), %rax
+    ret
+
+/* Common ISR entry: save all GPRs, realign the stack to 16 bytes for the
+ * SysV/C# handler, call osb_handle_interrupt(frame*), then restore + iretq. */
+isr_common:
+    pushq %rax
+    pushq %rbx
+    pushq %rcx
+    pushq %rdx
+    pushq %rsi
+    pushq %rdi
+    pushq %rbp
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+    movq %rsp, %rbp          /* frame base (rbp is callee-saved) */
+    andq $-16, %rsp          /* SysV: rsp%16==0 at the call site */
+    movq %rbp, %rdi          /* arg0: pointer to the saved register frame */
+    call osb_handle_interrupt
+    movq %rbp, %rsp
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rbp
+    popq %rdi
+    popq %rsi
+    popq %rdx
+    popq %rcx
+    popq %rbx
+    popq %rax
+    addq $16, %rsp           /* drop [vector][dummy error code] */
+    iretq
+ASM
+clang -c -nostdlib -ffreestanding -o "$OBJ/interrupts.o" "$ISR"
 clang -c -nostdlib -ffreestanding -o "$OBJ/boot.o" "$ROOT/boot.S"
 
 echo "[4/5] Linking kernel.elf ..."
-ld.lld -T "$ROOT/linker.ld" -o "$OBJ/kernel.elf" "$OBJ/boot.o" "$OBJ/OsbKernel.o" --no-relax
+ld.lld -T "$ROOT/linker.ld" -o "$OBJ/kernel.elf" \
+    "$OBJ/boot.o" "$OBJ/interrupts.o" "$OBJ/OsbKernel.o" --no-relax
 
 echo "[5/5] Building ISO ..."
 rm -rf "$ISO_DIR"

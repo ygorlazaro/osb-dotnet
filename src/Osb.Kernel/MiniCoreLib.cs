@@ -173,6 +173,12 @@ namespace System.Runtime.CompilerServices
     [AttributeUsage(AttributeTargets.Field)]
     public sealed class IsVolatile : Attribute { }
 
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class FixedBufferAttribute : Attribute
+    {
+        public FixedBufferAttribute(Type elementType, int length) { }
+    }
+
     public enum MethodImplOptions
     {
         Unmanaged = 0x0004,
