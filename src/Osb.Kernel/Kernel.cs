@@ -20,6 +20,8 @@ internal static unsafe class Kernel
     [DllImport("osbnative")] private static extern void hlt_cpu(); // bare hlt
     [DllImport("osbnative")] private static extern void osb_switch(ref ulong saveSp, ref ulong loadSp);
     [DllImport("osbnative")] private static extern ulong osb_sched_get_demo_entry();
+    [DllImport("osbnative")] private static extern void osb_poweroff(); // ACPI S5 (QEMU exits)
+    [DllImport("osbnative")] private static extern void osb_reboot();   // 8042 reset pulse
 
     private const uint VgaBase = 0xB8000;
     private const int VgaWidth = 80;
@@ -58,13 +60,14 @@ internal static unsafe class Kernel
     // Software clock maintained by the RTC "update-ended" interrupt (IRQ8).
     private static byte _rtcSec, _rtcMin, _rtcHour, _rtcDay, _rtcMonth, _rtcYear;
 
-    // Cooperative round-robin scheduler: task 0 = shell (kernel stack), task 1 =
-    // demo (its own fixed stack, seeded by SchedInit).
+    // Preemptive round-robin scheduler: task 0 = shell (kernel stack), task 1 =
+    // demo (its own fixed stack, seeded by SchedInit). The PIT handler switches
+    // tasks (SchedulerTick); neither task yields explicitly.
     private unsafe struct TaskRegion { public fixed byte bytes[8192]; }
     private static TaskRegion _demoStack;
     private static ulong _schedSp0;          // saved SP of the shell task
     private static ulong _schedSp1;          // saved SP of the demo task
-    private static bool _demoWaiting;        // demo is blocked on its deadline
+    private static int _currentTask;         // task currently running (0 or 1)
     private static ulong _demoDeadline;
     private static ulong _demoCount;
 
@@ -88,7 +91,8 @@ internal static unsafe class Kernel
         WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
         WriteLine("Keyboard: PS/2 IRQ1 via IDT + PIC (interrupt-driven).");
         WriteLine("Timer: PIT channel 0 @ 100 Hz (IRQ0 ticks).");
-        WriteLine("Clock: RTC via IRQ8 (update-ended);  Tasks: 2, round-robin.");
+        WriteLine("Clock: RTC via IRQ8 (update-ended).");
+        WriteLine("Scheduler: preemptive round-robin (PIT preempts, no yields).");
         Write("Multiboot2 info @ ");
         WriteHex(multibootInfo);
         PutChar('\n');
@@ -382,7 +386,8 @@ internal static unsafe class Kernel
         if (vector == TimerVector) // IRQ0: PIT heartbeat (100 Hz)
         {
             _ticks++;
-            PicEoi(0);
+            PicEoi(0);            // EOI before switching: the PIC may deliver
+            SchedulerTick();      // the next tick while the other task runs
             return;
         }
 
@@ -435,12 +440,32 @@ internal static unsafe class Kernel
         *(ulong*)(savedSp + 48) = osb_sched_get_demo_entry();
         _schedSp0 = 0;
         _schedSp1 = savedSp;
+        _currentTask = 0;
         _demoDeadline = 0;
-        _demoWaiting = false;
     }
 
-    // Task 1: runs on its own stack, prints a line once per second and yields
-    // the CPU back to the shell after every slice.
+    // Called from the IRQ0 handler on every tick. Switches to the other task by
+    // swapping stacks; both tasks run the same code path, so each always knows
+    // who it is via _currentTask. The switch is atomic (we are inside an
+    // interrupt gate, IF=0) and the interrupted ISR frame stays parked on the
+    // stopped task's stack until it is scheduled again.
+    private static void SchedulerTick()
+    {
+        if (_currentTask == 0)
+        {
+            _currentTask = 1;
+            osb_switch(ref _schedSp0, ref _schedSp1);
+        }
+        else
+        {
+            _currentTask = 0;
+            osb_switch(ref _schedSp1, ref _schedSp0);
+        }
+    }
+
+    // Task 1: runs on its own stack, prints a line once per second and sleeps in
+    // between. It never yields: the PIT preempts it, so the shell keeps getting
+    // scheduled even while the demo is mid-work.
     [RuntimeExport("osb_demo_task_main")]
     private static void DemoTaskMain()
     {
@@ -456,8 +481,7 @@ internal static unsafe class Kernel
                 WriteLine("");
                 _demoDeadline = _ticks + (ulong)PitHz;   // next round in 1 s
             }
-            _demoWaiting = _ticks < _demoDeadline;
-            osb_switch(ref _schedSp1, ref _schedSp0);
+            halt(); // sleep until the next interrupt; the PIT schedules the shell
         }
     }
 
@@ -528,17 +552,10 @@ internal static unsafe class Kernel
 
         while (true)
         {
-            // Drain the IRQ1 ring buffer. When empty, give the demo task its
-            // round-robin slice; if the demo is only waiting for its next
-            // deadline, sleep on the PIT instead of spinning, but still bounce
-            // the CPU to it after waking up.
+            // Drain the IRQ1 ring buffer. When empty, sleep: the PIT handler
+            // preempts us and schedules the demo task (preemptive round-robin).
             int sc = KbdPop();
-            if (sc < 0)
-            {
-                if (_demoWaiting) halt();
-                osb_switch(ref _schedSp0, ref _schedSp1);
-                continue;
-            }
+            if (sc < 0) { halt(); continue; }
 
             if (sc == 0x2A || sc == 0x36) { shift = true; continue; }
             if (sc == 0xAA || sc == 0xB6) { shift = false; continue; }
@@ -584,12 +601,33 @@ internal static unsafe class Kernel
         if (Eq(line, len, "HELP"))
         {
             WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  TICKS");
-            WriteLine("          SLEEP <seconds>  TIME  DATE  HALT");
+            WriteLine("          SLEEP <seconds>  TIME  DATE");
+            WriteLine("          HALT  POWEROFF  REBOOT");
             // note: ECHO is handled below
             return;
         }
         if (Eq(line, len, "CLS")) { VgaClear(); return; }
-        if (Eq(line, len, "HALT")) { WriteLine("System halted."); cli(); for (;;) hlt_cpu(); }
+        if (Eq(line, len, "HALT"))
+        {
+            WriteLine("System halted. (CPU stopped; in QEMU press Ctrl+Alt+2 then");
+            WriteLine("'quit', or use POWEROFF to close the emulator cleanly.)");
+            cli();
+            for (;;) hlt_cpu();
+        }
+        if (Eq(line, len, "POWEROFF") || Eq(line, len, "SHUTDOWN") ||
+            Eq(line, len, "EXIT") || Eq(line, len, "QUIT"))
+        {
+            WriteLine("Powering off (ACPI S5) ...");
+            cli();
+            osb_poweroff();                 // QEMU exits; on real HW this is S5
+            for (;;) hlt_cpu();             // fallback if ACPI is unavailable
+        }
+        if (Eq(line, len, "REBOOT"))
+        {
+            WriteLine("Rebooting ...");
+            osb_reboot();                   // 8042 reset; never returns
+            for (;;) hlt_cpu();
+        }
         if (Eq(line, len, "TIME"))
         {
             WriteTwo(_rtcHour); PutChar(':');

@@ -29,10 +29,12 @@ osb_switch:
     ret
 
 /* First time the demo task is scheduled in, its seeded stack "returns" here.
- * Calls the C# task body (which never returns). */
+ * Enables interrupts (we arrive through the timer's interrupt gate, IF=0) and
+ * calls the C# task body (which never returns). */
 .global osb_demo_trampoline
 .type osb_demo_trampoline, @function
 osb_demo_trampoline:
+    sti
     call osb_demo_task_main
 1:  hlt
     jmp 1b

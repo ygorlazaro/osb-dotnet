@@ -20,13 +20,19 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
 - **Clock RTC** (CMOS, IRQ8 → vetor 40): modo 24h + binário, interrupção "update-ended"
   (~1 Hz) que mantém o relógio de software do kernel; comandos `TIME` e `DATE` exibem
   hora e data reais.
-- **Agendador round-robin cooperativo**: a shell (tarefa 0) e uma tarefa "demo" (tarefa 1,
-  pilha própria de 8 KiB) alternam o CPU via troca de contexto em assembly (`osb_switch`,
-  registradores callee-saved, sem preempção). A demo imprime uma linha a cada segundo e
-  cede a fatia; o idle da shell dorme com `sti;hlt` quando a demo está esperando o deadline
-  (queda de CPU quase zero, sem busy-spin).
+- **Agendador round-robin preemptivo**: a shell (tarefa 0) e uma tarefa "demo" (tarefa 1,
+  pilha própria de 8 KiB) alternam o CPU por **preempção**: o handler do PIT (IRQ0) troca
+  de contexto a cada tick (troca de pilha via `osb_switch`), sem `yield` das tarefas. O
+  frame do ISR interrompido fica "estacionado" na pilha de cada tarefa até ela ser
+  reescalonada. A demo imprime uma linha por segundo e dorme com `halt()` entre rodadas;
+  o idle da shell também dorme com `halt()` — CPU quase ociosa, mas a demo continua
+  rodando mesmo durante um `SLEEP` da shell.
+- **Desligamento/reboot**: `POWEROFF` faz ACPI S5 (porta PM1a_CNT 0x604) — no QEMU o
+  emulador encerra limpo (útil: nada fica preso capturando teclado/mouse do host);
+  `REBOOT` pulsa o reset via controlador 8042.
 - Entrada de **teclado PS/2** (scancodes set 1) com um mini-shell:
-  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`, `HALT`.
+  `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`,
+  `HALT`, `POWEROFF`, `REBOOT`.
 
 ## Arquitetura
 
@@ -39,7 +45,7 @@ src/Osb.Kernel/
 │                       # + agendador RR cooperativo + shell OSB
 ├── boot.S              # bootstrap Multiboot2: 32-bit -> long mode -> chama kmain
 │                       # (+ helpers: outb/inb, mem*, lidt, sti/cli, halt)
-├── sched.S             # troca de contexto cooperativa (osb_switch) + trampoline da demo
+├── sched.S             # troca de contexto (osb_switch) + trampoline da tarefa demo
 ├── interrupts.S        # gerado no build: 256 stubs de ISR + isr_common + tabela de stubs
 ├── linker.ld           # layout ELF (carregado em 0x100000)
 ├── grub.cfg            # menu do GRUB (multiboot2)
@@ -68,23 +74,23 @@ kernel.elf         ──grub-mkrescue─▶       osb.iso
 cd src/Osb.Kernel
 chmod +x build.sh
 ./build.sh            # gera src/Osb.Kernel/osb.iso
-./build.sh run        # build + boot no QEMU (serial no terminal)
+./build.sh run        # build + boot no QEMU (serial no terminal, sem janela)
+./build.sh run-gui    # idem, mas abre a janela VGA (cuidado com o grab de input)
 ./build.sh check      # valida que kernel.elf é Multiboot2
 ```
 
-No QEMU com `-display none`, use `./build.sh run` (serial no stdio) ou:
+`run` usa `-display none -serial stdio`: sem janela, então o QEMU **não captura** o
+teclado/mouse do host. O kernel espelha a VGA na serial, então você vê tudo no terminal.
+Para sair: digite `POWEROFF` no prompt do OSB (ACPI S5 → o QEMU encerra sozinho).
 
-```sh
-qemu-system-x86_64 -cdrom osb.iso -m 64M -display none -serial stdio -no-reboot
-```
-
-O kernel também escreve na tela VGA; para ver a janela, basta remover `-display none`.
+Se rodar com janela (`run-gui` ou QEMU manual), o grab de input pode prender o mouse/
+teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor do QEMU
+(depois `quit`). O comando `POWEROFF` também encerra o emulador e libera o input.
 
 ## Próximos passos sugeridos
 
-- **Preempção**: transformar o round-robin cooperativo em preemptivo usando o PIT
-  (fatia por tick + save/restore completo do contexto na IRQ0) — acaba com o problema
-  de uma tarefa guardar o CPU.
+- **Espaços de endereço / threads**: hoje as duas tarefas compartilham o espaço do kernel;
+  trocar CR3 por tarefa e separar pilhas de kernel (TSS.rsp0) habilitaria ring 3.
 - ACPI + MMIO, framebuffer via `multiboot2` (modo gráfico) em vez de VGA text.
 - Migrar comandos do `Osb.Shell` ("VER", "DIR" em memória, OSLANG) para o kernel.
 - ABI de saída: hoje o "sistema" é o kernel; depois, um user-space.
@@ -105,9 +111,15 @@ O kernel também escreve na tela VGA; para ver a janela, basta remover `-display
 - **Qualquer IRQ do slave (IRQ8-15) exige o cascateamento no master**: sem IRQ2
   desmascarado no 8259A master (OCW1 = `0xF8` = IRQ0/IRQ1/IRQ2), a IRQ8 do RTC nunca
   chega à CPU. `0xF8`, e não `0xFB` (que mascara justamente IRQ0 e IRQ1).
-- `osb_switch` só salva os registradores **callee-saved** (rbx, rbp, r12-r15). Isso é
-  seguro em cooperação porque, na ABI SysV, os voláteis (incl. XMM) já são *spilled*
-  pelo compilador ao redor da chamada — a troca acontece sempre num ponto de chamada.
+- **Preempção**: `SchedulerTick` roda dentro do handler da IRQ0 (portanto com IF=0, logo
+  atômica) e faz `osb_switch` para a outra tarefa. O EOI é enviado **antes** da troca,
+  para o PIC poder entregar o próximo tick já na tarefa nova. Quando a tarefa é
+  reescalonada, ela retoma de dentro do próprio `SchedulerTick`, desenrola o handler,
+  restaura GPRs+XMM do frame e faz `iretq` — o contexto interrompido volta intacto.
+- `osb_switch` só salva os registradores **callee-saved** (rbx, rbp, r12-r15). Isso basta
+  porque o `isr_common` já salva **todos** os GPRs e XMM no frame de interrupção antes de
+  chamar o handler: o que a troca de contexto precisa preservar são só os callee-saved
+  vivos entre o `iretq` e o ponto de troca.
 - A tarefa demo tem pilha fixa de 8 KiB em `.bss`; a IRQ pode interrompê-la e roda na
   própria pilha da tarefa (sem TSS), então o espaço precisa cobrir ISR + handler.
 - **SSE requer CR0.EM=0**: com `CR0.EM=1` toda instrução SSE do código C# (ex.

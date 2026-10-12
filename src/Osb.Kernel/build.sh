@@ -165,7 +165,19 @@ echo "OK -> $OUT_ISO"
 # Helpers
 case "${1:-}" in
   run)
-    echo "Booting in QEMU (serial on stdio) ..."
+    # Headless: serial straight to the terminal, no GUI window to grab the
+    # host keyboard/mouse. The kernel mirrors VGA -> COM1, so you still see
+    # everything. Quit: `POWEROFF` at the OSB prompt (ACPI S5 -> QEMU exits).
+    echo "Booting in QEMU (serial on stdio, no display) ..."
+    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M \
+      -display none -serial stdio -no-reboot
+    ;;
+  run-gui)
+    # Graphical window (to watch VGA text mode). The window grabs the mouse on
+    # click: press Ctrl+Alt+G to release, Ctrl+Alt+2 for the QEMU monitor, or
+    # use POWEROFF at the OSB prompt to shut the emulator down cleanly.
+    echo "Booting in QEMU (GUI window + serial on stdio) ..."
+    echo "  Grab escape: Ctrl+Alt+G  |  monitor: Ctrl+Alt+2 then 'quit'"
     exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M -serial stdio -no-reboot
     ;;
   check)

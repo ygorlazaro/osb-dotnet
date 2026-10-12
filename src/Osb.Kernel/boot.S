@@ -215,4 +215,28 @@ hlt_cpu:
     hlt
     ret
 
+/* ACPI S5 soft-off: write 0x2000 (SLP_TYP=0|SLP_EN) to PM1a_CNT (port 0x604).
+ * On QEMU this makes the emulator exit cleanly (no window left grabbing input). */
+.global osb_poweroff
+.type osb_poweroff, @function
+osb_poweroff:
+    movw $0x604, %dx
+    movw $0x2000, %ax
+    outw %ax, %dx
+    ret
+
+/* Reset via the 8042 keyboard controller (pulse the reset line). */
+.global osb_reboot
+.type osb_reboot, @function
+osb_reboot:
+    cli
+1:  movw $0x64, %dx
+    inb  %dx, %al
+    testb $0x02, %al
+    jnz  1b
+    movw $0xFE, %ax
+    outb %al, %dx
+2:  hlt
+    jmp 2b
+
 .section .note.GNU-stack, "", @progbits
