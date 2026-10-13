@@ -53,6 +53,9 @@ internal sealed partial class Interpreter
             case ForStmt f:
                 ExecuteFor(f, scope, loopDepth);
                 break;
+            case ForInStmt fi:
+                ExecuteForIn(fi, scope, loopDepth);
+                break;
             case WhileStmt w:
                 ExecuteWhile(w, scope, loopDepth);
                 break;

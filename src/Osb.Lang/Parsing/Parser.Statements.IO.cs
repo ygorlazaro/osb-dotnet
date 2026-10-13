@@ -129,7 +129,28 @@ public sealed partial class Parser
     {
         var start = Current.Location;
         Advance(); // FOR
+
+        bool forEach = false;
+        if (Check(TokenType.Each))
+        {
+            Advance(); // EACH
+            forEach = true;
+        }
+
         var nameTok = Expect(TokenType.Identifier, "Expected loop variable name after FOR.");
+
+        Expr iterable;
+        if (Check(TokenType.In))
+        {
+            Advance(); // IN
+            iterable = ParseExpression();
+            if (Check(TokenType.Do)) Advance(); // optional DO
+            var body = ParseBlockUntil(TokenType.End);
+            Expect(TokenType.End, "Expected END to close FOR.");
+            return new ForInStmt(nameTok.Text, iterable, body, start, forEach);
+        }
+
+        // Classic FOR var = start TO end
         Expect(TokenType.Equal, "Expected '=' after FOR loop variable.");
         var from = ParseExpression();
         Expect(TokenType.To, "Expected TO in FOR statement.");
@@ -142,9 +163,9 @@ public sealed partial class Parser
             step = ParseExpression();
         }
 
-        var body = ParseBlockUntil(TokenType.End);
+        var body2 = ParseBlockUntil(TokenType.End);
         Expect(TokenType.End, "Expected END to close FOR.");
-        return new ForStmt(nameTok.Text, from, to, step, body, start);
+        return new ForStmt(nameTok.Text, from, to, step, body2, start);
     }
 
 

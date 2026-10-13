@@ -218,6 +218,13 @@ public sealed record ForStmt(
     Expr? Step,
     IReadOnlyList<Stmt> Body,
     SourceLocation Location) : Stmt(Location);
+/// <summary>FOR EACH / FOR IN - iterating over an array or range (0.62-style).</summary>
+public sealed record ForInStmt(
+    string VariableName,
+    Expr Iterable,
+    IReadOnlyList<Stmt> Body,
+    SourceLocation Location,
+    bool IsForEach = false) : Stmt(Location);
 
 /// <summary>WHILE condition - seção 31.</summary>
 public sealed record WhileStmt(Expr Condition, IReadOnlyList<Stmt> Body, SourceLocation Location) : Stmt(Location);

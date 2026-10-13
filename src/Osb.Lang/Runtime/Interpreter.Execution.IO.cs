@@ -92,6 +92,47 @@ internal sealed partial class Interpreter
     }
 
 
+    private void ExecuteForIn(ForInStmt fi, Scope scope, int loopDepth)
+    {
+        var iterable = Eval(fi.Iterable, scope);
+        System.Collections.Generic.IReadOnlyList<OslangValue> items;
+        if (iterable is ArrayValue av)
+        {
+            items = av.Items;
+        }
+        else if (iterable is StringValue sv)
+        {
+            var list = new System.Collections.Generic.List<OslangValue>();
+            foreach (char ch in sv.Value) list.Add(new StringValue(ch.ToString()));
+            items = list;
+        }
+        else
+        {
+            throw new OslangRuntimeException(fi.Location, "FOR IN expects an ARRAY or STRING.");
+        }
+
+        var variable = scope.ResolveForAssignment(fi.VariableName);
+
+        foreach (var item in items)
+        {
+            TypeSystem.Assign(variable, item, fi.Location, $"loop variable '{fi.VariableName}'");
+
+            try
+            {
+                ExecuteBlock(fi.Body, scope, loopDepth + 1);
+            }
+            catch (BreakSignal)
+            {
+                break;
+            }
+            catch (ContinueSignal)
+            {
+                // next item
+            }
+        }
+    }
+
+
     private void ExecuteWhile(WhileStmt w, Scope scope, int loopDepth)
     {
         while (Conversions.IsTruthy(Eval(w.Condition, scope)))

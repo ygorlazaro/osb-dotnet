@@ -85,6 +85,9 @@ public enum TokenType
     // OSLANG 0.61
     Enum,
     Pipe,
+    // OSLANG 0.62
+    In,
+    Each,
 
     // OSLANG 0.62
     Osb,

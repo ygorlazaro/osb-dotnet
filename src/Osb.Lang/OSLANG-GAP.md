@@ -295,7 +295,7 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 | Feature | Spec | Host | Kernel |
 |---|---|---|---|
 | `SWITCH`/`CASE`/`DEFAULT` + `BREAK` inside | 0.61 | ✅ | ✅ (statement form) |
-| `FOR IN` / `FOR EACH` statement | 0.62 | ❌ | ❌ |
+| `FOR IN` / `FOR EACH` statement | 0.62 | ✅ | ❌ |
 | Arrow functions, closures | 0.51 | ✅ | ✅ (array callbacks work) |
 | Postfix `++`/`--` | 0.51 | ✅ | ✅ |
 | `VIRTUAL`/`OVERRIDE`/`ABSTRACT`/`STATIC` | 0.3 | ❌ | ✅ (`VIRTUAL`/`OVERRIDE` with override check) |

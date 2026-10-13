@@ -37,6 +37,8 @@ public static class Keywords
         ["FUNCTION"] = TokenType.Function,
         ["GLOBAL"] = TokenType.Global,
         ["IF"] = TokenType.If,
+        ["IN"] = TokenType.In,
+        ["EACH"] = TokenType.Each,
         ["INPUT"] = TokenType.Input,
         ["INTERFACE"] = TokenType.Interface,
         ["ME"] = TokenType.Me,
