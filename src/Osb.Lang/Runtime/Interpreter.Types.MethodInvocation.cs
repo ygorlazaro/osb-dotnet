@@ -12,9 +12,17 @@ internal sealed partial class Interpreter
 {
     private OslangValue CallMethod(ObjectInstance instance, MethodDefinition method, ClassDefinition? declaringClass, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
     {
-        if (args.Count != method.Parameters.Count)
+        if (args.Count > method.Parameters.Count)
         {
-            throw new OslangRuntimeException(callLocation, $"Method '{method.Name}' expects {method.Parameters.Count} argument(s), got {args.Count}.");
+            throw new OslangRuntimeException(callLocation, $"Method '{method.Name}' expects at most {method.Parameters.Count} argument(s), got {args.Count}.");
+        }
+
+        for (var i = args.Count; i < method.Parameters.Count; i++)
+        {
+            if (method.Parameters[i].DefaultValue is null)
+            {
+                throw new OslangRuntimeException(callLocation, $"Method '{method.Name}' expects at least {i} argument(s), got {args.Count}.");
+            }
         }
 
         var previousObject = _currentObject;
@@ -31,7 +39,8 @@ internal sealed partial class Interpreter
             {
                 variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
             }
-            TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+            var value = i < args.Count ? args[i] : Eval(param.DefaultValue!, scope);
+            TypeSystem.Assign(variable, value, param.Location, $"parameter '{param.Name}'");
         }
 
         try

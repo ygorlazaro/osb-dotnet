@@ -10,7 +10,13 @@ public sealed partial class Parser
     {
         var nameTok = Expect(TokenType.Identifier, "Expected parameter name.");
         var typeName = TryParseTypeAnnotation();
-        return new ParameterDecl(nameTok.Text, typeName, nameTok.Location);
+        Expr? defaultValue = null;
+        if (Check(TokenType.Equal))
+        {
+            Advance();
+            defaultValue = ParseExpression();
+        }
+        return new ParameterDecl(nameTok.Text, typeName, nameTok.Location, defaultValue);
     }
 
 

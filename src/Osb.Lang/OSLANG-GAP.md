@@ -302,7 +302,7 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 | `EVENT`/`ON`/`RAISE` | 0.3 | ❌ (dead code) | ❌ (explicit refusal) |
 | Generics | 0.3 | ❌ (dead code) | ❌ |
 | Function overloading | 0.3 | ✅ | ❌ |
-| Default parameter values | — | ❌ | ❌ |
+| Default parameter values | — | ✅ | ❌ |
 | `BASE(...)` | 0.2 | ✅ | ✅ |
 | Visibility enforcement | 0.2 | ✅ | ✅ (fields and methods) |
 | Interface enforcement | 0.2 | ⚠️ (names only) | ✅ (public methods, inherited) |

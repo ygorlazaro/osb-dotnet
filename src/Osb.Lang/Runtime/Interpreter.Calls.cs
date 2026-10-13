@@ -239,11 +239,21 @@ internal sealed partial class Interpreter
 
     private OslangValue CallUserFunction(FunctionDecl decl, IReadOnlyList<OslangValue> args, SourceLocation callLocation)
     {
-        if (args.Count != decl.Parameters.Count)
+        if (args.Count > decl.Parameters.Count)
         {
             throw new OslangRuntimeException(
                 callLocation,
-                $"Function '{decl.Name}' expects {decl.Parameters.Count} argument(s), got {args.Count}.");
+                $"Function '{decl.Name}' expects at most {decl.Parameters.Count} argument(s), got {args.Count}.");
+        }
+
+        for (var i = args.Count; i < decl.Parameters.Count; i++)
+        {
+            if (decl.Parameters[i].DefaultValue is null)
+            {
+                throw new OslangRuntimeException(
+                    callLocation,
+                    $"Function '{decl.Name}' expects at least {i} argument(s), got {args.Count}.");
+            }
         }
 
         var scope = new Scope(_globals);
@@ -256,7 +266,17 @@ internal sealed partial class Interpreter
                 variable.EstablishedType = TypeSystem.ParseTypeName(param.TypeName);
             }
 
-            TypeSystem.Assign(variable, args[i], param.Location, $"parameter '{param.Name}'");
+            OslangValue value;
+            if (i < args.Count)
+            {
+                value = args[i];
+            }
+            else
+            {
+                value = Eval(param.DefaultValue!, scope);
+            }
+
+            TypeSystem.Assign(variable, value, param.Location, $"parameter '{param.Name}'");
         }
 
         try

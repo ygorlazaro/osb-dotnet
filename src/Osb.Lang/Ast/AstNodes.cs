@@ -19,7 +19,7 @@ public sealed record OslangProgram(
 /// Parâmetro de função. <see cref="TypeName"/> é "NUMBER"/"STRING"/"BOOLEAN" para
 /// parâmetros tipados (seção 16), ou null para parâmetros não tipados.
 /// </summary>
-public sealed record ParameterDecl(string Name, string? TypeName, SourceLocation Location);
+public sealed record ParameterDecl(string Name, string? TypeName, SourceLocation Location, Expr? DefaultValue = null);
 
 public sealed record FunctionDecl(
     string Name,

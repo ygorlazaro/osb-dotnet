@@ -61,12 +61,21 @@ public sealed class FunctionOverloadSet
 
     private static bool Matches(IReadOnlyList<ParameterDecl> parameters, IReadOnlyList<RuntimeType> argumentTypes)
     {
-        if (parameters.Count != argumentTypes.Count)
+        if (argumentTypes.Count > parameters.Count)
         {
             return false;
         }
 
-        for (var i = 0; i < parameters.Count; i++)
+        // Missing trailing arguments are only legal when the corresponding parameter declares a default value.
+        for (var i = argumentTypes.Count; i < parameters.Count; i++)
+        {
+            if (parameters[i].DefaultValue is null)
+            {
+                return false;
+            }
+        }
+
+        for (var i = 0; i < argumentTypes.Count; i++)
         {
             var paramType = parameters[i].TypeName;
             if (paramType is null)
