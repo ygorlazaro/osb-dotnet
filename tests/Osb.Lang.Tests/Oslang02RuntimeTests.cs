@@ -2516,27 +2516,27 @@ END FUNCTION";
         var source = @"USING OSL.CONSOLE
 
 FUNCTION MAIN()
-    Key = OSL.CONSOLE.GETKEY()
-    IF Key.KEY = KEYCODE.ESC THEN
+    k = OSL.CONSOLE.GETKEY()
+    IF k.KEY = KEY.ESC THEN
         PRINT ""ESC""
     END
-    IF Key.CHAR <> NULL THEN
+    IF k.CHAR <> NULL THEN
         PRINT ""HasChar""
     END
-    IF Key.CTRL THEN
+    IF k.CTRL THEN
         PRINT ""Ctrl""
     END
-    IF Key.ALT THEN
+    IF k.ALT THEN
         PRINT ""Alt""
     END
-    IF Key.SHIFT THEN
+    IF k.SHIFT THEN
         PRINT ""Shift""
     END
     PRINT ""KeyOK""
 END FUNCTION";
 
         var extensions = new ExtensionRegistry();
-        extensions.Register("CONSOLE.GETKEY", (args, location) => new KeyValue(new EnumValue(new NumberValue(2), "KEYCODE", "ESC"), null, false, false, false));
+        extensions.Register("CONSOLE.GETKEY", (args, location) => new KeyValue(new EnumValue(new NumberValue(2), "KEY", "ESC"), null, false, false, false));
         var interpreter = new OslangInterpreter(extensions);
         interpreter.Execute(source, output, Console.In, Console.Clear, null);
         Assert.Contains("KeyOK", output.ToString());

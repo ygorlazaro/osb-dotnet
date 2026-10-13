@@ -15,8 +15,8 @@ internal sealed partial class Interpreter
     private readonly Dictionary<string, ClassDefinition> _classes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, InterfaceDefinition> _interfaces = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, OslangValue> _standardLibraries = new();
-    private readonly Dictionary<string, List<(string MemberName, OslangValue Value)>> _enums = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, EnumTypeValue> _enumTypes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<(string MemberName, OslangValue Value)>> _enums = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<UsingDecl> _topLevelUsings;
     private readonly List<EnumDecl> _topLevelEnums;
     private readonly ExtensionRegistry _extensions;
@@ -83,7 +83,6 @@ internal sealed partial class Interpreter
         }
     }
 
-
     public ClassDefinition? GetClass(string name) => _classes.TryGetValue(name, out var cls) ? cls : null;
 
 
@@ -98,6 +97,8 @@ internal sealed partial class Interpreter
 
     public OslangValue Run(IReadOnlyList<OslangValue>? args = null)
     {
+        RegisterBuiltinKeyEnum();
+
         var globalScope = new Scope(_globals);
         foreach (var usingDecl in _topLevelUsings)
         {
@@ -108,8 +109,6 @@ internal sealed partial class Interpreter
         {
             ExecuteEnumDecl(enumDecl);
         }
-
-        RegisterBuiltinKeyEnum();
 
         var main = GetFunction("MAIN") ?? throw new SemanticException(SourceLocation.Unknown, "Program has no FUNCTION MAIN().");
 

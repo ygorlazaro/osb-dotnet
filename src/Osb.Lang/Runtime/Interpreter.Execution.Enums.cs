@@ -89,8 +89,8 @@ internal sealed partial class Interpreter
             ("F12", new NumberValue(27)),
         };
 
-        _enums["KEYCODE"] = members;
-        _enumTypes["KEYCODE"] = new EnumTypeValue("KEYCODE");
+        _enums["KEY"] = members;
+        _enumTypes["KEY"] = new EnumTypeValue("KEY");
     }
 
     // ============================================================
