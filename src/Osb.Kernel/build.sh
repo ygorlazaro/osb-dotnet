@@ -207,7 +207,80 @@ WHILE FALSE
 PRINT "FALSE test done (loop should not repeat)!"
 EOF
 
-{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
+# Regression for the Phase 1 interpreter fixes: field writes through a bare
+# identifier (B2), array literals and indexing (B3), and CATCH across a call
+# boundary (B4). Run it with: OSLANG A:\OSB\APPS\PHASE1.OSL
+cat > "$OBJ/fs/apps/phase1.osl" <<'EOF'
+USING OSL.CONSOLE
+
+FUNCTION RAISER()
+    RETURN NOSUCHNAME
+END FUNCTION
+
+CLASS BOX
+    PUBLIC VALUE
+    CONSTRUCTOR(v)
+        VALUE = v
+    END CONSTRUCTOR
+    FUNCTION PUT(v)
+        VALUE = v
+    END FUNCTION
+    FUNCTION GET()
+        RETURN VALUE
+    END FUNCTION
+END CLASS
+
+FUNCTION SHADOW()
+    VALUE = "local"
+    PRINT "fn sees: " + VALUE
+END FUNCTION
+
+FUNCTION MAIN()
+    PRINT "-- 1. constructor writes the field (bare name) --"
+    b = NEW BOX(5)
+    PRINT "value=" + b.GET()
+
+    PRINT "-- 2. method writes the field, then reads it --"
+    b.PUT(9)
+    PRINT "value=" + b.GET()
+
+    PRINT "-- 3. a local with the same name still wins --"
+    SHADOW()
+    PRINT "field untouched: " + b.GET()
+
+    PRINT "-- 4. arrays --"
+    a = [10, 20, 30]
+    PRINT "count=" + COUNT(a)
+    PRINT "a[0]=" + a[0] + " a[2]=" + a[2]
+    a[1] = 99
+    PRINT "a[1]=" + a[1]
+    m = [[1, 2], [3, 4]]
+    PRINT "nested m[1][0]=" + m[1][0]
+
+    PRINT "-- 5. CATCH across a call --"
+    TRY
+        RAISER()
+        PRINT "never"
+    CATCH e1
+        PRINT "caught call: " + e1
+    END
+
+    PRINT "-- 6. CATCH inside a method --"
+    TRY
+        b.PUT(NOSUCHNAME)
+    CATCH e2
+        PRINT "caught method: " + e2
+    END
+
+    PRINT "-- 7. globals --"
+    GLOBAL G = 42
+    PRINT "G=" + G
+
+    PRINT "DONE"
+END FUNCTION
+EOF
+
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
 debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 

@@ -24,6 +24,7 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
         Vga.WriteLine("          SET [NAME=value]  env ($VAR, case-insensitive names)");
         Vga.WriteLine("Files:    DIR [path] [/W]  CD [path]  TYPE <file>  (ext4/A:)");
+        Vga.WriteLine("          OSLANG <script.OSL> [args]  run an OSLANG script (A:)");
         Vga.WriteLine("          SLEEP   TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
         Vga.WriteLine("Processes:SPAWN [BAD|SPAWNER] [&]  start a ring-3 process");
         Vga.WriteLine("          RING3 [BAD] [&]  synonym for SPAWN");

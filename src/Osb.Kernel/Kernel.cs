@@ -50,6 +50,7 @@ internal static unsafe partial class Kernel
         Vga.WriteLine("Ring 3: user segments + TSS; syscalls via INT 21h (DOS-style).");
         Vga.WriteLine("Jobs: DEMO / SPAWN / RING3; TASK / KILL / TAB / WAIT.");
         Vga.WriteLine("Files: ATA PIO + ext4 on A: (DIR / CD / TYPE)");
+        Vga.WriteLine("OSLANG: interpreter on A: (OSLANG script.osl [args])");
         Vga.WriteLine("Type HELP for commands.");
         Vga.WriteLine("");
 

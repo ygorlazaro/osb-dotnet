@@ -28,12 +28,12 @@ the code was read directly for this report.
 | Lexical (comments, escapes, multiline, interpolation) | 0.1 / 0.61 | ⚠️ | ⚠️ | both miss triple-quote indentation stripping |
 | Numbers / types | 0.1 | ⚠️ | ⚠️ | neither implements `DATE`/`TIME` (0.5) |
 | Operators (`MOD`, `**`, `++`, `+=`, `|`) | 0.1 / 0.51 / 0.61 | ✅ | ⚠️ | kernel lexes `++`/`--` but never parses them |
-| Control flow (`IF`/`WHILE`/`FOR`/`DO`/`BREAK`/`TRY`) | 0.1 | ✅ | ⚠️ | kernel `TRY/CATCH` cannot catch function errors |
+| Control flow (`IF`/`WHILE`/`FOR`/`DO`/`BREAK`/`TRY`) | 0.1 | ✅ | ✅ | kernel `TRY/CATCH` catches errors across calls |
 | `SWITCH`/`CASE`/`DEFAULT` | 0.3 / 0.61 | ✅ | ❌ | |
 | `FOR IN` / `FOR EACH` statements | 0.62 | ❌ | ❌ | neither has it |
 | Functions (params, recursion, overloading) | 0.1 / 0.3 | ✅ | ⚠️ | kernel: no overloading, no arity check |
-| Classes (fields, ctors, `NEW`, inheritance) | 0.2 | ⚠️ | ⚠️ | **kernel: bare assignment never writes a field** |
-| `ME` implicit / `BASE` | 0.2 / 0.72 | ⚠️ | ⚠️ | both diverge on the read/write order |
+| Classes (fields, ctors, `NEW`, inheritance) | 0.2 | ⚠️ | ⚠️ | kernel fields work now; visibility still unenforced |
+| `ME` implicit / `BASE` | 0.2 / 0.72 | ⚠️ | ⚠️ | kernel follows the 0.73 order; host still diverges |
 | Visibility `PUBLIC`/`PRIVATE`/`PROTECTED` | 0.2 | ✅ | ❌ | kernel parses and discards it |
 | `INTERFACE` | 0.2 | ⚠️ | ❌ | kernel: parsed then thrown away |
 | `VIRTUAL`/`OVERRIDE`, `ABSTRACT`, `STATIC` | 0.3 | ❌ | ❌ | |
@@ -59,70 +59,62 @@ the code was read directly for this report.
 
 **One-line verdict.** The reference implementation covers most of 0.1–0.7 language surface
 and is a solid 0.72, but is still missing `DATE`/`TIME`, `VIRTUAL`/`OVERRIDE`, events,
-generics, `FOR IN`, and several 0.73 rules. The kernel port is a *sketch* of that: it can
-parse and run straight-line scripts, but arrays, OOP and `TRY/CATCH` are broken in ways
-that no script exercises, and the interpreter is not even reachable from the shell.
+generics, `FOR IN`, and several 0.73 rules. The kernel port is a *sketch* of that: after
+Phase 1 its core 0.1 semantics — field writes, arrays, `TRY/CATCH` across calls — are sound
+and reachable from the shell, but it still has no method dispatcher, no `MATH.*`, no
+`SWITCH`, and an unsafe `KEY` enum table.
 
 ---
 
-## 1. Blockers: the kernel port cannot be exercised at all
+## 1. Blockers
 
-These six are not "missing features", they are holes in what already exists. Fix them
-before adding any 0.7x feature, because nothing can be validated until they are fixed.
+Phase 1 landed **B1–B4**: the interpreter is reachable from the shell, fields survive a
+bare assignment, arrays carry real element counts, and `CATCH` works across call
+boundaries. B5–B7 are still open — they are safety and correctness-of-the-runtime items
+rather than language features, and are cheap to close.
 
-**B1 — The interpreter is unreachable from the shell.**
-`OslangCmd(char*, int)` is defined at `OslangKernel.cs:3715` and referenced nowhere.
-`Shell/Shell.cs` dispatches `VER ABOUT HELP CLS ECHO SET DIR CD TYPE MEM HALT POWEROFF
-REBOOT TIME DATE TICKS SLEEP DEMO TASK KILL WAIT TAB SPAWN` — there is no `OSLANG`
-command, so the whole interpreter and every `.OSL` file seeded into `A:` is dead weight.
-*Fix:* add `OSLANG <script> [args…]` to `Shell.Execute`, and make the argument parse use the
-received `len` instead of the hard-coded `i = 6` at `:3719`.
+**B1 ✅ The interpreter is reachable from the shell.**
+`OSLANG <script.OSL> [args…]` is dispatched from `Shell.Execute` to `Kernel.OslangCmd`,
+which no longer assumes the command word is exactly six characters. Every `.OSL` file
+seeded into `A:\OSB\APPS` is runnable, and `PHASE1.OSL` is the regression for B2/B3/B4
+(see §7).
 
-**B2 — A bare assignment inside a method never writes the class field.**
-`OsAssignTarget` (`:2484`) sends every `Ek.Id` target to `OsAssign` (`:2228`), which only
-touches *scope* variables (`OsFindVar`, else `OsScopeAdd`). Class fields live in the object
-block, not in any scope, and no code path converts a bare-identifier assignment into
-`OsSetObjectField`. Reads do resolve to fields (`:2566`), so the result is: `ME.NAME = "x"`
-then `PRINT NAME` prints `NULL`, while `NAME = "x"` silently creates a local that shadows
-the field. Every class script is affected. This is also the *same* rule 0.73 changes
-(deliberately) for locals/parameters — so the fix belongs in one place: resolve the write
-target through the full 0.73 order.
+**B2 ✅ A bare assignment inside a method writes the class field.**
+`OsAssign` resolves a bare identifier in the OSLANG 0.73 order — local/parameter → current
+class property → globals — and only creates a new local when nothing matches. The read path
+(`OsResolveIdentifier`) was rewritten to the same order (local → class + parent chain →
+globals → enum types), so a read and a write of the same bare name can never disagree about
+what it means. `OsFieldIndex` walks the whole parent chain, so inherited fields are
+addressable too.
 
-**B3 — Array literals always report zero elements.**
-`OsArrMake` (`:620`) writes capacity at `+0` and count at `+4`, initialising count to `0`.
-`OsEvalArr` (`:3266`) fills `OsArrElem(arr)[i]` for every element but never updates the
-count word. So `[1, 2, 3]` has `count == 0`: every index read/write fails with
-"Array index out of range.", `COUNT`/`LEN` return 0, and `PRINT arr` prints nothing
-(`OsPrintVal` has no array case). Nested arrays inherit the same bug.
+**B3 ✅ Array literals carry their element count.**
+`OsEvalArr` publishes the count through the new `OsArrSetCount` once every element is in
+place, so a half-built array is never visible. `OsArrMake` and `OsStr` also return NULL
+instead of writing through a failed allocation.
 
-**B4 — `TRY/CATCH` cannot catch an error raised inside a function or method.**
-`OsCallFunction` (`:2266`) runs the body and then unconditionally `_osCtl = CTL_NONE`
-(`:2268`); `OsCallMethod` does the same at `:3093`. `Sk.TryCatch` (`:2369`) only handles
-`CTL_EXCEPTION`, so an error raised inside a call reaches the enclosing `TRY` as
-`CTL_NONE` — the `CATCH` block never runs and the script dies. `OsFailName` (`:275`),
-`OsFail2` (`:2472`) and the setter inside `OsNums` (`:2923`) also fail to set
-`CTL_EXCEPTION`, so those errors are uncatchable even without a call frame. `OsAlloc`
-failure is worse: `OsFail` allocates, so an out-of-memory inside it cannot even record the
-error.
+**B4 ✅ `CATCH` sees errors raised inside a call.**
+`OsCallFunction`/`OsCallMethod` absorb only `CTL_RETURN`/`CTL_BREAK`/`CTL_CONTINUE` now —
+an exception keeps propagating to the caller's `TRY`. Every `OsFail*` variant routes
+through `OsRaise`, which sets `CTL_EXCEPTION` and copies the message into a **static**
+buffer, so the error path needs no arena and cannot recurse. (The old `OsFail` allocated its
+own message, so an out-of-memory crashed the kernel instead of reporting.)
 
-**B5 — The builtin `KEY` enum declares 35 members and writes 28.**
-`OsDefineKeyEnum` sets `MemberCount = 35` (`:3814`) and assigns members `0..27`
-(`:3826-3880`); slots 28–34 hold whatever `OsAlloc` returned. Four loops iterate
-`MemberCount` and dereference those pointers (`OsPrintVal :571`, `OsDisplayLen :493`,
-`OsWriteDisplay :528`, `OsEvalMember :3223`) → wild pointer reads, and a page fault would
-kill the kernel outright. Also: 24 non-special keys are absent, and the enum values are
-set-1 scancodes rather than the spec's arbitrary numbering.
+**B5 ❌ The builtin `KEY` enum declares 35 members and writes 28.**
+`OsDefineKeyEnum` sets `MemberCount = 35` and assigns members `0..27`; slots 28–34 hold
+whatever `OsAlloc` returned. Four loops iterate `MemberCount` and dereference those pointers
+(`OsPrintVal`, `OsDisplayLen`, `OsWriteDisplay`, `OsEvalMember`) → wild pointer reads, and a
+page fault would kill the kernel outright. Also: 24 non-special keys are absent, and the
+enum values are set-1 scancodes rather than the spec's arbitrary numbering.
 
-**B6 — The script size cap counts characters against a byte arena.**
-`OslangCmd` passes `(int)(_osHeapSize / 2)` as the character cap (`:3757`) — 2 MiB of
-*chars* against a 4 MiB *byte* arena — then adds `(srcLen + 1) * 2` bytes at `:3759` with no
-bounds check. A script of ~1 MiB (512 Ki chars) already doubles past the arena end, which
-is unmapped. Needs a real `if (_osHeapUsed + needed > _osHeapSize)` guard, and the cap
-should be expressed in bytes.
+**B6 ❌ The script size cap counts characters against a byte arena.**
+`OslangCmd` passes `(int)(_osHeapSize / 2)` as the character cap — 2 MiB of *chars* against a
+4 MiB *byte* arena — then adds `(srcLen + 1) * 2` bytes with no bounds check. A script of
+~1 MiB (512 Ki chars) already writes past the arena end, which is unmapped. Needs a real
+`if (_osHeapUsed + needed > _osHeapSize)` guard, and the cap should be expressed in bytes.
 
-**B7 — (robustness) No recursion limit.** Each OSLANG frame costs ~408 arena bytes plus
-several native frames; runaway recursion exhausts the arena or overflows the CPU stack
-with no guard. A depth counter in `OsCallFunction` is a few lines.
+**B7 ❌ (robustness) No recursion limit.** Each OSLANG frame costs ~408 arena bytes plus
+several native frames; runaway recursion exhausts the arena or overflows the CPU stack with
+no guard. A depth counter in `OsCallFunction` is a few lines.
 
 ---
 
@@ -141,7 +133,8 @@ For each version: what it introduced, where it stands today, and what is left.
   which removed them, but the keywords should be deleted from the parser).
 - Kernel: statements all parse and run; `VAR x TYPE` annotation is not supported (`VAR x N`
   silently swallows the type token); `++`/`--` tokens are lexed and never parsed; the four
-  error categories collapse into one untyped message with no source location.
+  error categories collapse into one untyped message with no source location. Every error
+  is now catchable by `CATCH`, including ones raised inside a call (B4).
 
 ### 0.2 — OOP ⚠️ / ⚠️
 `CLASS`, `NEW`, `CONSTRUCTOR`, single inheritance, `ME`, visibility, `INTERFACE`.
@@ -150,10 +143,10 @@ For each version: what it introduced, where it stands today, and what is left.
   which validates visibility and signatures up the base chain) is **dead code** — only
   `Compilation.SemanticAnalyzer.Validate` runs, and it checks names on the class's own
   members only, ignoring inherited ones and visibility.
-- Kernel: B2 (assignment) and the missing visibility enforcement; interfaces are parsed into
-  `_osInterfaces` and never read (`:1494` writes, nothing reads); method dispatch searches
-  only the object's own class (`:3018`), so **inherited methods are unreachable**; the
-  parent constructor is only called when the child does not define one.
+- Kernel: field writes are fixed (B2), but visibility is still unenforced; interfaces are
+  parsed into `_osInterfaces` and never read (`:1494` writes, nothing reads); method
+  dispatch searches only the object's own class, so **inherited methods are unreachable**;
+  the parent constructor is only called when the child does not define one.
 
 ### 0.3 — multi-file, `SWITCH`, events, generics, overloading ⚠️ / ⚠️
 `USING`, `SWITCH`/`CASE`/`DEFAULT` (statement *and* expression form), `EVENT`/`ON`/`RAISE`,
@@ -178,10 +171,10 @@ named-function callbacks; file streams. **Breaking:** bare math functions remove
   `PUSH`/`INSERTAT` do; `ARRAY.SORT` throws a raw `InvalidOperationException` for
   non-number/string elements, which `TRY/CATCH` cannot catch.
   `FILE`/`DIR` are pure extension passthrough — `Osb.Lang` alone implements none of them.
-- Kernel: **no method dispatcher at all** (only `.LENGTH`/`.COUNT`, `:3154`), and calling
-  any other method is a hard parse/eval error ("Cannot call this expression."). No `MATH.*`
-  namespace — `MATH.SQRT(4)` fails because namespace detection only fires for a leftmost
-  `OSL` (`:2986`). `PRINT arr` / `SHOW obj` print nothing.
+- Kernel: **no method dispatcher at all** (only `.LENGTH`/`.COUNT`), and calling any other
+  method is a hard parse/eval error ("Cannot call this expression."). No `MATH.*` namespace
+  — `MATH.SQRT(4)` fails because namespace detection only fires for a leftmost `OSL`.
+  `PRINT arr` / `SHOW obj` still print nothing, even though arrays themselves now work (B3).
 
 ### 0.5 — `DATE` / `TIME` ❌ / ❌
 New primitive types, `DATE`/`TIME` namespaces, chronological comparison, extended `TYPEOF`.
@@ -195,9 +188,10 @@ arrays, `FINDINDEX/FOREACH/PUSH/POP/FLAT/FLATMAP`, `MATH` trigonometry, `PADSTAR
 REPEAT`, `TYPEOF` formalised.
 
 - Host: complete.
-- Kernel: `SHOW` ✅, `MOD`/`**` ✅, `+=` ✅, nested arrays parse ✅ — but B3 makes all of
-  them empty at runtime. `++`/`--` are lexed and never parsed. Arrow functions absent
-  (`Tk.DoubleArrow` is produced at `:759` and never consumed).
+- Kernel: `SHOW` ✅, `MOD`/`**` ✅, `+=` ✅, nested arrays ✅ (they used to be empty at
+  runtime — B3 fixed the element count, and `m[1][0]` now reads correctly). Still missing:
+  postfix `++`/`--` are lexed and never parsed, and arrow functions are absent
+  (`Tk.DoubleArrow` is produced and never consumed).
 
 ### 0.6 — the `OSL` standard-library concept ⚠️ / ❌
 Reserved `OSL` namespace, `USING OSL.I18N`, `.I18N` resource files, 13-member I18N API,
@@ -250,7 +244,7 @@ with indentation stripping, `${}` interpolation, enum `NAME()/VALUE()/TOSTRING()
   `6 8 9` and `*` are silently swallowed (`:3420`), and each call leaks a 5-field object
   into the arena.
 
-### 0.72 — implicit `ME`, typed keys, enum flags ⚠️ / ⚠️
+### 0.72 — implicit `ME`, typed keys, enum flags ⚠️ / ✅ (resolution order only)
 Implicit `ME` for reads *and* calls, the four-step resolution order, `KEY` enum, typed
 `Key.KEY`, `|` combination.
 
@@ -260,9 +254,10 @@ Implicit `ME` for reads *and* calls, the four-step resolution order, `KEY` enum,
   (`ExecuteAssign`, `Interpreter.Execution.Variables.cs:148`). So `GLOBAL X = 1` +
   `PUBLIC X` makes `PRINT X` read the global and `X = 2` write the property. Property
   writes also bypass `TypeSystem.Assign`, so property types are never stabilised.
-- Kernel: implicit `ME` is a hack — `OsCallMethod` injects two arena strings `"ME"` and
-  `"THIS"` into the scope (`:3056`) and resolution finds them by linear scan, so a script
-  variable named `me` shadows it, and only two levels of parent chain are ever walked.
+- Kernel: implicit `ME` is still a hack — `OsCallMethod` injects two arena strings `"ME"`
+  and `"THIS"` into the scope and resolution finds them by linear scan, so a script
+  variable named `me` shadows it. The *resolution order* is now the 0.73 one on both the
+  read and the write path (B2), which is exactly what Phase 3 needed.
 
 ### 0.73 — clean enum model, predictable shadowing 🔄 / 🔄
 The four breaking changes, current state:
@@ -367,27 +362,24 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 ## 5. Defects to fix in `src/Osb.Kernel/OslangKernel.cs`
 
-1. **B1 no `OSLANG` shell command** — the interpreter is unreachable.
-2. **B2 bare assignment never reaches class fields**; inherited methods unreachable;
-   visibility discarded; interfaces discarded; two-level chain limit.
-3. **B3 array literals have count 0**; no array methods; `PRINT arr` prints nothing.
-4. **B4 `CATCH` cannot catch errors from calls**; `OsFailName`/`OsFail2`/`OsNums` do not set
-   `CTL_EXCEPTION`; `OsAlloc` failure cannot record an error.
-5. **B5 `KEY` enum: `MemberCount = 35` with 28 members written** — wild pointer reads.
-6. **B6 script-size cap in chars against a byte arena** — out-of-bounds write.
-7. **B7 no recursion limit.**
-8. `TYPEOF` has no `VKEnum` case (`:3577`); `PRINT`/`SHOW` have no array/object case
-   (`:505`, `:590`).
+1. **B5 `KEY` enum: `MemberCount = 35` with 28 members written** — wild pointer reads.
+2. **B6 script-size cap in chars against a byte arena** — out-of-bounds write.
+3. **B7 no recursion limit.**
+4. Inherited **methods** are unreachable: `OsEvalCall` searches only the object's own class.
+   (Fields are fine now — B2 made `OsFieldIndex` walk the whole chain.)
+5. Visibility is parsed and discarded; interfaces are parsed and discarded.
+6. `TYPEOF` has no `VKEnum` case; `PRINT`/`SHOW` have no array/object case (so `PRINT arr`
+   is silent even though arrays work).
 9. `GETKEY`: serial input yields `KEY.UNKNOWN`; the CHAR filter swallows `6 8 9 *` (`:3420`);
    the key-event object leaks per call; 24 keys missing.
 10. `OsEvalMember` returns a bogus method reference when the first field is NULL
     (`:3199` — the method name is never compared).
 11. Method dispatch compares method names **case-sensitively** (`:3029`), unlike everything else.
-12. `OsAssign` silently creates a variable for an unknown name — no diagnostic.
+12. `OsAssign` still creates a local for an unknown bare name — no diagnostic.
 13. No `SWITCH`, no arrow functions, no `MATH.*`, no primitive methods, no `USING`
     enforcement, no string-enum values, and no rounding in number formatting (12 truncated
-    fractional digits with trailing zeros stripped, `OsFormatDouble:420` — so `0.1 + 0.2`
-    prints `0.3`, but `1 / 3` prints `0.333333333333` and large magnitudes lose precision).
+    fractional digits with trailing zeros stripped — so `0.1 + 0.2` prints `0.3`, but
+    `1 / 3` prints `0.333333333333` and large magnitudes lose precision).
 14. Dead code to remove or wire up: `Ek.EnumVal`, `Ek.ClassRef`, `Sk.ClassDecl/EnumDecl/
     MethodDecl/AddAssign/Nop`, `Tk.PlusPlus/MinusMinus/DoubleArrow/LBrace/RBrace/Base`,
     `_osInterfaces`, `IsFlags`, `_osCurrentEnumId`, the empty loops at `:2584` and `:3181`.
@@ -396,11 +388,11 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 ## 6. Recommended path to 0.73
 
-**Phase 0 — make the kernel interpreter testable** (nothing else can be validated first)
-B1 (wire the `OSLANG` command, add the seeded `.OSL` scripts to the boot smoke test) ·
+**Phase 0 — make the kernel interpreter testable** — partially done with Phase 1
+B1 landed (the `OSLANG` command exists and `PHASE1.OSL` is the regression). Still open:
 B5 (fix `MemberCount`) · B6 (byte-based cap + guard) · B7 (recursion depth).
 
-**Phase 1 — fix the three features the sample scripts depend on**
+**Phase 1 — fix what the sample scripts depend on** — done
 B2 (write resolution, implemented directly in the 0.73 order so Phase 3 is free) · B3 (array
 count) · B4 (propagate `CTL_EXCEPTION` out of calls; make every `OsFail*` set it).
 
@@ -422,12 +414,12 @@ legacy `OSL.CONSOLE.*` constants returning enum values · 0.73 §20 assignment s
 geometry/colour/cursor in the kernel, which needs `Hardware/Vga.cs` to grow a cursor and
 attribute API first (0.7).
 
-**Regression net first.** The kernel port has no tests at all, which is why B2–B5 survived:
-the sample scripts in `build.sh` (`SIMPLE`, `CLASS_DEMO`, `SIMPLE_CLASS`, `DOWHILE`,
-`TRYCATCH`, `ENUM_DEMO`, `TEST_FUNC`, `HELLO`) are the natural test corpus — they need to
-be run by the QEMU smoke test with their output asserted. The host already has 149 tests;
-the two failures to expect are the known date-dependent `cal` test in `Osb.Shell.Tests` and
-nothing in `Osb.Lang.Tests`.
+**Regression net.** The kernel port still has no automated assertions, which is why B2–B5
+survived: the scripts in `build.sh` (`SIMPLE`, `CLASS_DEMO`, `SIMPLE_CLASS`, `DOWHILE`,
+`TRYCATCH`, `ENUM_DEMO`, `TEST_FUNC`, `HELLO`, plus the new `PHASE1`) are the corpus, run by
+hand through a QEMU headless session. Making that a scripted check with asserted output is
+the highest-value follow-up. The host has 149 tests, all passing; `Osb.Shell.Tests` has one
+known date-dependent failure (`cal` asserting `"August"`).
 
 ---
 
@@ -436,4 +428,10 @@ nothing in `Osb.Lang.Tests`.
 | Where | How | Status |
 |---|---|---|
 | Host (`src/Osb.Shell`) | `dotnet run --project src/Osb.Shell` then the app's entry, or a `.osl` in `APPS/` | works; KISS/CONFIG need the 0.73 `KEYCODE` name |
-| Kernel | `OSLANG <script>` | **not reachable — B1** |
+| Kernel | `CD A:\OSB\APPS` then `OSLANG <script.OSL>` | works; `PHASE1.OSL` is the Phase 1 regression |
+
+```sh
+cd src/Osb.Kernel && ./build.sh
+qemu-system-x86_64 -cdrom osb.iso -m 64M -drive file=osb.img,if=ide,index=0 \
+    -display none -serial stdio -no-reboot -monitor none
+```

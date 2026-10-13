@@ -224,7 +224,7 @@ private struct ClassDef
     private static byte _osCtl;
     private static OslVal _osRet;
     private static bool _osExit;
-    private static char* _osErrMsg;
+    private static char* _osErrMsgPtr;     // message for CATCH (static buffer)
     private static int _osErrMsgLen;
     private static bool _osErr;
     private static char* _osArgs;
@@ -253,21 +253,50 @@ private struct ClassDef
     // ==================================================================
     //  Errors (no exceptions: set a flag, propagate via entry checks)
     // ==================================================================
+    // Error messages live in a static buffer, not in the arena: the error path
+    // has to work when the arena is exhausted (which is often why the error
+    // fired in the first place), and OsFail must never allocate or recurse.
+    private const int OsErrMsgCap = 192;
+    private unsafe struct ErrMsg { public fixed char text[OsErrMsgCap]; }
+    private static ErrMsg _osErrMsg;
+
+    private static void OsErrAppendStr(string s)
+    {
+        fixed (char* dst = _osErrMsg.text)
+        fixed (char* src = s)
+        {
+            for (int i = 0; i < s.Length && _osErrMsgLen < OsErrMsgCap - 1; i++)
+                dst[_osErrMsgLen++] = src[i];
+            dst[_osErrMsgLen] = '\0';
+            _osErrMsgPtr = dst;   // static storage: stays valid after the block
+        }
+    }
+
+    private static void OsErrAppendChars(char* s, int len)
+    {
+        fixed (char* dst = _osErrMsg.text)
+        {
+            for (int i = 0; i < len && _osErrMsgLen < OsErrMsgCap - 1; i++)
+                dst[_osErrMsgLen++] = s[i];
+            dst[_osErrMsgLen] = '\0';
+            _osErrMsgPtr = dst;
+        }
+    }
+
+    // Raises a catchable runtime error: every OsFail* variant must go through
+    // here so that CATCH sees CTL_EXCEPTION and a message (B4).
+    private static void OsRaise(string msg)
+    {
+        _osErr = true;
+        _osCtl = CTL_EXCEPTION;
+        _osErrMsgLen = 0;
+        OsErrAppendStr(msg);
+    }
+
     private static void OsFail(string msg)
     {
         if (_osErr) return;
-        _osErr = true;
-        _osCtl = CTL_EXCEPTION;
-        // Store error message for CATCH
-        int msgLen = msg.Length;
-        char* buf = (char*)OsAlloc(msgLen + 1);
-        fixed (char* msgPtr = msg)
-        {
-            for (int i = 0; i < msgLen; i++) buf[i] = msgPtr[i];
-        }
-        buf[msgLen] = '\0';
-        _osErrMsg = buf;
-        _osErrMsgLen = msgLen;
+        OsRaise(msg);
         Vga.Write("OSLANG error: ");
         Vga.WriteLine(msg);
     }
@@ -275,11 +304,24 @@ private struct ClassDef
     private static void OsFailName(char* name, int len, string prefix)
     {
         if (_osErr) return;
-        _osErr = true;
+        OsRaise("");
+        OsErrAppendStr(prefix);
+        OsErrAppendChars(name, len);
+        OsErrAppendStr("'.");
         Vga.Write("OSLANG error: ");
         Vga.Write(prefix);
         for (int i = 0; i < len; i++) Vga.PutChar(name[i]);
         Vga.WriteLine("'.");
+    }
+
+    private static void OsFail2(string a, string b)
+    {
+        if (_osErr) return;
+        OsRaise(a);
+        OsErrAppendStr(b);
+        Vga.Write("OSLANG error: ");
+        Vga.Write(a);
+        Vga.WriteLine(b);
     }
 
     // ==================================================================
@@ -292,6 +334,7 @@ private struct ClassDef
     private static OslVal OsStr(char* src, int len)
     {
         char* buf = (char*)OsAlloc(len * 2 + 2);
+        if (buf == null) return OsNull(); // arena exhausted; OsFail already raised
         for (int i = 0; i < len; i++) buf[i] = src[i];
         OslVal v = default;
         v.K = VKStr; v.P = (ulong)buf; v.L = len;
@@ -621,8 +664,9 @@ private struct ClassDef
     {
         if (cap < 0) cap = 0;
         byte* mem = (byte*)OsAlloc(8 + cap * sizeof(OslVal));
-        *(int*)mem = cap;
-        *(int*)(mem + 4) = 0;
+        if (mem == null) return OsNull(); // arena exhausted; OsFail already raised
+        *(int*)mem = cap;                 // capacity
+        *(int*)(mem + 4) = 0;             // count, published by OsArrSetCount
         OslVal v = default;
         v.K = VKArr; v.P = (ulong)mem; v.L = 0;
         return v;
@@ -630,6 +674,7 @@ private struct ClassDef
 
     private static int OsArrCount(OslVal a) => a.K == VKArr ? *(int*)((byte*)a.P + 4) : 0;
     private static OslVal* OsArrElem(OslVal a) => (OslVal*)((byte*)a.P + 8);
+    private static void OsArrSetCount(OslVal a, int n) { if (a.K == VKArr) *(int*)((byte*)a.P + 4) = n; }
 
     // ==================================================================
     //  LEXER
@@ -2218,6 +2263,69 @@ case 3:
         return null;
     }
 
+    // Search only the innermost scope: the locals and parameters of the running
+    // function/method (there is one scope per call, no nested block scopes).
+    private static OslVal* OsFindLocal(char* name, int len)
+    {
+        Scope* sc = (Scope*)_osScope;
+        if (sc == null) return null;
+        for (int i = 0; i < sc->C; i++)
+            if (sc->E[i].NL == len && OsNameCI(sc->E[i].N, sc->E[i].NL, name, len))
+                return &sc->E[i].V;
+        return null;
+    }
+
+    // Search only the root scope (the globals), which must lose against the
+    // current class in the OSLANG 0.73 resolution order.
+    private static OslVal* OsFindGlobal(char* name, int len)
+    {
+        Scope* gs = (Scope*)_osGlobalScope;
+        if (gs == null) return null;
+        for (int i = 0; i < gs->C; i++)
+            if (gs->E[i].NL == len && OsNameCI(gs->E[i].N, gs->E[i].NL, name, len))
+                return &gs->E[i].V;
+        return null;
+    }
+
+    // The object the current method runs on, or NULL outside a method.
+    private static OslVal OsCurrentObject()
+    {
+        fixed (char* meName = "ME")
+        {
+            OslVal* p = OsFindVar(meName, 2);
+            if (p != null) return *p;
+        }
+        fixed (char* thisName = "THIS")
+        {
+            OslVal* p = OsFindVar(thisName, 4);
+            if (p != null) return *p;
+        }
+        return OsNull();
+    }
+
+    // Index of a field in an object's layout (own fields first, then the ones
+    // inherited from each parent), or -1 when the class has no such field.
+    private static int OsFieldIndex(int classId, char* name, int len)
+    {
+        if (classId < 0 || classId >= _osClassCount) return -1;
+        ClassDef* cls = &_osClasses[classId];
+        int idx = 0;
+        while (cls != null)
+        {
+            for (int i = 0; i < cls->FieldCount; i++, idx++)
+                if (cls->FieldLens[i] == len && OsNameCI(cls->Fields[i], cls->FieldLens[i], name, len))
+                    return idx;
+            cls = cls->ParentClassId >= 0 ? &_osClasses[cls->ParentClassId] : null;
+        }
+        return -1;
+    }
+
+    // True when the current class (or a parent) declares `name` as a field.
+    private static bool OsHasCurrentField(char* name, int len)
+    {
+        return _osCurrentClassId >= 0 && OsFieldIndex(_osCurrentClassId, name, len) >= 0;
+    }
+
     private static OslVal OsGetVar(char* name, int len)
     {
         OslVal* p = OsFindVar(name, len);
@@ -2225,10 +2333,35 @@ case 3:
         return *p;
     }
 
+    // Assignment to a bare identifier, following the OSLANG 0.73 order:
+    //   1. current local scope (locals and parameters)
+    //   2. current class properties (implicit ME)
+    //   3. globals
+    // Enum types, functions and classes are not assignment targets, and a name
+    // that matches nothing becomes a new local in the current scope. Reads use
+    // the same order (OsResolveIdentifier), so a read and a write of the same
+    // bare name can never disagree about which one they mean (B2).
     private static void OsAssign(char* name, int len, OslVal v)
     {
-        OslVal* p = OsFindVar(name, len);
+        OslVal* p = OsFindLocal(name, len);
         if (p != null) { *p = v; return; }
+
+        OslVal me = OsCurrentObject();
+        if (me.K == VKObj)
+        {
+            byte* mem = (byte*)me.P;
+            int idx = OsFieldIndex(*(int*)mem, name, len);
+            int total = *(int*)(mem + 4);
+            if (idx >= 0 && idx < total)
+            {
+                ((OslVal*)(mem + 8))[idx] = v;
+                return;
+            }
+        }
+
+        p = OsFindGlobal(name, len);
+        if (p != null) { *p = v; return; }
+
         Scope* sc = (Scope*)_osScope;
         if (sc != null) OsScopeAdd(sc, name, len, v);
     }
@@ -2265,7 +2398,9 @@ case 3:
         }
         OsExecBlock(f->Body, f->BL);
         OslVal ret = (_osCtl == CTL_RETURN) ? _osRet : OsNull();
-        _osCtl = CTL_NONE;
+        // A pending exception belongs to the caller's TRY: only the control
+        // signals (return/break/continue) are absorbed by the call itself.
+        if (_osCtl != CTL_EXCEPTION) _osCtl = CTL_NONE;
         OsPopScope();
         return ret;
     }
@@ -2373,11 +2508,10 @@ case 3:
                 if (_osCtl == CTL_EXCEPTION)
                 {
                     // Exception caught - store error message in variable and execute CATCH block
-                    OslVal errStr = OsStr(_osErrMsg, _osErrMsgLen);
+                    OslVal errStr = OsStr(_osErrMsgPtr, _osErrMsgLen);
                     OsAssign(s->N, s->NL, errStr);
                     _osCtl = CTL_NONE;
                     _osErr = false; // Clear error so CATCH block can run
-                    _osErrMsg = null;
                     _osErrMsgLen = 0;
                     OsExecBlock(s->ElseBody, s->EL);
                     if (_osCtl == CTL_BREAK || _osCtl == CTL_RETURN) return;
@@ -2469,15 +2603,6 @@ case 3:
         }
     }
 
-    private static void OsFail2(string a, string b)
-    {
-        if (_osErr) return;
-        _osErr = true;
-        Vga.Write("OSLANG error: ");
-        Vga.Write(a);
-        Vga.WriteLine(b);
-    }
-
     // Assignment target: Id (variable), Index (array element), or Member (object field).
     private static void OsAssignTarget(Expr* target, OslVal v)
     {
@@ -2548,68 +2673,32 @@ case 3:
         return OsNull();
     }
 
-    // Identifier resolution per OSLANG 0.72 spec:
-    // 1. Current scope (local variables)
-    // 2. Function parameters
-    // 3. Current class (fields/methods)
-    // 4. Parent class (inherited fields/methods)
+    // Identifier resolution per OSLANG 0.73 §11-18:
+    //   1. current local scope (locals and parameters)
+    //   2. current class properties, then the parent chain (implicit ME)
+    //   3. globals
+    //   4. enum types
+    // Explicit ME.X bypasses this search (see OsEvalMember). Steps 5 (functions)
+    // and 6 (classes/interfaces) are not reachable as bare identifiers yet.
     private static OslVal OsResolveIdentifier(char* name, int len)
     {
-        // 1. Current scope (local variables)
-        OslVal* p = OsFindVar(name, len);
+        // 1. Current scope (local variables and parameters)
+        OslVal* p = OsFindLocal(name, len);
         if (p != null) return *p;
 
-        // 2. Function parameters - these are in the current scope already
-        // (parameters are added to the scope when function is called)
-
-        // 3. Current class (if we're in a method)
-        if (_osCurrentClassId >= 0)
+        // 2./3. Current class (if we're in a method), then its parents
+        if (_osCurrentClassId >= 0 && OsFieldIndex(_osCurrentClassId, name, len) >= 0)
         {
-            ClassDef* cls = &_osClasses[_osCurrentClassId];
-            // Check fields
-            for (int i = 0; i < cls->FieldCount; i++)
-            {
-                if (cls->FieldLens[i] == len && OsNameCI(cls->Fields[i], cls->FieldLens[i], name, len))
-                {
-                    // Return the field value from the current object (ME)
-                    OslVal me = OsEvalThis();
-                    if (me.K == VKObj)
-                    {
-                        return OsGetObjectField(me, name, len);
-                    }
-                    return OsNull();
-                }
-            }
-            // Check methods
-            for (int i = 0; i < cls->MethodCount; i++)
-            {
-                if (cls->MethodBodies[i] != null) // method exists
-                {
-                    // For method names, return a callable reference
-                    // For now, we'll handle method calls in OsEvalCall
-                }
-            }
-
-            // 4. Parent class
-            if (cls->ParentClassId >= 0)
-            {
-                ClassDef* parent = &_osClasses[cls->ParentClassId];
-                for (int i = 0; i < parent->FieldCount; i++)
-                {
-                    if (parent->FieldLens[i] == len && OsNameCI(parent->Fields[i], parent->FieldLens[i], name, len))
-                    {
-                        OslVal me = OsEvalThis();
-                        if (me.K == VKObj)
-                        {
-                            return OsGetObjectField(me, name, len);
-                        }
-                        return OsNull();
-                    }
-                }
-            }
+            OslVal me = OsEvalThis();
+            if (me.K == VKObj) return OsGetObjectField(me, name, len);
+            return OsNull();
         }
 
-        // Check global scope for enum types
+        // 4. Globals
+        p = OsFindGlobal(name, len);
+        if (p != null) return *p;
+
+        // 5. Enum types (KEY.ENTER style access)
         for (int i = 0; i < _osEnumCount; i++)
         {
             EnumDef* en = &_osEnums[i];
@@ -2631,17 +2720,8 @@ case 3:
     private static OslVal OsEvalThis()
     {
         // ME/THIS is a special variable in the current scope
-        fixed (char* meName = "ME")
-        {
-            OslVal* p = OsFindVar(meName, 2);
-            if (p != null) return *p;
-        }
-        // Also check for "THIS"
-        fixed (char* thisName = "THIS")
-        {
-            OslVal* p = OsFindVar(thisName, 4);
-            if (p != null) return *p;
-        }
+        OslVal me = OsCurrentObject();
+        if (me.K == VKObj) return me;
         OsFail("ME/THIS used outside object context.");
         return OsNull();
     }
@@ -2926,7 +3006,10 @@ case 3:
         {
             if (!_osErr)
             {
-                _osErr = true;
+                OsRaise("");
+                OsErrAppendStr("Operator '");
+                OsErrAppendStr(op);
+                OsErrAppendStr("' requires two numbers.");
                 Vga.Write("OSLANG error: Operator '");
                 Vga.Write(op);
                 Vga.WriteLine("' requires two numbers.");
@@ -3090,7 +3173,7 @@ case 3:
         OsExecBlock(cls->MethodBodies[methodIndex], cls->MethodBodyLens[methodIndex]);
 
         OslVal ret = (_osCtl == CTL_RETURN) ? _osRet : OsNull();
-        _osCtl = CTL_NONE;
+        if (_osCtl != CTL_EXCEPTION) _osCtl = CTL_NONE; // see OsCallFunction
 
         _osCurrentClassId = prevClassId;
         OsPopScope();
@@ -3266,12 +3349,16 @@ case 3:
     private static OslVal OsEvalArr(Expr* e)
     {
         OslVal arr = OsArrMake(e->AC);
+        if (arr.K != VKArr) return arr;   // arena exhausted; OsFail already raised
         for (int i = 0; i < e->AC; i++)
         {
             OslVal v = OsEval(e->Args[i]);
             if (_osErr) return OsNull();
             OsArrElem(arr)[i] = v;
         }
+        // Publish the element count only once every element is in place, so a
+        // half-built array is never visible (B3).
+        OsArrSetCount(arr, e->AC);
         return arr;
     }
 
@@ -3713,17 +3800,19 @@ case 3:
     // ==================================================================
     //  OSLANG shell command entry point
     // ==================================================================
-    private static void OslangCmd(char* line, int len)
+    // Called by the shell for: OSLANG <script.osl> [args...]
+    public static void OslangCmd(char* line, int len)
     {
-        // OSLANG <script> [args...]
-        int i = 6; // "OSLANG"
-        while (i < len && line[i] == ' ') i++;
+        // Skip the command word itself (do not assume its length).
+        int i = 0;
+        while (i < len && line[i] != ' ' && line[i] != '\t') i++;
+        while (i < len && (line[i] == ' ' || line[i] == '\t')) i++;
         int pathS = i;
-        while (i < len && line[i] != ' ') i++;
+        while (i < len && line[i] != ' ' && line[i] != '\t') i++;
         int pathE = i;
         if (pathS >= pathE) { Vga.WriteLine("Usage: OSLANG <script.osl> [args]"); return; }
         int argS = i;
-        while (argS < len && line[argS] == ' ') argS++;
+        while (argS < len && (line[argS] == ' ' || line[argS] == '\t')) argS++;
         int argLen = len - argS;
 
         // One-time arena allocation (4 MiB, frame-allocated, identity-mapped).

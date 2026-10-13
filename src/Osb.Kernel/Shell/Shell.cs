@@ -142,6 +142,11 @@ internal static unsafe class Shell
             FileCommands.Type(line, len);
             return;
         }
+        if (ShellText.Eq(line, len, "OSLANG") || ShellText.StartsWith(line, len, "OSLANG "))
+        {
+            global::Kernel.OslangCmd(line, len);   // interpreter entry (OslangKernel.cs)
+            return;
+        }
 
         if (ShellText.Eq(line, len, "DEMO")) { TaskCommands.Demo(background); return; }
         if (ShellText.Eq(line, len, "TASK") || ShellText.Eq(line, len, "PS")) { TaskCommands.List(); return; }
