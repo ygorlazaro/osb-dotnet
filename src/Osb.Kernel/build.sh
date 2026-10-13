@@ -207,6 +207,49 @@ WHILE FALSE
 PRINT "FALSE test done (loop should not repeat)!"
 EOF
 
+# Regression for the runtime budgets (B5-B7): recursion to a legal depth, a
+# runaway recursion that must produce a catchable error instead of smashing the
+# 16 KiB boot stack, and KEY enum lookups that walk the whole member table.
+# Run it with: OSLANG A:\OSB\APPS\PHASE0.OSL
+cat > "$OBJ/fs/apps/phase0.osl" <<'EOF'
+FUNCTION FACT(n)
+    IF n <= 1 THEN
+        RETURN 1
+    END
+    RETURN n * FACT(n - 1)
+END FUNCTION
+
+FUNCTION DOWN(n)
+    RETURN DOWN(n + 1)
+END FUNCTION
+
+FUNCTION MAIN()
+    PRINT "-- recursion within the limit --"
+    PRINT "5! = " + FACT(5)
+    PRINT "8! = " + FACT(8)
+
+    PRINT "-- runaway recursion is caught --"
+    TRY
+        PRINT DOWN(0)
+        PRINT "never"
+    CATCH e
+        PRINT "caught: " + e
+    END
+    PRINT "still alive"
+
+    PRINT "-- the KEY enum table is complete --"
+    PRINT KEY.UNKNOWN
+    PRINT KEY.ENTER
+    PRINT KEY.ESC
+    PRINT KEY.BACKSPACE
+    PRINT KEY.PAGEDOWN
+    PRINT KEY.F1
+    PRINT KEY.F12
+
+    PRINT "DONE"
+END FUNCTION
+EOF
+
 # Regression for the Phase 1 interpreter fixes: field writes through a bare
 # identifier (B2), array literals and indexing (B3), and CATCH across a call
 # boundary (B4). Run it with: OSLANG A:\OSB\APPS\PHASE1.OSL
@@ -280,7 +323,7 @@ FUNCTION MAIN()
 END FUNCTION
 EOF
 
-{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE0.OSL\n' "$OBJ/fs/apps/phase0.osl"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
 debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 

@@ -111,6 +111,30 @@ private struct ClassDef
     private static int _osInterfaceCount = 0;
     private static InterfaceDef* _osInterfaces;
 
+    // ---- runtime budgets ----
+    // How much of the 4 MiB arena the script source itself may occupy. The rest
+    // has to hold the token array, the AST, scopes and every string the run
+    // allocates, so the source gets a conservative share (B6).
+    private const ulong MaxScriptBytes = 512UL * 1024UL;
+
+    // Deepest call chain allowed (functions and methods share the counter).
+    //
+    // The interpreter recurses natively: one OSLANG call level is a chain of
+    // C# frames (OsEvalCall -> OsCallFunction -> OsExecBlock -> OsExec ->
+    // OsEval -> OsEvalBin -> ...), a few hundred bytes of CPU stack per level.
+    // The shell runs on the 16 KiB boot stack (boot.S) and there is no guard page
+    // below it, so the limit is set from that budget rather than from the arena.
+    //
+    // Measured on this build: a plain recursive call survived 28 levels and hung at 32,
+    // but the same depth inside a TRY crashed the machine, because unwinding to the
+    // CATCH handler needs stack on top of the deepest frame. 12 leaves a wide margin
+    // under both cases - deep enough for any real script, shallow enough that a
+    // runaway recursion always reports "Recursion too deep" as a catchable error
+    // instead of smashing the stack (B7). Raising it means giving the interpreter its
+    // own kernel stack (a scheduler slot), not just editing this number.
+    private const int MaxCallDepth = 12;
+    private static int _osCallDepth;
+
     // ==================================================================
     //  Tokens
     // ==================================================================
@@ -2249,6 +2273,8 @@ case 3:
         sc->C++;
     }
 
+    // Whole scope chain including the globals; used for the ME/THIS lookup, which
+    // must find the innermost binding of the current object.
     private static OslVal* OsFindVar(char* name, int len)
     {
         ulong sp = _osScope;
@@ -2263,15 +2289,23 @@ case 3:
         return null;
     }
 
-    // Search only the innermost scope: the locals and parameters of the running
-    // function/method (there is one scope per call, no nested block scopes).
+    // Locals and parameters, walking the chain of enclosing calls but stopping
+    // before the global scope: the global root is a separate resolution step
+    // (it loses against the current class, which OsFindVar could not express).
+    // The walk matters because a call evaluates its arguments in the caller's
+    // scope, and a recursive call therefore reads the enclosing frame's
+    // parameters - `F(n + 1)` inside F must see `n`.
     private static OslVal* OsFindLocal(char* name, int len)
     {
-        Scope* sc = (Scope*)_osScope;
-        if (sc == null) return null;
-        for (int i = 0; i < sc->C; i++)
-            if (sc->E[i].NL == len && OsNameCI(sc->E[i].N, sc->E[i].NL, name, len))
-                return &sc->E[i].V;
+        ulong sp = _osScope;
+        while (sp != 0 && sp != _osGlobalScope)
+        {
+            Scope* sc = (Scope*)sp;
+            for (int i = 0; i < sc->C; i++)
+                if (sc->E[i].NL == len && OsNameCI(sc->E[i].N, sc->E[i].NL, name, len))
+                    return &sc->E[i].V;
+            sp = sc->Parent;
+        }
         return null;
     }
 
@@ -2324,13 +2358,6 @@ case 3:
     private static bool OsHasCurrentField(char* name, int len)
     {
         return _osCurrentClassId >= 0 && OsFieldIndex(_osCurrentClassId, name, len) >= 0;
-    }
-
-    private static OslVal OsGetVar(char* name, int len)
-    {
-        OslVal* p = OsFindVar(name, len);
-        if (p == null) { OsFailName(name, len, "Undefined variable '"); return OsNull(); }
-        return *p;
     }
 
     // Assignment to a bare identifier, following the OSLANG 0.73 order:
@@ -2388,12 +2415,21 @@ case 3:
 
     private static OslVal OsCallFunction(FuncDef* f, Expr** args, int argc)
     {
+        // Recursion guard (B7). The error is raised through OsFail so the caller's
+        // CATCH can handle it, and every early return below unwinds the counter.
+        if (_osCallDepth >= MaxCallDepth)
+        {
+            OsFail("Recursion too deep (limit reached).");
+            return OsNull();
+        }
+        _osCallDepth++;
+
         OsPushScope();
         Scope* sc = (Scope*)_osScope;
         for (int i = 0; i < f->PC; i++)
         {
             OslVal v = (i < argc) ? OsEval(args[i]) : OsNull();
-            if (_osErr) { OsPopScope(); return OsNull(); }
+            if (_osErr) { OsPopScope(); _osCallDepth--; return OsNull(); }
             OsScopeAdd(sc, f->P[i], f->PL[i], v);
         }
         OsExecBlock(f->Body, f->BL);
@@ -2402,6 +2438,7 @@ case 3:
         // signals (return/break/continue) are absorbed by the call itself.
         if (_osCtl != CTL_EXCEPTION) _osCtl = CTL_NONE;
         OsPopScope();
+        _osCallDepth--;
         return ret;
     }
 
@@ -3133,6 +3170,14 @@ case 3:
 
     private static OslVal OsCallMethod(ClassDef* cls, int methodIndex, OslVal thisObj, Expr** args, int argc)
     {
+        // Shares the recursion counter with OsCallFunction (B7).
+        if (_osCallDepth >= MaxCallDepth)
+        {
+            OsFail("Recursion too deep (limit reached).");
+            return OsNull();
+        }
+        _osCallDepth++;
+
         OsPushScope();
         Scope* sc = (Scope*)_osScope;
 
@@ -3155,7 +3200,7 @@ case 3:
             for (int i = 0; i < paramCount; i++)
             {
                 OslVal v = (i < argc) ? OsEval(args[i]) : OsNull();
-                if (_osErr) { OsPopScope(); return OsNull(); }
+                if (_osErr) { OsPopScope(); _osCallDepth--; return OsNull(); }
                 OsScopeAdd(sc, paramNames[i], paramLens[i], v);
             }
         }
@@ -3177,6 +3222,7 @@ case 3:
 
         _osCurrentClassId = prevClassId;
         OsPopScope();
+        _osCallDepth--;
         return ret;
     }
 
@@ -3823,6 +3869,8 @@ case 3:
             _osHeap = (byte*)frames;
             _osHeapSize = 1024UL * 0x1000;
         }
+        // The interpreter's own tables, token array and token sub-buffers are
+        // allocated from the same arena, so the script itself only gets a slice.
         _osHeapUsed = 0;
         _osErr = false;
         _osFuncCount = 0;
@@ -3832,6 +3880,7 @@ case 3:
         _osCurrentEnumId = -1;
         _osCtl = CTL_NONE;
         _osExit = false;
+        _osCallDepth = 0;
 
         // Initialize class, enum, and interface tables
         _osClasses = (ClassDef*)OsAlloc(OS_MAX_CLASSES * sizeof(ClassDef));
@@ -3841,11 +3890,31 @@ case 3:
         // Define built-in KEY enum
         OsDefineKeyEnum();
 
-        // Load the script into the arena after the built-in definitions.
+        // Load the script into the arena after the built-in definitions. The cap is
+        // expressed in ARENA BYTES: the source is UTF-16, so a script of N chars
+        // needs 2N bytes. The old cap was _osHeapSize/2 chars against a byte arena,
+        // which let a ~1 MiB script write past the end (B6).
         char* src = (char*)(_osHeap + _osHeapUsed);
-        int srcLen = OslangLoadFile(line + pathS, pathE - pathS, src, (int)(_osHeapSize / 2));
+        int srcCap = (int)(MaxScriptBytes / 2);
+        bool truncated;
+        int srcLen = OslangLoadFile(line + pathS, pathE - pathS, src, srcCap, out truncated);
         if (srcLen < 0) { Vga.WriteLine("File not found."); _osHeapUsed = 0; return; }
-        _osHeapUsed += (ulong)(((srcLen + 1) * 2 + 7) & ~7);
+        if (truncated)
+        {
+            Vga.Write("OSLANG error: script larger than ");
+            Vga.WriteDec(MaxScriptBytes / 1024UL);            // KiB
+            Vga.WriteLine(" KiB; not run.");
+            _osHeapUsed = 0;
+            return;
+        }
+        ulong srcBytes = (ulong)(((srcLen + 1) * 2 + 7) & ~7);
+        if (_osHeapUsed + srcBytes > _osHeapSize)
+        {
+            Vga.WriteLine("OSLANG error: script too large for the arena.");
+            _osHeapUsed = 0;
+            return;
+        }
+        _osHeapUsed += srcBytes;
 
         // Args live in the command-line buffer (valid for this call).
         _osArgs = line + argS;
@@ -3872,18 +3941,14 @@ case 3:
         Stmt* top = OsParseProgram(out topCount);
         if (_osErr) { _osHeapUsed = 0; return; }
 
-        // Run: call MAIN() if present, else execute top-level statements.
+        // Run the program: top-level statements first (so a top-level GLOBAL is
+        // defined before MAIN reads it), then MAIN() if the program has one.
+        // A program without MAIN is just its top-level statements.
+        OsExecBlock(top, topCount);
         fixed (char* mn = "MAIN")
         {
             FuncDef* main = OsFindFunc(mn, 4);
-            if (main != null)
-            {
-                OsCallFunction(main, null, 0);
-            }
-            else
-            {
-                OsExecBlock(top, topCount);
-            }
+            if (main != null) OsCallFunction(main, null, 0);
         }
         _osHeapUsed = 0; // reclaim the whole arena for the next run
     }
@@ -3899,79 +3964,112 @@ case 3:
         keyName[0] = 'K'; keyName[1] = 'E'; keyName[2] = 'Y'; keyName[3] = '\0';
         e->N = keyName;
         e->NL = 3;
-        
-        int memberCount = 35;
+
+        // Built once per process; the table below is the single source of truth, so the
+        // member count can never disagree with the number of entries (the old
+        // hand-written table declared 35 slots and filled 28, leaving wild
+        // pointers for four loops to dereference - B5).
+        if (_osKeyMembersReady == 0)
+        {
+            OsInitKeyMembers();
+            _osKeyMembersReady = 1;
+        }
+
+        const int memberCount = KeyMemberCount;
         e->Members = (char**)OsAlloc(memberCount * sizeof(char*));
         e->MemberLens = (int*)OsAlloc(memberCount * sizeof(int));
         e->Values = (ulong*)OsAlloc(memberCount * sizeof(ulong));
         e->MemberCount = memberCount;
         e->IsFlags = false;
 
-        // Define all KEY enum members with their values (scancode-based)
-        // Copy each name to the arena directly (UTF-16: each char is 2 bytes)
-        int idx = 0;
-        
-        // UNKNOWN = 0 (7 chars + null = 16 bytes)
-        { char* buf = (char*)OsAlloc(16); buf[0]='U'; buf[1]='N'; buf[2]='K'; buf[3]='N'; buf[4]='O'; buf[5]='W'; buf[6]='N'; buf[7]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=7; e->Values[idx]=0; idx++; }
-        // ENTER = 0x1C (5 chars + null = 12 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(12); buf[0]='E'; buf[1]='N'; buf[2]='T'; buf[3]='E'; buf[4]='R'; buf[5]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=5; e->Values[idx]=0x1C; idx++; }
-        // ESC = 0x01 (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='E'; buf[1]='S'; buf[2]='C'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x01; idx++; }
-        // TAB = 0x0F (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='T'; buf[1]='A'; buf[2]='B'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x0F; idx++; }
-        // BACKSPACE = 0x0E (9 chars + null = 20 bytes)
-        { char* buf = (char*)OsAlloc(20); buf[0]='B'; buf[1]='A'; buf[2]='C'; buf[3]='K'; buf[4]='S'; buf[5]='P'; buf[6]='A'; buf[7]='C'; buf[8]='E'; buf[9]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=9; e->Values[idx]=0x0E; idx++; }
-        // DELETE = 0x53 (6 chars + null = 14 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(14); buf[0]='D'; buf[1]='E'; buf[2]='L'; buf[3]='E'; buf[4]='T'; buf[5]='E'; buf[6]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=6; e->Values[idx]=0x53; idx++; }
-        // INSERT = 0x52 (6 chars + null = 14 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(14); buf[0]='I'; buf[1]='N'; buf[2]='S'; buf[3]='E'; buf[4]='R'; buf[5]='T'; buf[6]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=6; e->Values[idx]=0x52; idx++; }
-        // SPACE = 0x39 (5 chars + null = 12 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(12); buf[0]='S'; buf[1]='P'; buf[2]='A'; buf[3]='C'; buf[4]='E'; buf[5]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=5; e->Values[idx]=0x39; idx++; }
-        // UP = 0x48 (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='U'; buf[1]='P'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x48; idx++; }
-        // DOWN = 0x50 (4 chars + null = 10 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(10); buf[0]='D'; buf[1]='O'; buf[2]='W'; buf[3]='N'; buf[4]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=4; e->Values[idx]=0x50; idx++; }
-        // LEFT = 0x4B (4 chars + null = 10 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(10); buf[0]='L'; buf[1]='E'; buf[2]='F'; buf[3]='T'; buf[4]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=4; e->Values[idx]=0x4B; idx++; }
-        // RIGHT = 0x4D (5 chars + null = 12 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(12); buf[0]='R'; buf[1]='I'; buf[2]='G'; buf[3]='H'; buf[4]='T'; buf[5]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=5; e->Values[idx]=0x4D; idx++; }
-        // HOME = 0x47 (4 chars + null = 10 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(10); buf[0]='H'; buf[1]='O'; buf[2]='M'; buf[3]='E'; buf[4]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=4; e->Values[idx]=0x47; idx++; }
-        // END = 0x4F (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='E'; buf[1]='N'; buf[2]='D'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x4F; idx++; }
-        // PAGEUP = 0x49 (6 chars + null = 14 bytes -> aligned to 16)
-        { char* buf = (char*)OsAlloc(14); buf[0]='P'; buf[1]='A'; buf[2]='G'; buf[3]='E'; buf[4]='U'; buf[5]='P'; buf[6]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=6; e->Values[idx]=0x49; idx++; }
-        // PAGEDOWN = 0x51 (8 chars + null = 18 bytes -> aligned to 24)
-        { char* buf = (char*)OsAlloc(18); buf[0]='P'; buf[1]='A'; buf[2]='G'; buf[3]='E'; buf[4]='D'; buf[5]='O'; buf[6]='W'; buf[7]='N'; buf[8]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=8; e->Values[idx]=0x51; idx++; }
-        // F1 = 0x3B (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='1'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x3B; idx++; }
-        // F2 = 0x3C (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='2'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x3C; idx++; }
-        // F3 = 0x3D (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='3'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x3D; idx++; }
-        // F4 = 0x3E (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='4'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x3E; idx++; }
-        // F5 = 0x3F (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='5'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x3F; idx++; }
-        // F6 = 0x40 (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='6'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x40; idx++; }
-        // F7 = 0x41 (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='7'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x41; idx++; }
-        // F8 = 0x42 (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='8'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x42; idx++; }
-        // F9 = 0x43 (2 chars + null = 6 bytes -> aligned to 8)
-        { char* buf = (char*)OsAlloc(6); buf[0]='F'; buf[1]='9'; buf[2]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=2; e->Values[idx]=0x43; idx++; }
-        // F10 = 0x44 (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='F'; buf[1]='1'; buf[2]='0'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x44; idx++; }
-        // F11 = 0x57 (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='F'; buf[1]='1'; buf[2]='1'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x57; idx++; }
-        // F12 = 0x58 (3 chars + null = 8 bytes)
-        { char* buf = (char*)OsAlloc(8); buf[0]='F'; buf[1]='1'; buf[2]='2'; buf[3]='\0'; e->Members[idx]=buf; e->MemberLens[idx]=3; e->Values[idx]=0x58; idx++; }
+        for (int i = 0; i < memberCount; i++)
+        {
+            int n = _keyMembers.NameLens[i];
+            char* buf = (char*)OsAlloc((n + 1) * 2);
+            fixed (char* names = _keyMembers.Names)
+            {
+                char* slot = names + (ulong)i * KeyNameCap;
+                for (int k = 0; k < n; k++) buf[k] = slot[k];
+            }
+            buf[n] = '\0';
+            e->Members[i] = buf;
+            e->MemberLens[i] = n;
+            e->Values[i] = _keyMembers.Values[i];
+        }
+    }
+
+    // Built-in KEY enum members. Values are PS/2 set-1 scancodes so that
+    // OSL.CONSOLE.GETKEY() can map a key directly to its enum value; the spec
+    // leaves the numeric values implementation-defined. Stored as fixed buffers
+    // rather than a static array: the freestanding AOT runtime has no support for
+    // managed array data (the same reason TaskTable/EnvTable are fixed structs).
+    private const int KeyMemberCount = 28;
+    private const int KeyNameCap = 16;      // "BACKSPACE" + NUL, in UTF-16
+
+    // Flat buffers: a `fixed` array of structs is not allowed in C#.
+    private unsafe struct KeyMemberTable
+    {
+        public fixed char Names[KeyMemberCount * KeyNameCap];
+        public fixed int NameLens[KeyMemberCount];
+        public fixed ulong Values[KeyMemberCount];
+    }
+
+    private static KeyMemberTable _keyMembers;
+    private static int _osKeyMembersReady;
+
+    private static void OsInitKeyMembers()
+    {
+        //          name            len  value
+        OsKeyMember(0,  "UNKNOWN",   7, 0x00);
+        OsKeyMember(1,  "ENTER",     5, 0x1C);
+        OsKeyMember(2,  "ESC",       3, 0x01);
+        OsKeyMember(3,  "TAB",       3, 0x0F);
+        OsKeyMember(4,  "BACKSPACE", 9, 0x0E);
+        OsKeyMember(5,  "DELETE",    6, 0x53);
+        OsKeyMember(6,  "INSERT",    6, 0x52);
+        OsKeyMember(7,  "SPACE",     5, 0x39);
+        OsKeyMember(8,  "UP",        2, 0x48);
+        OsKeyMember(9,  "DOWN",      4, 0x50);
+        OsKeyMember(10, "LEFT",      4, 0x4B);
+        OsKeyMember(11, "RIGHT",     5, 0x4D);
+        OsKeyMember(12, "HOME",      4, 0x47);
+        OsKeyMember(13, "END",       3, 0x4F);
+        OsKeyMember(14, "PAGEUP",    6, 0x49);
+        OsKeyMember(15, "PAGEDOWN",  8, 0x51);
+        OsKeyMember(16, "F1",        2, 0x3B);
+        OsKeyMember(17, "F2",        2, 0x3C);
+        OsKeyMember(18, "F3",        2, 0x3D);
+        OsKeyMember(19, "F4",        2, 0x3E);
+        OsKeyMember(20, "F5",        2, 0x3F);
+        OsKeyMember(21, "F6",        2, 0x40);
+        OsKeyMember(22, "F7",        2, 0x41);
+        OsKeyMember(23, "F8",        2, 0x42);
+        OsKeyMember(24, "F9",        2, 0x43);
+        OsKeyMember(25, "F10",       3, 0x44);
+        OsKeyMember(26, "F11",       3, 0x57);
+        OsKeyMember(27, "F12",       3, 0x58);
+    }
+
+    private static void OsKeyMember(int index, string name, int len, ulong value)
+    {
+        _keyMembers.NameLens[index] = len;
+        _keyMembers.Values[index] = value;
+        fixed (char* dst = _keyMembers.Names)
+        fixed (char* src = name)
+        {
+            char* slot = dst + (ulong)index * KeyNameCap;
+            for (int i = 0; i < len && i < KeyNameCap - 1; i++) slot[i] = src[i];
+            slot[len] = '\0';
+        }
     }
 
     // Read a whole file from A: into a char buffer; returns length or -1.
-    private static int OslangLoadFile(char* path, int pathLen, char* dst, int maxChars)
+    // Returns the number of chars read, or -1 if the file cannot be read. A file
+    // larger than `maxChars` is truncated and `truncated` is set, so the caller
+    // can refuse to run a half-loaded script instead of failing obscurely (B6).
+    private static int OslangLoadFile(char* path, int pathLen, char* dst, int maxChars, out bool truncated)
     {
+        truncated = false;
         uint ino;
         if (!Ext4.Resolve(path, pathLen, out ino)) return -1;
         byte* cin = stackalloc byte[256];
@@ -3979,7 +4077,7 @@ case 3:
         if (!Ext4.IsReg(Ext4.InodeGetMode(cin))) return -1;
         uint sz = Ext4.InodeGetSize(cin);
         int total = (int)sz;
-        if (total > maxChars) total = maxChars;
+        if (total > maxChars) { total = maxChars; truncated = true; }
         byte* blk = stackalloc byte[Ext4.BlockSize];
         ulong off = 0;
         int dstOff = 0;

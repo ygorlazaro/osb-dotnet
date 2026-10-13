@@ -59,62 +59,60 @@ the code was read directly for this report.
 
 **One-line verdict.** The reference implementation covers most of 0.1–0.7 language surface
 and is a solid 0.72, but is still missing `DATE`/`TIME`, `VIRTUAL`/`OVERRIDE`, events,
-generics, `FOR IN`, and several 0.73 rules. The kernel port is a *sketch* of that: after
-Phase 1 its core 0.1 semantics — field writes, arrays, `TRY/CATCH` across calls — are sound
-and reachable from the shell, but it still has no method dispatcher, no `MATH.*`, no
-`SWITCH`, and an unsafe `KEY` enum table.
+generics, `FOR IN`, and several 0.73 rules. The kernel port is a *sketch* of that: its core
+0.1 semantics — field writes, arrays, `TRY/CATCH` across calls, bounded recursion — are now
+sound and reachable from the shell, but it still has no method dispatcher, no `MATH.*` and no
+`SWITCH`.
 
 ---
 
 ## 1. Blockers
 
-Phase 1 landed **B1–B4**: the interpreter is reachable from the shell, fields survive a
-bare assignment, arrays carry real element counts, and `CATCH` works across call
-boundaries. B5–B7 are still open — they are safety and correctness-of-the-runtime items
-rather than language features, and are cheap to close.
+Phases 0 and 1 cleared all seven. The kernel interpreter is reachable, its core 0.1
+semantics are correct, and every failure mode it can hit is a reported error rather than
+memory corruption or a hang.
 
 **B1 ✅ The interpreter is reachable from the shell.**
-`OSLANG <script.OSL> [args…]` is dispatched from `Shell.Execute` to `Kernel.OslangCmd`,
-which no longer assumes the command word is exactly six characters. Every `.OSL` file
-seeded into `A:\OSB\APPS` is runnable, and `PHASE1.OSL` is the regression for B2/B3/B4
-(see §7).
+`OSLANG <script.OSL> [args…]` dispatches from `Shell.Execute` to `Kernel.OslangCmd`, which
+no longer assumes the command word is six characters. Every `.OSL` file seeded into
+`A:\OSB\APPS` is runnable.
 
 **B2 ✅ A bare assignment inside a method writes the class field.**
 `OsAssign` resolves a bare identifier in the OSLANG 0.73 order — local/parameter → current
 class property → globals — and only creates a new local when nothing matches. The read path
-(`OsResolveIdentifier`) was rewritten to the same order (local → class + parent chain →
-globals → enum types), so a read and a write of the same bare name can never disagree about
-what it means. `OsFieldIndex` walks the whole parent chain, so inherited fields are
+(`OsResolveIdentifier`) uses the same order, so a read and a write of the same bare name can
+never disagree. `OsFieldIndex` walks the whole parent chain, so inherited fields are
 addressable too.
 
 **B3 ✅ Array literals carry their element count.**
-`OsEvalArr` publishes the count through the new `OsArrSetCount` once every element is in
-place, so a half-built array is never visible. `OsArrMake` and `OsStr` also return NULL
-instead of writing through a failed allocation.
+`OsEvalArr` publishes the count through `OsArrSetCount` after all elements are in place, so
+a half-built array is never visible. `OsArrMake` and `OsStr` return NULL on a failed
+allocation instead of writing through it.
 
 **B4 ✅ `CATCH` sees errors raised inside a call.**
-`OsCallFunction`/`OsCallMethod` absorb only `CTL_RETURN`/`CTL_BREAK`/`CTL_CONTINUE` now —
-an exception keeps propagating to the caller's `TRY`. Every `OsFail*` variant routes
-through `OsRaise`, which sets `CTL_EXCEPTION` and copies the message into a **static**
-buffer, so the error path needs no arena and cannot recurse. (The old `OsFail` allocated its
-own message, so an out-of-memory crashed the kernel instead of reporting.)
+`OsCallFunction`/`OsCallMethod` absorb only return/break/continue now. Every `OsFail*`
+routes through `OsRaise`, which sets `CTL_EXCEPTION` and copies the message into a *static*
+buffer, so the error path needs no arena and cannot recurse.
 
-**B5 ❌ The builtin `KEY` enum declares 35 members and writes 28.**
-`OsDefineKeyEnum` sets `MemberCount = 35` and assigns members `0..27`; slots 28–34 hold
-whatever `OsAlloc` returned. Four loops iterate `MemberCount` and dereference those pointers
-(`OsPrintVal`, `OsDisplayLen`, `OsWriteDisplay`, `OsEvalMember`) → wild pointer reads, and a
-page fault would kill the kernel outright. Also: 24 non-special keys are absent, and the
-enum values are set-1 scancodes rather than the spec's arbitrary numbering.
+**B5 ✅ The `KEY` enum table can no longer disagree with itself.**
+The hand-written table (35 declared slots, 28 filled — four loops dereferenced the
+difference) is now a flat fixed-buffer table (`_keyMembers`) whose count *is* the number of
+entries. It had to be a fixed buffer rather than a static array: the freestanding AOT runtime
+has no managed array data, which is the same reason `TaskTable` and `EnvTable` are fixed
+structs.
 
-**B6 ❌ The script size cap counts characters against a byte arena.**
-`OslangCmd` passes `(int)(_osHeapSize / 2)` as the character cap — 2 MiB of *chars* against a
-4 MiB *byte* arena — then adds `(srcLen + 1) * 2` bytes with no bounds check. A script of
-~1 MiB (512 Ki chars) already writes past the arena end, which is unmapped. Needs a real
-`if (_osHeapUsed + needed > _osHeapSize)` guard, and the cap should be expressed in bytes.
+**B6 ✅ The script size cap is expressed in arena bytes.**
+The source is UTF-16, so `MaxScriptBytes / 2` is the character cap. `OslangLoadFile` reports
+truncation through an `out bool` and the run is refused with a message naming the limit
+instead of loading half a script.
 
-**B7 ❌ (robustness) No recursion limit.** Each OSLANG frame costs ~408 arena bytes plus
-several native frames; runaway recursion exhausts the arena or overflows the CPU stack with
-no guard. A depth counter in `OsCallFunction` is a few lines.
+**B7 ✅ Recursion is bounded.**
+`OsCallFunction` and `OsCallMethod` share a depth counter (`MaxCallDepth = 12`) and raise a
+catchable "Recursion too deep" error past it. The limit was measured, not guessed: the shell
+runs on the 16 KiB boot stack with no guard page, recursion survived 28 levels and hung at 32,
+and the same depth *inside a `TRY`* crashed the machine because unwinding needs stack on top
+of the deepest frame. 12 is the depth that is safe in both cases — raising it needs a
+dedicated kernel stack for the interpreter, not a different number.
 
 ---
 
@@ -362,14 +360,13 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 ## 5. Defects to fix in `src/Osb.Kernel/OslangKernel.cs`
 
-1. **B5 `KEY` enum: `MemberCount = 35` with 28 members written** — wild pointer reads.
-2. **B6 script-size cap in chars against a byte arena** — out-of-bounds write.
-3. **B7 no recursion limit.**
-4. Inherited **methods** are unreachable: `OsEvalCall` searches only the object's own class.
+1. Inherited **methods** are unreachable: `OsEvalCall` searches only the object's own class.
    (Fields are fine now — B2 made `OsFieldIndex` walk the whole chain.)
-5. Visibility is parsed and discarded; interfaces are parsed and discarded.
-6. `TYPEOF` has no `VKEnum` case; `PRINT`/`SHOW` have no array/object case (so `PRINT arr`
+2. Visibility is parsed and discarded; interfaces are parsed and discarded.
+3. `TYPEOF` has no `VKEnum` case; `PRINT`/`SHOW` have no array/object case (so `PRINT arr`
    is silent even though arrays work).
+4. A class method named `SHOW`, `PRINT`, `INPUT` or `CLEAR` cannot be parsed: those lex as
+   statement keywords instead of identifiers.
 9. `GETKEY`: serial input yields `KEY.UNKNOWN`; the CHAR filter swallows `6 8 9 *` (`:3420`);
    the key-event object leaks per call; 24 keys missing.
 10. `OsEvalMember` returns a bogus method reference when the first field is NULL
@@ -388,9 +385,9 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 ## 6. Recommended path to 0.73
 
-**Phase 0 — make the kernel interpreter testable** — partially done with Phase 1
-B1 landed (the `OSLANG` command exists and `PHASE1.OSL` is the regression). Still open:
-B5 (fix `MemberCount`) · B6 (byte-based cap + guard) · B7 (recursion depth).
+**Phase 0 — make the kernel interpreter testable** — done
+B1 (the `OSLANG` command) · B5 (`MemberCount`) · B6 (byte-based cap) · B7 (recursion depth).
+`PHASE0.OSL` and `PHASE1.OSL` are the regressions.
 
 **Phase 1 — fix what the sample scripts depend on** — done
 B2 (write resolution, implemented directly in the 0.73 order so Phase 3 is free) · B3 (array
@@ -415,10 +412,10 @@ geometry/colour/cursor in the kernel, which needs `Hardware/Vga.cs` to grow a cu
 attribute API first (0.7).
 
 **Regression net.** The kernel port still has no automated assertions, which is why B2–B5
-survived: the scripts in `build.sh` (`SIMPLE`, `CLASS_DEMO`, `SIMPLE_CLASS`, `DOWHILE`,
-`TRYCATCH`, `ENUM_DEMO`, `TEST_FUNC`, `HELLO`, plus the new `PHASE1`) are the corpus, run by
-hand through a QEMU headless session. Making that a scripted check with asserted output is
-the highest-value follow-up. The host has 149 tests, all passing; `Osb.Shell.Tests` has one
+survived: the scripts in `build.sh` (`PHASE0`, `PHASE1`, `SIMPLE`, `CLASS_DEMO`,
+`SIMPLE_CLASS`, `DOWHILE`, `TRYCATCH`, `ENUM_DEMO`, `TEST_FUNC`, `HELLO`) are the corpus, run
+by hand through a QEMU headless session. Making that a scripted check with asserted output
+is the highest-value follow-up. The host has 149 tests, all passing; `Osb.Shell.Tests` has one
 known date-dependent failure (`cal` asserting `"August"`).
 
 ---
@@ -428,7 +425,7 @@ known date-dependent failure (`cal` asserting `"August"`).
 | Where | How | Status |
 |---|---|---|
 | Host (`src/Osb.Shell`) | `dotnet run --project src/Osb.Shell` then the app's entry, or a `.osl` in `APPS/` | works; KISS/CONFIG need the 0.73 `KEYCODE` name |
-| Kernel | `CD A:\OSB\APPS` then `OSLANG <script.OSL>` | works; `PHASE1.OSL` is the Phase 1 regression |
+| Kernel | `CD A:\OSB\APPS` then `OSLANG <script.OSL>` | works; `PHASE0.OSL` (budgets) and `PHASE1.OSL` (semantics) are the regressions |
 
 ```sh
 cd src/Osb.Kernel && ./build.sh
