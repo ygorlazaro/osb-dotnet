@@ -37,9 +37,177 @@ mkdir /OSB/CONF
 mkdir /OSB/HELP
 mkdir /OSB/HOME
 mkdir /OSB/TEMP
+mkdir /OSB/APPS
 EOF
 printf 'OSB File System test.\nCase-sensitive filenames: ON\nHome is A:\\HOME.\n' > "$OBJ/fs/welcome.txt"
-{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; } > "$OBJ/fs/populate2.txt"
+
+# Create example OSLANG scripts
+mkdir -p "$OBJ/fs/apps"
+cat > "$OBJ/fs/apps/simple.osl" <<'EOF'
+USING OSL.CONSOLE
+
+PRINT "Hello from OSLANG 0.72!"
+x = 10
+y = 20
+PRINT "x + y = " + STR(x + y)
+IF x < y THEN
+    PRINT "x is less than y"
+END
+PRINT "Testing enum..."
+PRINT "KEY = " + STR(KEY)
+PRINT "KEY.UNKNOWN = " + STR(KEY.UNKNOWN)
+PRINT "KEY.ENTER = " + STR(KEY.ENTER)
+PRINT "KEY.ESC = " + STR(KEY.ESC)
+PRINT "KEY.SPACE = " + STR(KEY.SPACE)
+PRINT "KEY.UP = " + STR(KEY.UP)
+PRINT "KEY.DOWN = " + STR(KEY.DOWN)
+PRINT "KEY.LEFT = " + STR(KEY.LEFT)
+PRINT "KEY.RIGHT = " + STR(KEY.RIGHT)
+PRINT "KEY.F1 = " + STR(KEY.F1)
+PRINT "KEY.F12 = " + STR(KEY.F12)
+PRINT "Testing enum flags (bitwise OR)..."
+flags = KEY.UP | KEY.DOWN
+PRINT "UP | DOWN = " + STR(flags)
+PRINT "Done."
+EOF
+
+cat > "$OBJ/fs/apps/hello.osl" <<'EOF'
+USING OSL.CONSOLE
+
+FUNCTION MAIN()
+    PRINT "Hello from OSLANG 0.72!"
+END FUNCTION
+EOF
+
+cat > "$OBJ/fs/apps/trycatch.osl" <<'EOF'
+USING OSL.CONSOLE
+
+PRINT "=== Testing TRY/CATCH ==="
+
+PRINT "Test 1: Simple TRY without error..."
+TRY
+    PRINT "In TRY block"
+CATCH err
+    PRINT "Should not reach here: " + err
+END
+PRINT "After TRY/CATCH"
+
+PRINT ""
+PRINT "Test 2: CATCH division by zero..."
+TRY
+    x = 1 / 0
+    PRINT "Should not reach here"
+CATCH err
+    PRINT "Caught error: " + err
+END
+PRINT "After TRY/CATCH - continuing"
+
+PRINT ""
+PRINT "Test 3: CATCH invalid array index..."
+TRY
+    a = [1, 2, 3]
+    x = a[10]
+    PRINT "Should not reach here"
+CATCH err
+    PRINT "Caught error: " + err
+END
+PRINT "After TRY/CATCH - continuing"
+
+PRINT ""
+PRINT "All TRY/CATCH tests passed!"
+EOF
+
+cat > "$OBJ/fs/apps/test_func.osl" <<'EOF'
+USING OSL.CONSOLE
+FUNCTION MAIN()
+    PRINT "OK"
+END FUNCTION
+EOF
+
+cat > "$OBJ/fs/apps/enum_demo.osl" <<'EOF'
+ENUM PERMISSION
+    READ = 1
+    WRITE = 2
+    EXECUTE = 4
+END ENUM
+
+FUNCTION MAIN()
+    PRINT "OK"
+END FUNCTION
+EOF
+
+cat > "$OBJ/fs/apps/class_demo.osl" <<'EOF'
+USING OSL.CONSOLE
+
+CLASS Animal
+    PUBLIC name
+    CONSTRUCTOR(n)
+        PRINT "Constructor called with: " + n
+        ME.name = n
+        PRINT "After assignment, ME.name = " + ME.name
+    END CONSTRUCTOR
+    FUNCTION Speak()
+        PRINT "Animal sound"
+    END FUNCTION
+END CLASS
+
+CLASS Dog : Animal
+    FUNCTION Speak()
+        PRINT "Woof! I am " + ME.name
+    END FUNCTION
+END CLASS
+
+FUNCTION MAIN()
+    d = NEW Dog("Rex")
+    d.Speak()
+    PRINT "Class demo done."
+END FUNCTION
+EOF
+
+cat > "$OBJ/fs/apps/simple_class.osl" <<'EOF'
+USING OSL.CONSOLE
+
+CLASS Point
+    PUBLIC x
+    PUBLIC y
+    CONSTRUCTOR(x, y)
+        ME.x = x
+        ME.y = y
+    END CONSTRUCTOR
+    FUNCTION Display()
+        PRINT "Point: " + ME.x + ", " + ME.y
+    END FUNCTION
+END CLASS
+
+FUNCTION MAIN()
+    p = NEW Point(10, 20)
+    p.Display()
+    PRINT "Simple class test done."
+END FUNCTION
+EOF
+
+cat > "$OBJ/fs/apps/dowhile.osl" <<'EOF'
+USING OSL.CONSOLE
+
+PRINT "Testing DO WHILE with comparison..."
+i = 0
+DO
+    PRINT "i = " + STR(i)
+    i = i + 1
+WHILE i < 3
+PRINT "Comparison test done!"
+
+PRINT ""
+PRINT "Testing DO WHILE with FALSE..."
+j = 0
+DO
+    PRINT "j = " + STR(j)
+    j = j + 1
+WHILE FALSE
+PRINT "FALSE test done (loop should not repeat)!"
+EOF
+
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
 debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 

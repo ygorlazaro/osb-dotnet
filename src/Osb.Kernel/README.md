@@ -74,9 +74,37 @@ src/Osb.Kernel/
 ├── Osb.Kernel.csproj   # projeto C# "sem .NET": NoStdLib, nada referenciado
 ├── MiniCoreLib.cs      # mini-CoreLib: System.Object/String/primitivas + stubs que o
 │                       # ilc exige do "system module" (ThrowHelpers, Buffer, TypeCast...)
-├── Kernel.cs           # kernel: VGA + serial + IDT/PIC + teclado IRQ1 + RTC IRQ8
-│                       # + agendador RR preemptivo + alocador de frames
-│                       # + GDT/TSS + ring 3 + processos (CR3 próprio) + INT 21h + shell
+├── Kernel.cs           # apenas a orquestração: Main/kmain (ordem de boot) + banner
+├── Hardware/           # porta de saída/entrada do kernel
+│   ├── Vga.cs          # modo texto 80x25 (espelha tudo no COM1)
+│   ├── Serial.cs       # COM1: saída + ring de entrada alimentado pela IRQ4
+│   ├── Keyboard.cs     # scancodes PS/2 (IRQ1) + mapa Shift
+│   ├── ConsoleControl.cs # sinais do console (Ctrl+C) entre IRQ e shell
+│   └── NativeMethods.cs  # P/Invoke "osbnative" (inb/outb, lgdt/lidt, switch, CR3...)
+├── Memory/             # memória física
+│   ├── Layout.cs       # constantes (VGA, IDT/PIC, GDT, ring 3, ATA, ext4, tasks)
+│   └── PhysicalMemory.cs # bitmap de frames + detecção do mapa Multiboot2
+├── Cpu/                # temporizadores, memória de controle e entrada de IRQ
+│   ├── Pit.cs          # 8254 canal 0 @ 100 Hz + contador de ticks
+│   ├── Rtc.cs          # CMOS/RTC: relógio de software (IRQ8), TIME/DATE
+│   ├── Gdt.cs          # segmentos kernel/user + TSS (RSP0)
+│   ├── Interrupts.cs   # 8259A, IDT e o despachante (osb_handle_interrupt)
+│   └── Syscalls.cs     # porta INT 21h (print/getpid/exit/spawn/wait)
+├── Processes/          # tarefas e memória por processo
+│   ├── Scheduler.cs    # tabela de slots, round-robin preemptivo, jobs
+│   └── AddressSpace.cs # CR3 privado por processo (bloco de 2 MiB)
+├── Storage/            # persistência
+│   ├── Ata.cs          # ATA PIO (setor de 512 bytes)
+│   ├── Ext4.cs         # ext4 simplificado (blocos, inodes, diretórios, resolução)
+│   └── Cwd.cs          # drive + diretório atual (namespace DOS)
+├── Shell/              # o prompt e os comandos
+│   ├── Shell.cs        # laço de entrada (serial/teclado) + despacho de comandos
+│   ├── Environment.cs  # $VAR / SET
+│   ├── Prompt.cs       # $PROMPT no estilo DOS ($P$G...)
+│   ├── JobControl.cs   # foreground/background, espera e reap
+│   ├── ShellText.cs    # comparações/parse/padding de texto
+│   └── Commands/       # SystemCommands, EnvironmentCommands, FileCommands, TaskCommands
+├── OslangKernel.cs     # interpretador OSLANG 0.72 (lexer/parser/runtime) no kernel
 ├── boot.S              # bootstrap Multiboot2: 32-bit -> long mode -> chama kmain
 │                       # (+ helpers: outb/inb, mem*, lidt, sti/cli, halt, lgdt/ltr,
 │                       #  enter_user, load_cr3, page tables do kernel)
@@ -88,6 +116,11 @@ src/Osb.Kernel/
 ├── ROADMAP.md          # plano: multiusuário/ext4, fatias verticais, ring 3+
 └── build.sh            # build completo -> osb.iso
 ```
+
+Cada subsistema é uma classe `internal static` no seu próprio namespace
+(`Osb.Kernel.Hardware`, `Osb.Kernel.Memory`, `Osb.Kernel.Cpu`,
+`Osb.Kernel.Processes`, `Osb.Kernel.Storage`, `Osb.Kernel.Shell`): o estado fica
+junto de quem o usa e o `Kernel.cs` só ordena a subida da máquina.
 
 Pipeline de build:
 
@@ -172,7 +205,7 @@ teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor
 - **PIC remapeado para 0x30-0x3F** (e não 0x20-0x2F): libera o vetor **0x21** para a
   syscall `INT 21h`, sem colidir com a IRQ1 (teclado). Constantes `PicBase=0x30`,
   `TimerVector=0x30`, `KbdVector=0x31`, `RtcVector=0x38`.
-- **Ring 3 + processos**: a GDT é montada em `Kernel.cs` (segmentos user code `0x18` / data `0x20`,
+- **Ring 3 + processos**: a GDT é montada em `Cpu/Gdt.cs` (segmentos user code `0x18` / data `0x20`,
   ambos DPL3, + descritor TSS em `0x28`), carregada com `osb_lgdt`/`osb_ltr`. O `RSP0` do
   TSS aponta para o topo da pilha de kernel **do processo de usuário** — é para lá que a
   CPU troca quando chega uma interrupção/syscall de CPL3. Na entrada do usuário usamos
