@@ -14,6 +14,8 @@ internal sealed partial class Interpreter
     {
         NumberLiteralExpr n => new NumberValue(n.Value),
         StringLiteralExpr s => EvalStringLiteral(s, scope),
+        DateLiteralExpr d => new DateValue(d.DaysSinceEpoch),
+        TimeLiteralExpr t => new TimeValue(t.MillisSinceMidnight),
         BooleanLiteralExpr b => BooleanValue.Of(b.Value),
         NullLiteralExpr => OslangValue.Null,
         ArrayLiteralExpr arr => EvalArrayLiteral(arr, scope),

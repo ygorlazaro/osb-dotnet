@@ -27,7 +27,8 @@ internal static unsafe partial class Kernel
     // ==================================================================
     //  Value model
     // ==================================================================
-    private const byte VKNull = 0, VKBool = 1, VKNum = 2, VKStr = 3, VKArr = 4, VKObj = 5, VKEnum = 6;
+    private const byte VKNull = 0, VKBool = 1, VKNum = 2, VKStr = 3, VKArr = 4, VKObj = 5, VKEnum = 6, VKFunc = 7;
+    private const byte VIS_PUBLIC = 0, VIS_PRIVATE = 1, VIS_PROTECTED = 2;
 
     // A string is (char* P, int L) into the arena. An array is a header
     // [int cap][int count][OslVal elements...] also in the arena; P
@@ -176,7 +177,7 @@ private struct ClassDef
     {
         Num, Str, Bool, Null, Id,
         Bin, Un, Call, Member, Index, Arr, Interp,
-        NewObj, This, EnumVal, ClassRef
+        NewObj, This, EnumVal, ClassRef, FuncRef
     }
 
     private const byte OP_ADD = 1, OP_SUB = 2, OP_MUL = 3, OP_DIV = 4,
@@ -696,6 +697,7 @@ private struct ClassDef
         return v;
     }
 
+    private static void OsArrEnsure(OslVal arr, int extra) { /* see array growth comment; no-op in this minimal port */ }
     private static int OsArrCount(OslVal a) => a.K == VKArr ? *(int*)((byte*)a.P + 4) : 0;
     private static OslVal* OsArrElem(OslVal a) => (OslVal*)((byte*)a.P + 8);
     private static void OsArrSetCount(OslVal a, int n) { if (a.K == VKArr) *(int*)((byte*)a.P + 4) = n; }
@@ -925,6 +927,24 @@ case 3:
     private static bool OsAtEnd() => _osToks[_osPos].K == Tk.Eof;
     private static Tk OsCur() => _osToks[_osPos].K;
     private static Tk OsPeek() => _osToks[_osPos + 1].K;
+    private static bool OsIsStatementStart(Tk k) => k switch
+    {
+        Tk.Print or Tk.Show or Tk.Input or Tk.Clear or
+        Tk.If or Tk.While or Tk.For or Tk.Function or Tk.Return or
+        Tk.Break or Tk.Continue or Tk.Var or Tk.Global or Tk.Class or
+        Tk.Enum or Tk.Using or Tk.Try or Tk.Event => true,
+        _ => false
+    };
+    private static Tok* OsTakeName(string msg)
+    {
+        if (_osToks[_osPos].K == Tk.Id) return OsAdvance();
+        OsFail(msg);
+        return &_osToks[_osPos];
+    }
+    private static void OsFailNeedsFunction(char* name, int nlen)
+    {
+        OsFail("Expected a function value.");
+    }
     private static bool OsCheck(Tk k) => _osToks[_osPos].K == k;
     private static Tok* OsAdvance()
     {

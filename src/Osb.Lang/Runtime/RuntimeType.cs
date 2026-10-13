@@ -16,4 +16,6 @@ public enum RuntimeType
     Null,
     Enum,
     EnumSet,
+    Date,
+    Time,
 }

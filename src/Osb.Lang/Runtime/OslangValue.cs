@@ -176,3 +176,69 @@ public sealed class CursorPositionValue : OslangValue
         Column = column;
     }
 }
+
+// ============================================================
+// OSLANG 0.5 - DATE / TIME
+// ============================================================
+
+public sealed class DateValue(int daysSinceEpoch) : OslangValue
+{
+    public int DaysSinceEpoch { get; } = daysSinceEpoch;
+    public override RuntimeType Type => RuntimeType.Date;
+    public override string TypeName => "DATE";
+
+    public int Year
+    {
+        get
+        {
+            var (year, _, _) = DaysToYMD(DaysSinceEpoch);
+            return year;
+        }
+    }
+
+    public int Month
+    {
+        get
+        {
+            var (_, month, _) = DaysToYMD(DaysSinceEpoch);
+            return month;
+        }
+    }
+
+    public int Day
+    {
+        get
+        {
+            var (_, _, day) = DaysToYMD(DaysSinceEpoch);
+            return day;
+        }
+    }
+
+    public static (int year, int month, int day) DaysToYMD(int daysSinceEpoch)
+    {
+        int doe = daysSinceEpoch + 719468; // days since 0000-03-01
+        int era = doe / 146097;
+        int doeAdj = doe - era * 146097;
+        int yoe = (doeAdj - doeAdj / 1460 + doeAdj / 36524 - doeAdj / 146096) / 365;
+        int y = era * 400 + yoe;
+        int doy = doeAdj - (365 * yoe + yoe / 4 - yoe / 100);
+        int mp = (5 * doy + 2) / 153;
+        int day = doy - (153 * mp + 2) / 5 + 1;
+        int month = mp + 3;
+        int year = era * 400 + yoe;
+        if (month > 12) { month -= 12; y++; }
+        return (year, month, day);
+    }
+}
+
+public sealed class TimeValue(long millisSinceMidnight) : OslangValue
+{
+    public long MillisSinceMidnight { get; } = millisSinceMidnight;
+    public override RuntimeType Type => RuntimeType.Time;
+    public override string TypeName => "TIME";
+
+    public int Hour => (int)(MillisSinceMidnight / 3600000);
+    public int Minute => (int)((MillisSinceMidnight % 3600000) / 60000);
+    public int Second => (int)((MillisSinceMidnight % 60000) / 1000);
+    public int Millisecond => (int)(MillisSinceMidnight % 1000);
+}

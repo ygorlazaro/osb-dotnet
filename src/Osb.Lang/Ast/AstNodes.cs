@@ -269,6 +269,10 @@ public sealed record NumberLiteralExpr(double Value, SourceLocation Location) : 
 
 public sealed record StringLiteralExpr(string Value, SourceLocation Location) : Expr(Location);
 
+public sealed record DateLiteralExpr(int DaysSinceEpoch, SourceLocation Location) : Expr(Location);
+
+public sealed record TimeLiteralExpr(long MillisSinceMidnight, SourceLocation Location) : Expr(Location);
+
 public sealed record BooleanLiteralExpr(bool Value, SourceLocation Location) : Expr(Location);
 
 public sealed record NullLiteralExpr(SourceLocation Location) : Expr(Location);

@@ -73,6 +73,16 @@ public sealed partial class Parser
                 Advance();
                 return new StringLiteralExpr(tok.StringValue!, tok.Location);
             }
+            case TokenType.DateLiteral:
+            {
+                Advance();
+                return new DateLiteralExpr(tok.IntValue, tok.Location);
+            }
+            case TokenType.TimeLiteral:
+            {
+                Advance();
+                return new TimeLiteralExpr(tok.LongValue, tok.Location);
+            }
             case TokenType.True:
                 Advance();
                 return new BooleanLiteralExpr(true, tok.Location);

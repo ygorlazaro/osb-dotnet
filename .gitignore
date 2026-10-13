@@ -54,3 +54,4 @@ project.assets.json
 publish/
 out/
 dist/
+osb-test*.img

@@ -107,6 +107,11 @@ public sealed class Lexer
             return ReadNumber();
         }
 
+        if (c == '#')
+        {
+            return ReadDateTimeLiteral();
+        }
+
         if (c == '"')
         {
             if (Peek() == '"' && Peek(2) == '"')
@@ -233,6 +238,76 @@ public sealed class Lexer
         var text = sb.ToString();
         var value = double.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
         return new Token(TokenType.NumberLiteral, text, start, NumberValue: value);
+    }
+
+    private Token ReadDateTimeLiteral()
+    {
+        var start = CurrentLocation;
+        Advance(); // consume '#'
+
+        // Try DATE literal: #YYYY-MM-DD#
+        if (_pos + 9 < _source.Length &&
+            char.IsDigit(_source[_pos]) && char.IsDigit(_source[_pos + 1]) &&
+            char.IsDigit(_source[_pos + 2]) && char.IsDigit(_source[_pos + 3]) &&
+            _source[_pos + 4] == '-' && char.IsDigit(_source[_pos + 5]) &&
+            char.IsDigit(_source[_pos + 6]) && _source[_pos + 7] == '-' &&
+            char.IsDigit(_source[_pos + 8]) && char.IsDigit(_source[_pos + 9]))
+        {
+            int year = int.Parse(_source.Substring(_pos, 4));
+            int month = int.Parse(_source.Substring(_pos + 5, 2));
+            int day = int.Parse(_source.Substring(_pos + 8, 2));
+
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31)
+            {
+                int k = _pos + 10;
+                while (k < _source.Length && _source[k] != '#' && _source[k] != '\n' && _source[k] != '\r') k++;
+                if (k < _source.Length && _source[k] == '#')
+                {
+                    int days = DaysSinceEpochStatic(year, month, day);
+                    string txt = "#" + _source.Substring(_pos, 10) + "#";
+                    _pos = k + 1;
+                    return new Token(TokenType.DateLiteral, txt, start, IntValue: days);
+                }
+            }
+        }
+
+        // Try TIME literal: #HH:MM:SS#
+        if (_pos + 7 < _source.Length &&
+            char.IsDigit(_source[_pos]) && char.IsDigit(_source[_pos + 1]) &&
+            _source[_pos + 2] == ':' &&
+            char.IsDigit(_source[_pos + 3]) && char.IsDigit(_source[_pos + 4]) &&
+            _source[_pos + 5] == ':' &&
+            char.IsDigit(_source[_pos + 6]) && char.IsDigit(_source[_pos + 7]))
+        {
+            int hour = int.Parse(_source.Substring(_pos, 2));
+            int minute = int.Parse(_source.Substring(_pos + 3, 2));
+            int second = int.Parse(_source.Substring(_pos + 6, 2));
+
+            if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59)
+            {
+                int k = _pos + 8;
+                while (k < _source.Length && _source[k] != '#' && _source[k] != '\n' && _source[k] != '\r') k++;
+                if (k < _source.Length && _source[k] == '#')
+                {
+                    long millis = (long)hour * 3600000 + minute * 60000 + second * 1000;
+                    string txt = "#" + _source.Substring(_pos, 8) + "#";
+                    _pos = k + 1;
+                    return new Token(TokenType.TimeLiteral, txt, start, LongValue: millis);
+                }
+            }
+        }
+
+        throw new LexicalException(start, "Invalid date/time literal format. Use #YYYY-MM-DD# or #HH:MM:SS#.");
+    }
+
+    private static int DaysSinceEpochStatic(int year, int month, int day)
+    {
+        if (month <= 2) { month += 12; year--; }
+        int era = year / 400;
+        int yoe = year - era * 400;
+        int doy = (153 * (month - 3) + 2) / 5 + day - 1;
+        int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        return era * 146097 + doe - 719468;
     }
 
     private Token ReadString()

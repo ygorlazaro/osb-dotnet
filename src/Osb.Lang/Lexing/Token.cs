@@ -19,7 +19,9 @@ public sealed record Token(
     string Lexeme,
     SourceLocation Location,
     double NumberValue = 0,
-    string? StringValue = null)
+    string? StringValue = null,
+    int IntValue = 0,
+    long LongValue = 0)
 {
     /// <summary>Texto do lexema normalizado para maiúsculas (identificadores e palavras-chave).</summary>
     public string Text => Lexeme.ToUpperInvariant();

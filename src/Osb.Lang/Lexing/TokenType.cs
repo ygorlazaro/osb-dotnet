@@ -6,6 +6,8 @@ public enum TokenType
     Identifier,
     NumberLiteral,
     StringLiteral,
+    DateLiteral,
+    TimeLiteral,
 
     // Palavras reservadas (seção 5 da especificação) - uma entrada por palavra-chave,
     // já normalizada para maiúsculas pelo lexer (OSLANG é case-insensitive, seção 2).
