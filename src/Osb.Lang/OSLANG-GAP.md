@@ -50,7 +50,7 @@ the code was read directly for this report.
 | `OSL.CONSOLE` | 0.7 | ⚠️ | ❌ | kernel: 6 of 26 members |
 | `OSL.APP` | 0.7 | ⚠️ | ⚠️ | |
 | `OSB.NET` | 0.62 | ✅ | ❌ | |
-| `DATE` / `TIME` | 0.5 | ❌ | ❌ | **not implemented anywhere** |
+| `DATE` / `TIME` | 0.5 | ❌ | ✅ | host implements literals+namespaces (phase 4 2026-Oct); kernel still missing |
 | Arrow functions / closures | 0.51 | ✅ | ❌ | |
 | `SHOW`, `MOD`, `+=`, postfix `++` | 0.51 | ✅ | ✅ | |
 | Enum auto-increment after an explicit value | 0.61 | ⚠️ | ✅ | host bug, kernel correct |
@@ -181,7 +181,7 @@ named-function callbacks; file streams. **Breaking:** bare math functions remove
   absent because the kernel has no function values yet; `FILE`/`DIR` are still the bare
   `OSL.FILE` ext4 helpers.
 
-### 0.5 — `DATE` / `TIME` ❌ / ❌
+### 0.5 — `DATE` / `TIME` kernel ❌ / host ✅
 New primitive types, `DATE`/`TIME` namespaces, chronological comparison, extended `TYPEOF`.
 
 - **Not implemented in either implementation.** Zero occurrences of `DATE`/`TIME` in
