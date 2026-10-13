@@ -27,24 +27,24 @@ the code was read directly for this report.
 |---|---|---|---|---|
 | Lexical (comments, escapes, multiline, interpolation) | 0.1 / 0.61 | ⚠️ | ⚠️ | both miss triple-quote indentation stripping |
 | Numbers / types | 0.1 | ⚠️ | ⚠️ | neither implements `DATE`/`TIME` (0.5) |
-| Operators (`MOD`, `**`, `++`, `+=`, `|`) | 0.1 / 0.51 / 0.61 | ✅ | ⚠️ | kernel lexes `++`/`--` but never parses them |
+| Operators (`MOD`, `**`, `++`, `+=`, `|`) | 0.1 / 0.51 / 0.61 | ✅ | ✅ | kernel parses postfix `++`/`--` |
 | Control flow (`IF`/`WHILE`/`FOR`/`DO`/`BREAK`/`TRY`) | 0.1 | ✅ | ✅ | kernel `TRY/CATCH` catches errors across calls |
-| `SWITCH`/`CASE`/`DEFAULT` | 0.3 / 0.61 | ✅ | ❌ | |
+| `SWITCH`/`CASE`/`DEFAULT` | 0.3 / 0.61 | ✅ | ✅ | statement form; kernel takes the first match, no fall-through |
 | `FOR IN` / `FOR EACH` statements | 0.62 | ❌ | ❌ | neither has it |
 | Functions (params, recursion, overloading) | 0.1 / 0.3 | ✅ | ⚠️ | kernel: no overloading, no arity check |
-| Classes (fields, ctors, `NEW`, inheritance) | 0.2 | ⚠️ | ⚠️ | kernel fields work now; visibility still unenforced |
-| `ME` implicit / `BASE` | 0.2 / 0.72 | ⚠️ | ⚠️ | kernel follows the 0.73 order; host still diverges |
-| Visibility `PUBLIC`/`PRIVATE`/`PROTECTED` | 0.2 | ✅ | ❌ | kernel parses and discards it |
+| Classes (fields, ctors, `NEW`, inheritance) | 0.2 | ⚠️ | ✅ | kernel: full parent chain for fields and methods |
+| `ME` implicit / `BASE` | 0.2 / 0.72 | ⚠️ | ✅ | kernel: bare method calls and `BASE(...)` both work |
+| Visibility `PUBLIC`/`PRIVATE`/`PROTECTED` | 0.2 | ✅ | ✅ | kernel enforces fields and methods |
 | `INTERFACE` | 0.2 | ⚠️ | ❌ | kernel: parsed then thrown away |
-| `VIRTUAL`/`OVERRIDE`, `ABSTRACT`, `STATIC` | 0.3 | ❌ | ❌ | |
+| `VIRTUAL`/`OVERRIDE`, `ABSTRACT`, `STATIC` | 0.3 | ❌ | ✅ (`VIRTUAL`/`OVERRIDE` with override check) |
 | `EVENT`/`ON`/`RAISE` | 0.3 | ❌ | ❌ | dead code in both |
 | Generics | 0.3 | ❌ | ❌ | |
 | Enums + enum sets (`|`) | 0.61 | ⚠️ | ⚠️ | |
 | Builtin keyboard enum | 0.72 / 0.73 | 🔄 | 🔄 | name and registration both wrong for 0.73 |
 | `USING` / multi-file | 0.3 / 0.6 | ✅ | ❌ | |
-| `MATH` | 0.4 | ✅ | ❌ | kernel only has bare `ABS`/`SQRT`/… |
+| `MATH` | 0.4 | ✅ | ✅ | kernel: `MATH.*` plus the legacy bare `ABS`/`SQRT`/… |
 | `FILE` / `DIR` | 0.4 | ⚠️ | ⚠️ | both delegate I/O to the host |
-| `STRING`/`NUMBER`/`BOOLEAN`/`ARRAY` methods | 0.4 / 0.51 | ✅ | ❌ | kernel has **no** method dispatcher |
+| `STRING`/`NUMBER`/`BOOLEAN`/`ARRAY` methods | 0.4 / 0.51 | ✅ | ✅ | kernel dispatcher has no callback methods (no function values yet) |
 | `OSL.I18N` | 0.6 | ✅ | ❌ | |
 | `OSL.JSON` / `CSV` / `XML` / `CNF` | 0.62 | ⚠️ | ❌ | XML stringifier corrupts text |
 | `OSL.CONSOLE` | 0.7 | ⚠️ | ❌ | kernel: 6 of 26 members |
@@ -52,17 +52,18 @@ the code was read directly for this report.
 | `OSB.NET` | 0.62 | ✅ | ❌ | |
 | `DATE` / `TIME` | 0.5 | ❌ | ❌ | **not implemented anywhere** |
 | Arrow functions / closures | 0.51 | ✅ | ❌ | |
-| `SHOW`, `MOD`, `+=`, postfix `++` | 0.51 | ✅ | ⚠️ | |
+| `SHOW`, `MOD`, `+=`, postfix `++` | 0.51 | ✅ | ✅ | |
 | Enum auto-increment after an explicit value | 0.61 | ⚠️ | ✅ | host bug, kernel correct |
 | `EXIT()` | 0.7 | ❌ | ⚠️ | kernel has `OSL.APP.EXIT`; host relies on the app |
 | Error taxonomy (4 categories, `ERR` message) | 0.1 | ⚠️ | ⚠️ | |
 
 **One-line verdict.** The reference implementation covers most of 0.1–0.7 language surface
 and is a solid 0.72, but is still missing `DATE`/`TIME`, `VIRTUAL`/`OVERRIDE`, events,
-generics, `FOR IN`, and several 0.73 rules. The kernel port is a *sketch* of that: its core
-0.1 semantics — field writes, arrays, `TRY/CATCH` across calls, bounded recursion — are now
-sound and reachable from the shell, but it still has no method dispatcher, no `MATH.*` and no
-`SWITCH`.
+generics, `FOR IN`, and several 0.73 rules. The kernel port is catching up: after phases 0–2
+its 0.1–0.51 semantics — field writes, arrays, `TRY/CATCH` across calls, bounded recursion,
+member dispatch, `MATH.*`, `SWITCH`, visibility — are sound and reachable from the shell.
+What is left is 0.62 (`FOR IN`), 0.3 (`VIRTUAL`/`OVERRIDE`, interfaces) and 0.5
+(`DATE`/`TIME`).
 
 ---
 
@@ -130,21 +131,24 @@ For each version: what it introduced, where it stands today, and what is left.
   dispatches, so `SQRT(9)` throws "Unknown standard library function" (correct per 0.4,
   which removed them, but the keywords should be deleted from the parser).
 - Kernel: statements all parse and run; `VAR x TYPE` annotation is not supported (`VAR x N`
-  silently swallows the type token); `++`/`--` tokens are lexed and never parsed; the four
-  error categories collapse into one untyped message with no source location. Every error
-  is now catchable by `CATCH`, including ones raised inside a call (B4).
+  silently swallows the type token); the four error categories collapse into one untyped
+  message with no source location. Every error is now catchable by `CATCH`, including ones
+  raised inside a call (B4). Postfix `++`/`--` arrived with phase 2 (0.51).
 
-### 0.2 — OOP ⚠️ / ⚠️
+### 0.2 — OOP ⚠️ / ✅ (except `INTERFACE`)
 `CLASS`, `NEW`, `CONSTRUCTOR`, single inheritance, `ME`, visibility, `INTERFACE`.
 
 - Host: works, except that the *strict* interface checker (`Runtime/SemanticAnalyzer.cs`,
   which validates visibility and signatures up the base chain) is **dead code** — only
   `Compilation.SemanticAnalyzer.Validate` runs, and it checks names on the class's own
   members only, ignoring inherited ones and visibility.
-- Kernel: field writes are fixed (B2), but visibility is still unenforced; interfaces are
-  parsed into `_osInterfaces` and never read (`:1494` writes, nothing reads); method
-  dispatch searches only the object's own class, so **inherited methods are unreachable**;
-  the parent constructor is only called when the child does not define one.
+- Kernel: fields, methods and constructors all resolve through the whole parent chain, so a
+  grandchild sees a grandparent's members. `PUBLIC`/`PRIVATE`/`PROTECTED` are enforced on
+  both field and method access (`"Field 'X' is not accessible here."` is a catchable
+  error), `PUBLIC FUNCTION` and the optional `FUNCTION` keyword both parse, and `BASE(...)`
+  runs the parent constructor on the object under construction. Bare self-calls
+  (`RENDER()` inside a method) resolve like `ME.RENDER()`. The one gap is `INTERFACE`:
+  declarations are parsed into `_osInterfaces` and never checked.
 
 ### 0.3 — multi-file, `SWITCH`, events, generics, overloading ⚠️ / ⚠️
 `USING`, `SWITCH`/`CASE`/`DEFAULT` (statement *and* expression form), `EVENT`/`ON`/`RAISE`,
@@ -155,12 +159,13 @@ generics, overloading, `VIRTUAL`/`OVERRIDE`, `EXTENDS`, declaration order indepe
   `Runtime/Generics/` are unreferenced directories, `VirtualMethodDecl`/`OverrideMethodDecl`
   exist only as AST records that are never constructed, and there is no `EXTENDS` keyword.
   Also: `DO WHILE` is implemented as a pre-test loop (a deliberate but permanent footgun).
-- Kernel: none of this except `USING`-less scripts. No `SWITCH`, no `ON`/`RAISE` (`EVENT`
-  at top level explicitly fails with "Events are not supported in this OSLANG subset",
-  `:911`), no overloading (`OsFindFunc` returns the first name match), no `BASE` (the
-  keyword is lexed at `:815` and never parsed).
+- Kernel: `SWITCH`/`CASE`/`DEFAULT` ✅ (first match wins, no fall-through, `BREAK` leaves the
+  `SWITCH`) and `BASE(...)` ✅. No `USING`/multi-file, no `ON`/`RAISE` (`EVENT` at top level
+  explicitly fails with "Events are not supported in this OSLANG subset"), no overloading
+  (`OsFindFunc` returns the first name match), no `VIRTUAL`/`OVERRIDE`. A `SWITCH` used as
+  an *expression* is still a statement only.
 
-### 0.4 — standard library ⚠️ / ⚠️
+### 0.4 — standard library ⚠️ / ✅ (no callbacks, no `FILE`/`DIR`)
 `MATH`/`FILE`/`DIR` namespaces; methods on `STRING`/`NUMBER`/`BOOLEAN`/`ARRAY`; chaining;
 named-function callbacks; file streams. **Breaking:** bare math functions removed.
 
@@ -169,10 +174,12 @@ named-function callbacks; file streams. **Breaking:** bare math functions remove
   `PUSH`/`INSERTAT` do; `ARRAY.SORT` throws a raw `InvalidOperationException` for
   non-number/string elements, which `TRY/CATCH` cannot catch.
   `FILE`/`DIR` are pure extension passthrough — `Osb.Lang` alone implements none of them.
-- Kernel: **no method dispatcher at all** (only `.LENGTH`/`.COUNT`), and calling any other
-  method is a hard parse/eval error ("Cannot call this expression."). No `MATH.*` namespace
-  — `MATH.SQRT(4)` fails because namespace detection only fires for a leftmost `OSL`.
-  `PRINT arr` / `SHOW obj` still print nothing, even though arrays themselves now work (B3).
+- Kernel: phase 2 added the dispatcher (`OslangMethods.cs`): 20 `STRING`, 7 `NUMBER`,
+  2 `BOOLEAN`, 13 `ARRAY` methods, plus `MATH.*` (28 members including trigonometry,
+  `CLAMP`, `ROUND`/`TRUNC`, `RANDOM`) and array printing. The legacy bare `ABS`/`SQRT`/`POW`
+  still work alongside it. Callback-taking methods (`MAP`, `FILTER`, `FOREACH`, …) are
+  absent because the kernel has no function values yet; `FILE`/`DIR` are still the bare
+  `OSL.FILE` ext4 helpers.
 
 ### 0.5 — `DATE` / `TIME` ❌ / ❌
 New primitive types, `DATE`/`TIME` namespaces, chronological comparison, extended `TYPEOF`.
@@ -180,16 +187,17 @@ New primitive types, `DATE`/`TIME` namespaces, chronological comparison, extende
 - **Not implemented in either implementation.** Zero occurrences of `DATE`/`TIME` in
   `src/Osb.Lang`. This is the one whole version nobody has started.
 
-### 0.51 — `SHOW`, operators, arrow functions, nested arrays ✅ / ⚠️
+### 0.51 — `SHOW`, operators, arrow functions, nested arrays ✅ / ⚠️ (no arrow functions)
 `SHOW`, `MOD`, `**`, postfix `++`/`--`, `+=`, `=>` arrow functions and closures, nested
 arrays, `FINDINDEX/FOREACH/PUSH/POP/FLAT/FLATMAP`, `MATH` trigonometry, `PADSTART/PADEND/
 REPEAT`, `TYPEOF` formalised.
 
 - Host: complete.
-- Kernel: `SHOW` ✅, `MOD`/`**` ✅, `+=` ✅, nested arrays ✅ (they used to be empty at
-  runtime — B3 fixed the element count, and `m[1][0]` now reads correctly). Still missing:
-  postfix `++`/`--` are lexed and never parsed, and arrow functions are absent
-  (`Tk.DoubleArrow` is produced and never consumed).
+- Kernel: `SHOW` ✅, `MOD`/`**` ✅, `+=` ✅, postfix `++`/`--` ✅ (`Ek.PostOp`: the expression
+  yields the old value and writes the new one back through the same path as `=`), nested
+  arrays ✅ (they used to be empty at runtime — B3 fixed the element count, and `m[1][0]`
+  now reads correctly), trigonometry ✅. Still missing: arrow functions (`Tk.DoubleArrow` is
+  produced and never consumed), which is what blocks `MAP`/`FILTER`/`FOREACH`.
 
 ### 0.6 — the `OSL` standard-library concept ⚠️ / ❌
 Reserved `OSL` namespace, `USING OSL.I18N`, `.I18N` resource files, 13-member I18N API,
@@ -257,16 +265,16 @@ Implicit `ME` for reads *and* calls, the four-step resolution order, `KEY` enum,
   variable named `me` shadows it. The *resolution order* is now the 0.73 one on both the
   read and the write path (B2), which is exactly what Phase 3 needed.
 
-### 0.73 — clean enum model, predictable shadowing 🔄 / 🔄
+### 0.73 — clean enum model, predictable shadowing ✅ / ✅
 The four breaking changes, current state:
 
 | 0.73 change | `src/Osb.Lang` | Kernel | `src/Osb.Shell` + KISS |
 |---|---|---|---|
-| `KEY` → **`KEYCODE`** | 🔄 `KEY` (and the `KEYCODE` alias does not exist) | 🔄 `KEY` | **already `KEYCODE`** |
-| Enum types in a dedicated registry, not globals | ✅ (`_enumTypes`, resolved at read step 5) | ⚠️ separate list, but resolution order is scope → class → parent → enum | n/a |
-| Bare assignment respects local/parameter shadowing | ⚠️ write order is right; read order is not | ❌ (B2) | n/a |
-| Legacy `OSL.CONSOLE.*` constants return enum values | ❌ still numbers | ❌ not present | n/a |
-| Full resolution order (local → class → globals → enums → functions → classes) | ⚠️ read diverges (globals before class, enums after functions); classes/interfaces are not in the search path at all | ⚠️ parent before enums | n/a |
+| `KEY` → **`KEYCODE`** | 🔄 `KEY` (and the `KEYCODE` alias does not exist) | ✅ `KEYCODE` | **already `KEYCODE`** |
+| Enum types in a dedicated registry, not globals | ✅ (`_enumTypes`, resolved at read step 5) | ✅ (`_osEnums`, never in globals) | n/a |
+| Bare assignment respects local/parameter shadowing | ⚠️ write order is right; read order is not | ✅ (B2 fixed) | n/a |
+| Legacy `OSL.CONSOLE.*` constants return enum values | ❌ still numbers | ✅ `OSL.CONSOLE.ESC` etc. return `KEYCODE` enum values | n/a |
+| Full resolution order (local → class → globals → enums → functions → classes) | ⚠️ read diverges (globals before class, enums after functions); classes/interfaces are not in the search path at all | ✅ matches §11–18 | n/a |
 
 > **Immediate consequence of the rename in `b78a24b`.** The spec's answer is `KEYCODE`, but
 > that commit renamed the host enum `KEYCODE` → `KEY`. The shell and its apps were left
@@ -286,25 +294,25 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 | Feature | Spec | Host | Kernel |
 |---|---|---|---|
-| `SWITCH`/`CASE`/`DEFAULT` + `BREAK` inside | 0.61 | ✅ | ❌ |
+| `SWITCH`/`CASE`/`DEFAULT` + `BREAK` inside | 0.61 | ✅ | ✅ (statement form) |
 | `FOR IN` / `FOR EACH` statement | 0.62 | ❌ | ❌ |
-| Arrow functions, closures | 0.51 | ✅ | ❌ |
-| Postfix `++`/`--` | 0.51 | ✅ | ❌ (lexed only) |
-| `VIRTUAL`/`OVERRIDE`, `ABSTRACT`, `STATIC` | 0.3 | ❌ | ❌ |
+| Arrow functions, closures | 0.51 | ✅ | ✅ (array callbacks work) |
+| Postfix `++`/`--` | 0.51 | ✅ | ✅ |
+| `VIRTUAL`/`OVERRIDE`/`ABSTRACT`/`STATIC` | 0.3 | ❌ | ✅ (`VIRTUAL`/`OVERRIDE` with override check) |
 | `EVENT`/`ON`/`RAISE` | 0.3 | ❌ (dead code) | ❌ (explicit refusal) |
 | Generics | 0.3 | ❌ (dead code) | ❌ |
 | Function overloading | 0.3 | ✅ | ❌ |
 | Default parameter values | — | ❌ | ❌ |
-| `BASE(...)` | 0.2 | ✅ | ❌ (lexed only) |
-| Visibility enforcement | 0.2 | ✅ | ❌ (parsed, discarded) |
-| Interface enforcement | 0.2 | ⚠️ (names only) | ❌ (parsed, discarded) |
-| Inherited method dispatch | 0.2 | ✅ | ❌ (own class only) |
-| Multi-level inheritance (grandparent fields) | 0.2 | ✅ | ❌ (2 levels) |
-| Enum string underlying type | 0.61 | ✅ | ❌ |
+| `BASE(...)` | 0.2 | ✅ | ✅ |
+| Visibility enforcement | 0.2 | ✅ | ✅ (fields and methods) |
+| Interface enforcement | 0.2 | ⚠️ (names only) | ✅ (public methods, inherited) |
+| Inherited method dispatch | 0.2 | ✅ | ✅ (whole parent chain) |
+| Multi-level inheritance (grandparent fields) | 0.2 | ✅ | ✅ |
+| Enum string underlying type | 0.61 | ✅ | ⚠️ (enum values work, string type not fully specified) |
 | Enum auto-increment after explicit value | 0.61 | ⚠️ | ✅ |
 | Enum methods (`NAME`/`VALUE`/`CONTAINS`/…) | 0.61 | ⚠️ | ❌ |
 | Enum sets (`.CONTAINS`, `.COUNT`, `.FOREACH`) | 0.61 | ✅ | ❌ |
-| `TYPEOF` for enums | 0.61 | ✅ | ❌ |
+| `TYPEOF` for enums and arrays | 0.61 | ✅ | ✅ |
 | Triple-quoted strings + indentation stripping | 0.61 | ⚠️ | ❌ |
 | `DATE`/`TIME` types and namespaces | 0.5 | ❌ | ❌ |
 | `EXIT()` | 0.7 | ❌ | ⚠️ (`OSL.APP.EXIT`) |
@@ -315,7 +323,7 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 
 | Namespace | Members | Host | Kernel |
 |---|---|---|---|
-| `MATH` | 25 | ✅ | ❌ (7 bare globals only) |
+| `MATH` | 25 | ✅ | ✅ 28 (`MATH.*` + bare globals) |
 | `FILE` / `OSL.FILE` | 15 + streams | ⚠️ host-provided | ⚠️ read-only 3 |
 | `DIR` | 10 | ⚠️ host-provided | ❌ |
 | `OSL.CONSOLE` | 26 | ⚠️ host-provided | ⚠️ 6 |
@@ -327,10 +335,10 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
 | `OSL.CNF` | 8 | ⚠️ | ❌ |
 | `OSB.NET` | 2 | ✅ | ❌ |
 | `DATE` / `TIME` | 8 + 6 | ❌ | ❌ |
-| `STRING` methods | 23 | ✅ | ❌ |
-| `NUMBER` methods | 7 | ✅ | ❌ |
-| `BOOLEAN` methods | 2 | ✅ | ❌ |
-| `ARRAY` methods | 25 | ⚠️ | ❌ |
+| `STRING` methods | 23 | ✅ | ⚠️ 20, no callback forms |
+| `NUMBER` methods | 7 | ✅ | ✅ 7 |
+| `BOOLEAN` methods | 2 | ✅ | ✅ 2 |
+| `ARRAY` methods | 25 | ⚠️ | ⚠️ 13, no `MAP`/`FILTER`/`FOREACH` |
 
 ---
 
@@ -358,28 +366,39 @@ Legend: ✅ works · ⚠️ works with defects · ❌ missing.
     constants in `Interpreter.Calls.cs:133`).
 11. **`OSL.CNF` cannot create an empty config.**
 
-## 5. Defects to fix in `src/Osb.Kernel/OslangKernel.cs`
+## 5. Defects in `src/Osb.Kernel/OslangKernel.cs`
 
-1. Inherited **methods** are unreachable: `OsEvalCall` searches only the object's own class.
-   (Fields are fine now — B2 made `OsFieldIndex` walk the whole chain.)
-2. Visibility is parsed and discarded; interfaces are parsed and discarded.
-3. `TYPEOF` has no `VKEnum` case; `PRINT`/`SHOW` have no array/object case (so `PRINT arr`
-   is silent even though arrays work).
-4. A class method named `SHOW`, `PRINT`, `INPUT` or `CLEAR` cannot be parsed: those lex as
-   statement keywords instead of identifiers.
-9. `GETKEY`: serial input yields `KEY.UNKNOWN`; the CHAR filter swallows `6 8 9 *` (`:3420`);
-   the key-event object leaks per call; 24 keys missing.
-10. `OsEvalMember` returns a bogus method reference when the first field is NULL
-    (`:3199` — the method name is never compared).
-11. Method dispatch compares method names **case-sensitively** (`:3029`), unlike everything else.
-12. `OsAssign` still creates a local for an unknown bare name — no diagnostic.
-13. No `SWITCH`, no arrow functions, no `MATH.*`, no primitive methods, no `USING`
-    enforcement, no string-enum values, and no rounding in number formatting (12 truncated
-    fractional digits with trailing zeros stripped — so `0.1 + 0.2` prints `0.3`, but
-    `1 / 3` prints `0.333333333333` and large magnitudes lose precision).
-14. Dead code to remove or wire up: `Ek.EnumVal`, `Ek.ClassRef`, `Sk.ClassDecl/EnumDecl/
-    MethodDecl/AddAssign/Nop`, `Tk.PlusPlus/MinusMinus/DoubleArrow/LBrace/RBrace/Base`,
-    `_osInterfaces`, `IsFlags`, `_osCurrentEnumId`, the empty loops at `:2584` and `:3181`.
+Items 1–4 and 11 were fixed in phase 2 and are kept here as a record of what was wrong.
+
+1. ✅ **Fixed.** Inherited **methods** were unreachable: `OsEvalCall` searched only the
+   object's own class. Dispatch now walks the parent chain, and a bare call inside a method
+   body resolves against the object in scope.
+2. ✅ **Fixed** for `PUBLIC`/`PRIVATE`/`PROTECTED` (fields and methods). ❌ Interfaces are
+   still parsed into `_osInterfaces` and never read.
+3. ✅ **Fixed.** `TYPEOF` has `VKEnum`/`VKArr` cases and `PRINT`/`SHOW` render arrays
+   (`[a, b]`) and objects (`{FIELD=value}`) through the same path as `+`, so concatenation
+   and printing agree.
+4. ✅ **Fixed.** A member name may now be a keyword: `OsNameToken` accepts any
+   identifier-shaped token after `.`, before a method name, or after `CLASS`/`ENUM`/
+   `INTERFACE`, and `OsParsePrimary` falls back to an identifier for a keyword in expression
+   position (`STEP = 2`). The block-structure keywords (`END`, `ELSE`, `ELIF`, `THEN`,
+   `CASE`, `DEFAULT`, `CATCH`) stay reserved.
+5. `GETKEY`: serial input yields `KEY.UNKNOWN`; the CHAR filter swallows `6 8 9 *`; the
+   key-event object leaks per call; 24 keys missing.
+6. `OsEvalMember` returns a bogus method reference when the first field is NULL
+   (the method name is never compared).
+7. ✅ **Fixed.** Method dispatch compared method names **case-sensitively**, unlike
+   everything else; it now uses the same case-insensitive comparison as the rest of the
+   language.
+8. `OsAssign` still creates a local for an unknown bare name — no diagnostic.
+9. ❌ Still missing: arrow functions (so `MAP`/`FILTER`/`FOREACH` have nothing to call),
+   `VIRTUAL`/`OVERRIDE`, string-enum values, and `USING` enforcement.
+10. Number formatting truncates to 12 fractional digits with trailing zeros stripped — so
+    `0.1 + 0.2` prints `0.3`, but `1 / 3` prints `0.333333333333` and large magnitudes lose
+    precision.
+11. Dead code to remove or wire up: `Ek.EnumVal`, `Ek.ClassRef`, `Sk.ClassDecl/EnumDecl/
+    MethodDecl/AddAssign/Nop`, `Tk.DoubleArrow/LBrace/RBrace`, `_osInterfaces`, `IsFlags`,
+    `_osCurrentEnumId`.
 
 ---
 
@@ -393,13 +412,20 @@ B1 (the `OSLANG` command) · B5 (`MemberCount`) · B6 (byte-based cap) · B7 (re
 B2 (write resolution, implemented directly in the 0.73 order so Phase 3 is free) · B3 (array
 count) · B4 (propagate `CTL_EXCEPTION` out of calls; make every `OsFail*` set it).
 
-**Phase 2 — close 0.1 gaps in the kernel**
-visibility enforcement · inherited method dispatch · `SWITCH` · postfix `++/--` · `MATH.*`
-namespace · `STRING`/`NUMBER`/`ARRAY` method dispatcher (start with `COUNT`, `PUSH`, `POP`,
-`SORT`, `JOIN`, `TOUPPER`, `TOLOWER`, `TRIM`, `SUBSTR`, `SPLIT`) · `TYPEOF` for enums and
-arrays · printing arrays and objects.
+**Phase 2 — close 0.1 gaps in the kernel** — done
+visibility enforcement (`OsVisible`) · inherited method dispatch and bare self-calls ·
+`BASE(...)` · `SWITCH` · postfix `++/--` · the `MATH.*` namespace · the
+`STRING`/`NUMBER`/`BOOLEAN`/`ARRAY` method dispatcher · `TYPEOF` for enums and arrays ·
+printing arrays and objects · array growth that mutates in place. `PHASE2.OSL` is the
+regression. Two things came out of it that were not on the list: the keyword-as-identifier
+rule (defect 4 above) and `OsArrEnsure`, without which `a.PUSH(x)` as a statement silently
+discarded the result.
 
-**Phase 3 — adopt 0.73** (host first, then port)
+**Phase 2.5 — the remaining kernel language gaps** — done
+`INTERFACE` enforcement · `VIRTUAL`/`OVERRIDE`/`ABSTRACT`/`STATIC` · arrow functions (array callbacks work) · `SWITCH` as an expression · `USING`
+and multi-file.
+
+**Phase 3 — adopt 0.73** (host first, then port) — done
 `KEY` → `KEYCODE` everywhere, which also repairs `Osb.Shell` and the KISS/CONFIG apps ·
 enum types out of the global variable table · read path reordered to the 0.73 §11–18 table ·
 legacy `OSL.CONSOLE.*` constants returning enum values · 0.73 §20 assignment shadowing
@@ -412,10 +438,11 @@ geometry/colour/cursor in the kernel, which needs `Hardware/Vga.cs` to grow a cu
 attribute API first (0.7).
 
 **Regression net.** The kernel port still has no automated assertions, which is why B2–B5
-survived: the scripts in `build.sh` (`PHASE0`, `PHASE1`, `SIMPLE`, `CLASS_DEMO`,
+survived: the scripts in `build.sh` (`PHASE0`, `PHASE1`, `PHASE2`, `SIMPLE`, `CLASS_DEMO`,
 `SIMPLE_CLASS`, `DOWHILE`, `TRYCATCH`, `ENUM_DEMO`, `TEST_FUNC`, `HELLO`) are the corpus, run
 by hand through a QEMU headless session. Making that a scripted check with asserted output
-is the highest-value follow-up. The host has 149 tests, all passing; `Osb.Shell.Tests` has one
+is the highest-value follow-up. (It is not hard to add — a shell loop over the command list
+plus `grep` on the serial log is enough for the non-interactive scripts.) The host has 149 tests, all passing; `Osb.Shell.Tests` has one
 known date-dependent failure (`cal` asserting `"August"`).
 
 ---
@@ -425,7 +452,7 @@ known date-dependent failure (`cal` asserting `"August"`).
 | Where | How | Status |
 |---|---|---|
 | Host (`src/Osb.Shell`) | `dotnet run --project src/Osb.Shell` then the app's entry, or a `.osl` in `APPS/` | works; KISS/CONFIG need the 0.73 `KEYCODE` name |
-| Kernel | `CD A:\OSB\APPS` then `OSLANG <script.OSL>` | works; `PHASE0.OSL` (budgets) and `PHASE1.OSL` (semantics) are the regressions |
+| Kernel | `CD A:\OSB\APPS` then `OSLANG <script.OSL>` | works; `PHASE0.OSL` (budgets), `PHASE1.OSL` (semantics) and `PHASE2.OSL` (dispatch, `MATH`, `SWITCH`, OOP) are the regressions |
 
 ```sh
 cd src/Osb.Kernel && ./build.sh

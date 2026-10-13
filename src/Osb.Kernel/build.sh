@@ -54,19 +54,19 @@ IF x < y THEN
     PRINT "x is less than y"
 END
 PRINT "Testing enum..."
-PRINT "KEY = " + STR(KEY)
-PRINT "KEY.UNKNOWN = " + STR(KEY.UNKNOWN)
-PRINT "KEY.ENTER = " + STR(KEY.ENTER)
-PRINT "KEY.ESC = " + STR(KEY.ESC)
-PRINT "KEY.SPACE = " + STR(KEY.SPACE)
-PRINT "KEY.UP = " + STR(KEY.UP)
-PRINT "KEY.DOWN = " + STR(KEY.DOWN)
-PRINT "KEY.LEFT = " + STR(KEY.LEFT)
-PRINT "KEY.RIGHT = " + STR(KEY.RIGHT)
-PRINT "KEY.F1 = " + STR(KEY.F1)
-PRINT "KEY.F12 = " + STR(KEY.F12)
+PRINT "KEYCODE = " + STR(KEYCODE)
+PRINT "KEYCODE.UNKNOWN = " + STR(KEYCODE.UNKNOWN)
+PRINT "KEYCODE.ENTER = " + STR(KEYCODE.ENTER)
+PRINT "KEYCODE.ESC = " + STR(KEYCODE.ESC)
+PRINT "KEYCODE.SPACE = " + STR(KEYCODE.SPACE)
+PRINT "KEYCODE.UP = " + STR(KEYCODE.UP)
+PRINT "KEYCODE.DOWN = " + STR(KEYCODE.DOWN)
+PRINT "KEYCODE.LEFT = " + STR(KEYCODE.LEFT)
+PRINT "KEYCODE.RIGHT = " + STR(KEYCODE.RIGHT)
+PRINT "KEYCODE.F1 = " + STR(KEYCODE.F1)
+PRINT "KEYCODE.F12 = " + STR(KEYCODE.F12)
 PRINT "Testing enum flags (bitwise OR)..."
-flags = KEY.UP | KEY.DOWN
+flags = KEYCODE.UP | KEYCODE.DOWN
 PRINT "UP | DOWN = " + STR(flags)
 PRINT "Done."
 EOF
@@ -237,14 +237,14 @@ FUNCTION MAIN()
     END
     PRINT "still alive"
 
-    PRINT "-- the KEY enum table is complete --"
-    PRINT KEY.UNKNOWN
-    PRINT KEY.ENTER
-    PRINT KEY.ESC
-    PRINT KEY.BACKSPACE
-    PRINT KEY.PAGEDOWN
-    PRINT KEY.F1
-    PRINT KEY.F12
+    PRINT "-- the KEYCODE enum table is complete --"
+    PRINT KEYCODE.UNKNOWN
+    PRINT KEYCODE.ENTER
+    PRINT KEYCODE.ESC
+    PRINT KEYCODE.BACKSPACE
+    PRINT KEYCODE.PAGEDOWN
+    PRINT KEYCODE.F1
+    PRINT KEYCODE.F12
 
     PRINT "DONE"
 END FUNCTION
@@ -323,7 +323,123 @@ FUNCTION MAIN()
 END FUNCTION
 EOF
 
-{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE0.OSL\n' "$OBJ/fs/apps/phase0.osl"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
+# Regression for the Phase 2 features: methods on primitive values, the MATH
+# namespace, SWITCH, postfix ++/--, inherited and self method dispatch, member
+# visibility, and printing arrays/objects. Run it with:
+#   OSLANG A:\OSB\APPS\PHASE2.OSL
+cat > "$OBJ/fs/apps/phase2.osl" <<'EOF'
+CLASS SHAPE
+    PRIVATE ID
+    PROTECTED SIDES
+    PUBLIC NAME
+    CONSTRUCTOR(label, sideCount)
+        ID = "s" + sideCount
+        SIDES = sideCount
+        NAME = label
+    END CONSTRUCTOR
+    PUBLIC FUNCTION AREA()
+        RETURN SIDES
+    END FUNCTION
+    PUBLIC FUNCTION TAG()
+        RETURN ID
+    END FUNCTION
+    PRIVATE FUNCTION SECRET()
+        RETURN 7
+    END FUNCTION
+    PUBLIC FUNCTION VIA()
+        RETURN SECRET()
+    END FUNCTION
+    PUBLIC FUNCTION SHOW()
+        PRINT "shape " + NAME + " sides=" + SIDES
+    END FUNCTION
+END CLASS
+
+CLASS SQUARE : SHAPE
+    CONSTRUCTOR(label)
+        BASE(label, 4)
+    END CONSTRUCTOR
+    FUNCTION TWICE()
+        ME.SHOW()
+        ME.SHOW()
+    END FUNCTION
+    FUNCTION SIDECOUNT()
+        RETURN SIDES
+    END FUNCTION
+END CLASS
+
+FUNCTION GRADE(score)
+    SWITCH score
+        CASE 10
+            PRINT "perfect"
+        CASE 7
+            PRINT "good"
+        CASE 4
+            PRINT "poor"
+        DEFAULT
+            PRINT "fail"
+    END
+END FUNCTION
+
+FUNCTION MAIN()
+    PRINT "-- 1. STRING methods --"
+    PRINT "  " + "abc".TOUPPER() + " " + "ABC".TOLOWER()
+    PRINT "  [" + "  pad  ".TRIM() + "] len=" + "hello".LENGTH
+    PRINT "  " + "hello".STARTSWITH("he") + " " + "hello".ENDSWITH("LO")
+    PRINT "  idx=" + "hello".INDEXOF("l") + " sub=" + "hello".SUBSTR(1, 3)
+    PRINT "  " + "a-b-c".REPLACE("-", "+") + " " + "ab".REPEAT(2)
+    PRINT "  [" + "7".PADSTART(3, "0") + "] " + "a,b".SPLIT(",").JOIN("/")
+
+    PRINT "-- 2. NUMBER methods --"
+    PRINT "  " + (3.7).ABS() + " " + 3.2.CEIL() + " " + 3.9.FLOOR()
+    PRINT "  " + 3.0.ISINTEGER() + " " + 5.BETWEEN(1, 10) + " " + (3.14159).TRUNC(2)
+
+    PRINT "-- 3. ARRAY methods --"
+    a = [3, 1, 2]
+    PRINT "  " + a.COUNT + " first=" + a.FIRST + " last=" + a.LAST
+    a.ADD(4)
+    a.SORT()
+    PRINT "  " + a + " joined=" + a.JOIN(",")
+    PRINT "  popped=" + a.POP() + " -> " + a
+    PRINT "  has 2: " + a.CONTAINS(2) + " nested " + [[1, 2], [3]]
+
+    PRINT "-- 4. MATH namespace --"
+    PRINT "  " + MATH.SQRT(16) + " " + MATH.POW(2, 8) + " " + MATH.MIN(3, 8)
+    PRINT "  " + MATH.SIGN(-9) + " " + MATH.ROUND(2.567, 1) + " " + MATH.CLAMP(15, 0, 10)
+
+    PRINT "-- 5. SWITCH --"
+    GRADE(10)
+    GRADE(7)
+    GRADE(4)
+    GRADE(1)
+
+    PRINT "-- 6. postfix ++ / -- --"
+    i = 5
+    PRINT "  i++ -> " + i++ + " now " + i
+    j = 5
+    PRINT "  j-- -> " + j-- + " now " + j
+    k = 0
+    PRINT "  a[k++] -> " + a[k++]
+
+    PRINT "-- 7. inheritance and self dispatch --"
+    sq = NEW SQUARE("box")
+    sq.TWICE()
+    PRINT "  area=" + sq.AREA() + " tag=" + sq.TAG()
+    PRINT "  protected via subclass=" + sq.SIDECOUNT()
+    PRINT "  private via own method=" + sq.VIA()
+    TRY
+        sq.SECRET()
+    CATCH e3
+        PRINT "  caught: " + e3
+    END
+
+    PRINT "-- 8. TYPEOF and printing --"
+    PRINT "  " + TYPEOF(1) + " " + TYPEOF("s") + " " + TYPEOF(a) + " " + TYPEOF(sq)
+
+    PRINT "DONE"
+END FUNCTION
+EOF
+
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE0.OSL\n' "$OBJ/fs/apps/phase0.osl"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/PHASE2.OSL\n' "$OBJ/fs/apps/phase2.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
 debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 

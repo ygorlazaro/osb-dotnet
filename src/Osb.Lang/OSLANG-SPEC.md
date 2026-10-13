@@ -117,6 +117,17 @@ Complete set, with the version that introduced each:
 Notes: `SQRT`/`ABS`/`POW`/`FLOOR`/`CEIL` were **removed as global functions in 0.4** in favour
 of `MATH.*` (the keywords remain listed for history only).
 
+**Keywords are words, not reserved identifiers.** OSLANG is case-insensitive and its
+keywords are ordinary words in the source, so a keyword may be used as a name:
+
+- as a member: `arr.CLEAR()`, `obj.SHOW()`, `POINT.STEP` (the 0.51 `FOR … STEP` keyword is a
+  perfectly good field name);
+- as a declaration name: `CLASS BASE`, `FUNCTION PRINT()`;
+- as a variable: `STEP = 2` inside a constructor assigns a field called `STEP`.
+
+The block-structure keywords are the exception, because they delimit blocks and must stay
+reserved: `END`, `ELSE`, `ELIF`, `THEN`, `CASE`, `DEFAULT`, `CATCH`.
+
 ---
 
 ## 3. Types and values
@@ -255,7 +266,18 @@ CLASS PERSON EXTENDS ENTITY
 END CLASS
 ```
 
-- Fields default to `PUBLIC`; `PUBLIC`/`PRIVATE`/`PROTECTED` are enforced.
+- Fields default to `PUBLIC`; `PUBLIC`/`PRIVATE`/`PROTECTED` are enforced, on both fields and
+  methods. The rule is "where am I?", not "who owns it?":
+
+  | Modifier | Reachable from |
+  |---|---|
+  | `PUBLIC` | anywhere |
+  | `PRIVATE` | any code inside the declaring class — including a `PRIVATE` method of that class calling another one by bare name |
+  | `PROTECTED` | the declaring class and its descendants |
+
+  Reading or calling a member you may not see is a runtime error, so `TRY … CATCH` can trap
+  it. Outside any method (`MAIN`, a free function, top level) only `PUBLIC` is reachable,
+  because "the current class" is undefined there.
 - `NEW Class()` / `NEW Class(args)` calls `CONSTRUCTOR`; a class without one gets a
   default parameterless constructor. Constructor overloading is allowed from 0.3.
 - **Single inheritance** only, written `CLASS Child: Parent` or `CLASS Child EXTENDS Parent`
@@ -264,7 +286,9 @@ END CLASS
   resolves unambiguously — for reads *and* for calls (`SAVE()` == `ME.SAVE()`), for
   properties and for inherited members. `ME` is only valid inside a method; using it in a
   free function is an error.
-- `BASE` refers to the parent instance inside a derived class.
+- `BASE` refers to the parent instance inside a derived class. `BASE(args)` **inside a
+  `CONSTRUCTOR`** calls the parent class's constructor on the object being built, with the
+  arguments written in the call (`BASE(Label, 4)`), not the caller's own parameters.
 - `VIRTUAL`/`OVERRIDE` (0.3): a derived class must override virtual methods explicitly;
   overriding a non-virtual method is an error. Implicit overriding (0.2) is superseded.
 - `INTERFACE`/`END INTERFACE` (0.2): a contract of member signatures; a class implementing
@@ -418,6 +442,17 @@ Methods are called on values: `"abc".TOUPPER()`.
 Callback-taking methods take a **named function** (0.4). Arrow functions (0.51) and
 closures work as callbacks as well.
 
+(Implemented in the kernel: function values are first-class, arrow functions with closure capture,
+and array callbacks MAP/FILTER/FOREACH/REDUCE/FINDINDEX/ANY/SOME/ALL work.)
+
+Zero-argument methods also read as properties: `arr.FIRST` is `arr.FIRST()`, and `COUNT` /
+`LENGTH` are properties on strings and arrays.
+
+**Mutation (unresolved drift, see §16).** The mutating methods — `ADD`, `PUSH`, `POP`,
+`REMOVE`, `CLEAR`, `REVERSE`, `SORT` — change the array they are called on, so
+`arr.PUSH(x)` works as a statement. The host additionally leaves `SORT()` non-mutating and
+returns a new array; the kernel port mutates in place. One of the two should change.
+
 ---
 
 ## 13. Strings
@@ -472,3 +507,9 @@ Things the specs disagree about or never resolved — worth fixing in the next r
 7. **Missing specs** — 0.41 (source of `ARGS`) and 0.63/0.64 (roadmap) are referenced but absent.
 8. **Events** — specified once in 0.3 and never revisited; no version states whether they are
    required for 0.73.
+9. **Do the mutating array methods mutate?** `SORT()`, `REVERSE()`, `PUSH()` are specified as
+   member functions and `ARRAY.SORT()` is described as non-mutating, but a language with
+   value semantics cannot say what `arr.PUSH(x)` means when the return value is discarded.
+   The reference implementation returns a new array from `SORT`; the kernel port mutates in
+   place for all of them. In-place for everything is the more useful reading of
+   "`ADD`/`PUSH`/`POP` exist at all", so that is what the kernel does.
