@@ -61,10 +61,14 @@ internal static unsafe class PingCommand
         int got = 0;
         for (int n = 0; n < count; n++)
         {
+            // A host that does not answer ARP is reported as an unreachable target,
+            // the way the classic tool does, rather than aborting the whole
+            // run: the remaining probes should still be attempted.
             if (!NetStack.SendPing(ip, (ushort)(n + 1)))
             {
-                Vga.WriteLine("send failed");
-                return;
+                Vga.Write("unreachable");
+                Vga.PutChar('\n');
+                continue;
             }
             // wait for a reply, pumping the stack so echoes are answered too
             bool replied = false;

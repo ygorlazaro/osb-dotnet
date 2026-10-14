@@ -22,8 +22,8 @@ internal static unsafe class E1000
     private const int RegIcr = 0x000C0;
     private const int RegRctl = 0x00100;
     private const int RegTctl = 0x00400;
-    private const int RegRal = 0x02400;   // receive address (MAC low)
-    private const int RegRah = 0x02404;
+    private const int RegRal = 0x05400;   // receive address (MAC low)
+    private const int RegRah = 0x05404;
     private const int RegRdbal = 0x02800; // receive descriptor ring base
     private const int RegRdbah = 0x02804;
     private const int RegRdlen = 0x02808; // ring length in descriptors
@@ -31,9 +31,9 @@ internal static unsafe class E1000
     private const int RegRdt = 0x02818;
     private const int RegTdbal = 0x03800; // transmit descriptor ring base
     private const int RegTdbah = 0x03804;
-    private const int RegTdlen = 0x03808; // ring length in descriptors
-    private const int RegTdh = 0x0380C;   // head
-    private const int RegTdt = 0x03810;   // tail (doorbell)
+    private const int RegTdlen = 0x03808; // ring length, in BYTES
+    private const int RegTdh = 0x03810;   // head
+    private const int RegTdt = 0x03818;   // tail (doorbell)
 
     // control bits
     private const uint CtlRst = 1u << 26;
@@ -46,15 +46,27 @@ internal static unsafe class E1000
     // read-only "PHY reset asserted" flag - writing it does nothing.
     private const uint StatusLinkUp = 1u << 1;
 
+    // descriptor field offsets (both rings share the classic 16-byte layout)
+    //   0..7  buffer address (64-bit physical)
+    //   8..9  length      10 checksum offset
+    //   11    command     12 status     13 checksum start  14..15 special
+    private const int DescCmd = 11;        // command byte
+    private const int DescStatus = 12;     // status byte
+
     // descriptor command/status bits
     private const byte CmdEop = 0x01;       // end of packet
-    private const byte CmdRs = 0x08;        // receive status
-    private const byte StatusDd = 0x20;     // descriptor done
+    private const byte CmdRs = 0x08;        // report status (device sets DD back)
+    private const byte StatusDd = 0x01;     // descriptor done
 
     private const int DescSize = 16;
     private const int TxDescCount = 8;
     private const int RxDescCount = 32;
     private const int BufSize = 2048;
+    // How many receive descriptors to keep posted ahead of the cursor. RDT
+    // must always sit well beyond RDH: when RDT catches up to RDH the card
+    // considers the ring empty, stops receiving, and never recovers because
+    // nothing else moves the tail.
+    private const int RxPosted = 8;
 
     private static byte* _mmio;             // register base (identity mapped)
     private static ulong _mac;              // our MAC address
@@ -66,8 +78,8 @@ internal static unsafe class E1000
     private static byte* _rxRing; private static byte* _rxBuf;
     private static int _txNext; private static int _rxNext;
 
-    // probe: find the NIC, map it, bring it up.
-    // Error code: 0 ok, 1 no NIC, 2 no BAR0, 3 link down, 4 no memory.
+    // Result of the last Init: 0 ok, 1 no NIC, 2 no BAR, 3 link down,
+    // 4 out of memory, 5 no MAC address.
     public static int LastError;
 
     public static bool Init()
@@ -85,16 +97,18 @@ internal static unsafe class E1000
 
         Pci.EnableBusMaster(_bus, _slot, _func);
 
-        // read MAC from the receive address registers
-        uint ral = *(uint*)(_mmio + RegRal);
-        uint rah = *(uint*)(_mmio + RegRah);
-        _mac = ((ulong)rah << 32) | ral;
-
         // reset the device and wait for the self-clearing bit. There is no
         // separate PHY reset control: CTRL bit 31 is read-only status.
         RegWrite(RegCtl, RegRead(RegCtl) | CtlRst);
         for (int i = 0; i < 100000; i++)
             if ((RegRead(RegCtl) & CtlRst) == 0) break;
+
+        // Read the MAC after the reset: RA/RAH are reloaded from the EEPROM as
+        // part of it, so sampling them beforehand is not reliable.
+        uint ral = *(uint*)(_mmio + RegRal);
+        uint rah = *(uint*)(_mmio + RegRah);
+        _mac = ((ulong)rah << 32) | ral;
+        if (_mac == 0) { LastError = 5; return false; }   // no MAC: unusable NIC
 
         // The PHY renegotiates for a while after reset; poll the link for a
         // bounded time rather than sampling once and giving up. The loop is
@@ -123,23 +137,24 @@ internal static unsafe class E1000
             byte* d = _rxRing + i * DescSize;
             *(ulong*)d = (ulong)(_rxBuf + (ulong)i * BufSize);
             *(ushort*)(d + 8) = 0;
-            *(byte*)(d + 12) = 0;
-            *(byte*)(d + 13) = 0;
+            *(byte*)(d + DescStatus) = 0;
         }
 
-        // Program the rings. RDLEN/TDLEN are 16-bit registers sitting in a
-        // 32-bit slot, so they must be written as half-words: a full 32-bit
-        // write would push the count into RDBAH/TDBAH and corrupt the
-        // physical base address.
+        // Program the rings. RDLEN/TDLEN count BYTES, not descriptors, and the
+        // device keeps only bits 7..19 of them - so the value must be a whole
+        // multiple of 128. (RDH/TDH index descriptors; RDT/TDT do too.)
         RegWrite(RegRdbal, (uint)(ulong)_rxRing);
         RegWrite(RegRdbah, (uint)((ulong)_rxRing >> 32));
-        RegWrite(RegRdlen, RxDescCount);
+        RegWrite(RegRdlen, RxDescCount * DescSize);
         RegWrite(RegRdh, 0);
-        RegWrite(RegRdt, RxDescCount - 1);
+        RegWrite(RegRdt, RxPosted - 1);
+        // Touching the card once here makes it run its pending receive work
+        // rather than waiting for the first polled frame.
+        RegRead(RegRdh);
 
         RegWrite(RegTdbal, (uint)(ulong)_txRing);
         RegWrite(RegTdbah, (uint)((ulong)_txRing >> 32));
-        RegWrite(RegTdlen, TxDescCount);
+        RegWrite(RegTdlen, TxDescCount * DescSize);
         RegWrite(RegTdh, 0);
         RegWrite(RegTdt, 0);
 
@@ -164,9 +179,6 @@ internal static unsafe class E1000
     private static uint RegRead(int off) { return *(uint*)(_mmio + off); }
     private static void RegWrite(int off, uint v) { *(uint*)(_mmio + off) = v; }
 
-    // 16-bit register write: only the low half of the 32-bit slot is used.
-    private static void RegWrite16(int off, ushort v) { *(ushort*)(_mmio + off) = v; }
-
     // Send one ethernet frame (poll until the TX ring frees up).
     public static bool Send(byte* frame, int len)
     {
@@ -181,12 +193,15 @@ internal static unsafe class E1000
         for (int i = 0; i < len && i < BufSize; i++) buf[i] = frame[i];
         for (int i = len; i < BufSize; i++) buf[i] = 0;
 
-        // descriptor: addr(8) len(2) csum(2) cmd(1) status(1) reserved(4)
+        // descriptor: addr(8) len(2) cso(1) cmd(1) status(1) css(1) special(2).
+        // RS tells the device to write DD back into the status byte when the
+        // frame leaves; without it the descriptor never completes.
         ulong addr = (ulong)buf;
         *(ulong*)desc = addr;
         *(ushort*)(desc + 8) = (ushort)len;
-        *(ushort*)(desc + 10) = 0;
-        *(byte*)(desc + 12) = CmdEop;
+        *(byte*)(desc + 10) = 0;
+        *(byte*)(desc + DescCmd) = (byte)(CmdEop | CmdRs);
+        *(byte*)(desc + DescStatus) = 0;
         *(byte*)(desc + 13) = 0;
 
         _txNext++;
@@ -195,20 +210,25 @@ internal static unsafe class E1000
         // Bounded wait for the descriptor to report done. Never spins
         // forever: a stuck NIC must not wedge the shell.
         for (int spins = 0; spins < 20000; spins++)
-            if ((*(byte*)(desc + 13) & StatusDd) != 0) return true;
+            if ((*(byte*)(desc + DescStatus) & StatusDd) != 0) return true;
         return false;
     }
 
     // Poll one received frame into `buf` (returns its length, or 0).
+    // The descriptor's own status byte is the authority on whether a frame
+    // landed. ICR and RDH are deliberately not consulted as a gate: ICR is
+    // read-to-clear, so a single early read would latch reception off for
+    // good, and RDH is the card's own cursor which the card advances only
+    // after it has already written the frame.
+    //
+    // The card runs because the caller polls in a loop over the shell's
+    // timer ticks, not because this function touches a register.
     public static int Receive(byte* buf, int cap)
     {
         if (!_ready) return 0;
-        int head = (int)RegRead(RegRdh);
-        if (head == _rxNext % RxDescCount && (RegRead(RegIcr) & 0x1) == 0) return 0;
-
         int n = _rxNext % RxDescCount;
         byte* desc = _rxRing + n * DescSize;
-        if ((*(byte*)(desc + 12) & StatusDd) == 0) return 0;
+        if ((*(byte*)(desc + DescStatus) & StatusDd) == 0) return 0;
 
         ulong addr = *(ulong*)desc;
         int len = *(ushort*)(desc + 8);
@@ -216,11 +236,13 @@ internal static unsafe class E1000
         byte* src = (byte*)addr;
         for (int i = 0; i < len; i++) buf[i] = src[i];
 
-        // recycle the descriptor
-        *(byte*)(desc + 12) = 0;
-        *(byte*)(desc + 13) = 0;
+        // Recycle the descriptor and post the next batch. RDT has to run ahead of
+        // _rxNext, otherwise the card sees an empty ring and stops receiving.
+        *(byte*)(desc + DescStatus) = 0;
         _rxNext++;
-        RegWrite(RegRdt, (uint)(_rxNext % RxDescCount));   // ring doorbell
+        int posted = _rxNext + RxPosted - 1;
+        if (posted > RxDescCount - 1) posted = RxDescCount - 1;
+        RegWrite(RegRdt, (uint)posted);                    // ring doorbell
         return len;
     }
 }

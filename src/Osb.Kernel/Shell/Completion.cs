@@ -349,6 +349,7 @@ internal static unsafe class Completion
         Set(i++, "DEMO"); Set(i++, "TASK"); Set(i++, "PS"); Set(i++, "KILL");
         Set(i++, "WAIT"); Set(i++, "TAB"); Set(i++, "SPAWN"); Set(i++, "RING3");
         Set(i++, "TRASH"); Set(i++, "GREP");
+        Set(i++, "PING"); Set(i++, "PCI");
         Set(i++, "HISTORY"); Set(i++, "USER"); Set(i++, "LOGIN"); Set(i++, "LOGOUT");
         Set(i++, "EXIT"); Set(i++, "WHOAMI"); Set(i++, "CHOWN"); Set(i++, "CHMOD"); Set(i++, "SUDO");
     }

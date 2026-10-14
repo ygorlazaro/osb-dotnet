@@ -21,6 +21,7 @@ internal static unsafe class NetStack
 
     private const int FrameCap = 2048;
     private static byte* _tx;
+    private static byte* _arp;          // own buffer: ARP must not clobber a frame being built
     private static byte* _rx;
     private static bool _up;
 
@@ -32,8 +33,9 @@ internal static unsafe class NetStack
     {
         if (!E1000.Init()) return false;
         _tx = (byte*)PhysicalMemory.Alloc(FrameCap / 4096 + 1, 4096);
+        _arp = (byte*)PhysicalMemory.Alloc(FrameCap / 4096 + 1, 4096);
         _rx = (byte*)PhysicalMemory.Alloc(FrameCap / 4096 + 1, 4096);
-        if ((ulong)_tx == 0 || (ulong)_rx == 0) return false;
+        if ((ulong)_tx == 0 || (ulong)_arp == 0 || (ulong)_rx == 0) return false;
         _up = true;
         return true;
     }
@@ -134,10 +136,13 @@ internal static unsafe class NetStack
         if (type != EtherIp) return false;
         if (len < 14 + 20) return false;
 
+        // IPv4 header offsets from the start of the header: 12 source IP,
+        // 16 destination IP. Filtering on the source field silently drops
+        // every reply, so this must be the destination.
         byte* ip = f + 14;
         if ((ip[0] >> 4) != 4) return false;
         if (ip[9] != 1) return false;                  // ICMP only
-        if (ReadBe32(ip + 12) != Ip) return false;     // not for us
+        if (ReadBe32(ip + 16) != Ip) return false;     // not addressed to us
 
         byte* icmp = ip + 20;
         int icmpLen = len - 14 - 20;
@@ -145,7 +150,7 @@ internal static unsafe class NetStack
 
         if (icmp[0] == 0)                              // echo reply
         {
-            fromIp = ReadBe32(ip + 16);
+            fromIp = ReadBe32(ip + 12);
             seq = ReadBe16(icmp + 6);
             return true;
         }
@@ -158,7 +163,8 @@ internal static unsafe class NetStack
 
     private static void ReplyEcho(byte* f, int len, byte* ip, byte* icmp, int icmpLen)
     {
-        uint from = ReadBe32(ip + 16);
+        // The request's source IP (header offset 12) becomes our reply's destination.
+        uint from = ReadBe32(ip + 12);
         // turn the request into a reply
         icmp[0] = 0; icmp[1] = 0;
         WriteBe16(icmp + 2, 0);
@@ -183,40 +189,52 @@ internal static unsafe class NetStack
         if (_arpIp == ip && _arpMac != 0) return _arpMac;
         // broadcast "who has ip?"
         int frameLen = 14 + 28;
-        byte* f = _tx;
+        byte* f = _arp;
+        for (int i = 0; i < 14 + 28; i++) f[i] = 0;
         for (int i = 0; i < 6; i++) f[i] = 0xFF;
         WriteMac(f + 6, E1000.Mac);
         WriteBe16(f + 12, EtherArp);
+
+        // ARP payload offsets: 0 hw type, 2 proto type, 4 hlen, 5 plen,
+        // 6 opcode, 8 sender MAC, 14 sender IP, 18 target MAC, 24 target IP.
         byte* a = f + 14;
         WriteBe16(a, (ushort)1); WriteBe16(a + 2, (ushort)0x0800);  // hw=ethernet, proto=ip
         a[4] = 6; a[5] = 4; WriteBe16(a + 6, (ushort)1);            // hlen, plen, op=request
         WriteMac(a + 8, E1000.Mac);
         WriteBe32(a + 14, Ip);
-        WriteBe32(a + 18, ip);
+        for (int i = 0; i < 6; i++) a[18 + i] = 0;                   // target MAC: unknown
+        WriteBe32(a + 24, ip);                                       // target IP: who do we want?
         E1000.Send(f, frameLen);
 
-        // collect replies for a moment
-        for (int i = 0; i < 2000; i++)
+        // Collect replies. Enabling RX arms a one-second coalescing delay in
+        // the card, so the window has to be measured in real time rather than
+        // in loop iterations.
+        ulong deadline = Osb.Kernel.Cpu.Pit.Ticks + 2UL * (ulong)Osb.Kernel.Cpu.Pit.Hz;
+        while (Osb.Kernel.Cpu.Pit.Ticks < deadline)
         {
             int rl = E1000.Receive(_rx, FrameCap);
             if (rl < 42) continue;
             if (ReadBe16(_rx + 12) != EtherArp) continue;
             byte* ra = _rx + 14;
             if (ReadBe16(ra + 6) != (ushort)2) continue;         // reply
+            // For a reply the sender fields hold the address we asked about.
             if (ReadBe32(ra + 14) != ip) continue;
             ulong mac = ReadMac(ra + 8);
+            if (mac == 0) continue;
             _arpIp = ip; _arpMac = mac;
             return mac;
         }
         return 0;
     }
 
+    // Handle an inbound ARP request. The address being asked about is the
+    // TARGET field (offset 24), not the sender's.
     private static void HandleArp(byte* f, int len)
     {
         if (len < 42) return;
         byte* a = f + 14;
         if (ReadBe16(a + 6) != (ushort)1) return;       // request
-        if (ReadBe32(a + 14) != Ip) return;             // not for us
+        if (ReadBe32(a + 24) != Ip) return;             // not for us
 
         // Save the requester's identity before the reply overwrites those fields.
         ulong reqMac = ReadMac(f);                      // ethernet source == sender MAC

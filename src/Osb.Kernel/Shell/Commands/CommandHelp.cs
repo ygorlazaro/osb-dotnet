@@ -238,6 +238,15 @@ internal static class CommandHelp
         "  /I matches case-insensitively (default is case-sensitive).\n" +
         "  Without [file], filters the piped input: DIR | GREP txt\n" +
         "\0" +
+        "PING\n" +
+        "  Sends ICMP echo requests and reports the replies with a round-trip time.\n" +
+        "  Usage: PING <ip> [count]   (count defaults to 4)\n" +
+        "  The interface is static: 10.0.2.15/24, gateway 10.0.2.2.\n" +
+        "\0" +
+        "PCI\n" +
+        "  Lists the PCI bus: address, vendor:device id, class and IRQ.\n" +
+        "  Usage: PCI\n" +
+        "\0" +
         "DEMO\n" +
         "  Starts a demo (kernel) task.\n" +
         "  Usage: DEMO [&]   (& = background)\n" +
