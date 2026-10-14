@@ -70,11 +70,13 @@ internal static unsafe class PingCommand
                 Vga.PutChar('\n');
                 continue;
             }
-            // wait for a reply, pumping the stack so echoes are answered too
+            // Wait for a reply, polling the stack so echoes are answered too.
+            // Bounded by spin count as well as by ticks: if the timer ever
+            // stops, a tick-only deadline would hang the shell outright.
             bool replied = false;
             ulong start = Osb.Kernel.Cpu.Pit.Ticks;
             ulong deadline = start + 2UL * (ulong)Osb.Kernel.Cpu.Pit.Hz;   // 2 s
-            while (Osb.Kernel.Cpu.Pit.Ticks < deadline)
+            for (int spins = 0; spins < 4000000; spins++)
             {
                 uint from; ushort seq;
                 if (NetStack.Poll(true, out from, out seq) && seq == n + 1)
@@ -91,6 +93,7 @@ internal static unsafe class PingCommand
                     got++;
                     break;
                 }
+                if (Osb.Kernel.Cpu.Pit.Ticks >= deadline) break;
             }
             if (!replied) Vga.WriteLine("Request timed out.");
         }

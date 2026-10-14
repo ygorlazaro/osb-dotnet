@@ -68,6 +68,11 @@ internal static unsafe class E1000
     // nothing else moves the tail.
     private const int RxPosted = 8;
 
+    // A transmit that has not completed within this many ticks (100 Hz, so
+    // ~50 ms) is treated as lost. PING of a working link completes in well
+    // under a tick; a stuck card must fail fast instead of blocking.
+    private const ulong TxTimeoutTicks = 5;
+
     private static byte* _mmio;             // register base (identity mapped)
     private static ulong _mac;              // our MAC address
     private static bool _ready;
@@ -107,7 +112,7 @@ internal static unsafe class E1000
         // part of it, so sampling them beforehand is not reliable.
         uint ral = *(uint*)(_mmio + RegRal);
         uint rah = *(uint*)(_mmio + RegRah);
-        _mac = ((ulong)rah << 32) | ral;
+        _mac = (((ulong)rah << 32) | ral) & 0x0000FFFFFFFFFFFFUL;
         if (_mac == 0) { LastError = 5; return false; }   // no MAC: unusable NIC
 
         // The PHY renegotiates for a while after reset; poll the link for a
@@ -162,6 +167,10 @@ internal static unsafe class E1000
         RegWrite(RegRctl, RegRead(RegRctl) | RctlEn | RctlBroadcast);
         RegWrite(RegTctl, RegRead(RegTctl) | TctlEn);
 
+        // Report link speed/duplex for PING to display. Read after TCTL is
+        // enabled so the negotiated value has settled.
+        Speed = (int)((RegRead(RegStatus) >> 6) & 0x3);
+
         _txNext = 0;
         _rxNext = 0;
         _ready = true;
@@ -171,7 +180,26 @@ internal static unsafe class E1000
     public static bool Ready => _ready;
     public static ulong Mac => _mac;
 
-    public static string MacString() => "00:00:00:00:00:00"; // replaced by formatted printer
+    // Negotiated speed in Mbps (10/100/1000), from STATUS bits 8-6.
+    public static int Speed;
+
+    // Format the MAC as the usual colon-separated hex, most significant byte
+    // first. The card stores it little-endian, so the bytes are reversed.
+    public static void FormatMac(byte* dst, ulong mac)
+    {
+        // RAH holds the top two bytes in its LOW half; the rest of the word is
+        // status (bit 31 is the address-valid flag), so mask it off.
+        mac &= 0x0000FFFFFFFFFFFFUL;
+        for (int i = 0; i < 6; i++)
+        {
+            int b = (int)((mac >> (8 * i)) & 0xFF);
+            dst[i * 3] = HexDigit((b >> 4) & 0xF);
+            dst[i * 3 + 1] = HexDigit(b & 0xF);
+            if (i < 5) dst[i * 3 + 2] = (byte)':';
+        }
+    }
+
+    private static byte HexDigit(int v) { return (byte)(v < 10 ? 48 + v : 97 + (v - 10)); }
 
     // Pages needed to hold `n` buffers of BufSize bytes each.
     private static int Frames(int n) { return (n * BufSize + 4095) / 4096 + 1; }
@@ -207,10 +235,17 @@ internal static unsafe class E1000
         _txNext++;
         RegWrite(RegTdt, (uint)(_txNext % TxDescCount));   // ring doorbell
 
-        // Bounded wait for the descriptor to report done. Never spins
-        // forever: a stuck NIC must not wedge the shell.
-        for (int spins = 0; spins < 20000; spins++)
+        // Wait for the descriptor to report done. Bounded twice over: by elapsed
+        // ticks AND by spin count, because either can fail on its own. The
+        // spin bound matters most - if the timer interrupt is masked or the
+        // PIT is not ticking, a tick-only deadline would never be reached and
+        // the shell would hang with no way out.
+        ulong limit = Osb.Kernel.Cpu.Pit.Ticks + TxTimeoutTicks;
+        for (int spins = 0; spins < 200000; spins++)
+        {
             if ((*(byte*)(desc + DescStatus) & StatusDd) != 0) return true;
+            if (Osb.Kernel.Cpu.Pit.Ticks >= limit) return false;
+        }
         return false;
     }
 
@@ -218,14 +253,16 @@ internal static unsafe class E1000
     // The descriptor's own status byte is the authority on whether a frame
     // landed. ICR and RDH are deliberately not consulted as a gate: ICR is
     // read-to-clear, so a single early read would latch reception off for
-    // good, and RDH is the card's own cursor which the card advances only
-    // after it has already written the frame.
+    // good, and RDH is the card's own cursor which advances only after the
+    // frame is already in the ring.
     //
-    // The card runs because the caller polls in a loop over the shell's
-    // timer ticks, not because this function touches a register.
+    // RDH is still read, because an MMIO access is what gives the card a
+    // chance to run: a poll loop that only touches guest memory never leaves
+    // the guest, so a card waiting to deliver would never be scheduled.
     public static int Receive(byte* buf, int cap)
     {
         if (!_ready) return 0;
+        int head = (int)RegRead(RegRdh);
         int n = _rxNext % RxDescCount;
         byte* desc = _rxRing + n * DescSize;
         if ((*(byte*)(desc + DescStatus) & StatusDd) == 0) return 0;

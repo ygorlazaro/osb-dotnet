@@ -13,7 +13,8 @@ namespace Osb.Kernel.Network;
 internal static unsafe class NetStack
 {
     // ---- static interface configuration (no DHCP) ----
-    public const uint Ip = 0x0A000215;      // 10.0.2.15 (QEMU user-net)
+    // 10.0.2.15 in hex. Note 15 decimal is 0x0F, not 0x15.
+    public const uint Ip = 0x0A00020F;      // 10.0.2.15 (QEMU user-net)
     public const uint Netmask = 0xFFFFFF00; // /24
     public const uint Gateway = 0x0A000202; // 10.0.2.2
     public const ushort EtherIp = 0x0800;
@@ -206,23 +207,30 @@ internal static unsafe class NetStack
         WriteBe32(a + 24, ip);                                       // target IP: who do we want?
         E1000.Send(f, frameLen);
 
-        // Collect replies. Enabling RX arms a one-second coalescing delay in
-        // the card, so the window has to be measured in real time rather than
-        // in loop iterations.
+        // Collect replies. Enabling RX arms a one-second coalescing delay in the
+        // card, so the window is measured in ticks rather than iterations.
+        // Bounded by spin count as well, so a stalled timer cannot hang the
+        // shell here.
         ulong deadline = Osb.Kernel.Cpu.Pit.Ticks + 2UL * (ulong)Osb.Kernel.Cpu.Pit.Hz;
-        while (Osb.Kernel.Cpu.Pit.Ticks < deadline)
+        for (int spins = 0; spins < 4000000; spins++)
         {
             int rl = E1000.Receive(_rx, FrameCap);
-            if (rl < 42) continue;
-            if (ReadBe16(_rx + 12) != EtherArp) continue;
-            byte* ra = _rx + 14;
-            if (ReadBe16(ra + 6) != (ushort)2) continue;         // reply
-            // For a reply the sender fields hold the address we asked about.
-            if (ReadBe32(ra + 14) != ip) continue;
-            ulong mac = ReadMac(ra + 8);
-            if (mac == 0) continue;
-            _arpIp = ip; _arpMac = mac;
-            return mac;
+            if (rl >= 42 && ReadBe16(_rx + 12) == EtherArp)
+            {
+                byte* ra = _rx + 14;
+                // A reply carries the address we asked about in its sender
+                // fields, so match on the sender IP and read the sender MAC.
+                if (ReadBe16(ra + 6) == (ushort)2 && ReadBe32(ra + 14) == ip)
+                {
+                    ulong mac = ReadMac(ra + 8);
+                    if (mac != 0)
+                    {
+                        _arpIp = ip; _arpMac = mac;
+                        return mac;
+                    }
+                }
+            }
+            if (Osb.Kernel.Cpu.Pit.Ticks >= deadline) break;
         }
         return 0;
     }

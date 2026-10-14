@@ -246,6 +246,8 @@ internal static class CommandHelp
         "PCI\n" +
         "  Lists the PCI bus: address, vendor:device id, class and IRQ.\n" +
         "  Usage: PCI\n" +
+        "  PCI <B:D.F>  shows one device in full, including its BARs.\n" +
+        "  PCI net      shows the network adapter, its driver and its address.\n" +
         "\0" +
         "DEMO\n" +
         "  Starts a demo (kernel) task.\n" +
