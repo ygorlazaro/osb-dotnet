@@ -71,15 +71,16 @@ internal static unsafe class PingCommand
                 continue;
             }
             // Wait for a reply, polling the stack so echoes are answered too.
-            // Bounded by spin count as well as by ticks: if the timer ever
-            // stops, a tick-only deadline would hang the shell outright.
+            // Halt rather than spin: a busy loop burns the whole window in a
+            // fraction of the time it nominally waits for. Bounded by
+            // iteration count as a backstop in case the timer stops.
             bool replied = false;
             ulong start = Osb.Kernel.Cpu.Pit.Ticks;
             ulong deadline = start + 2UL * (ulong)Osb.Kernel.Cpu.Pit.Hz;   // 2 s
-            for (int spins = 0; spins < 4000000; spins++)
+            for (int wait = 0; wait < 4096; wait++)
             {
                 uint from; ushort seq;
-                if (NetStack.Poll(true, out from, out seq) && seq == n + 1)
+                if (NetStack.Dispatch(true, out from, out seq) && seq == n + 1)
                 {
                     ulong dt = (Osb.Kernel.Cpu.Pit.Ticks - start) * 1000UL / (ulong)Osb.Kernel.Cpu.Pit.Hz;
                     Vga.Write("reply from ");
@@ -94,6 +95,7 @@ internal static unsafe class PingCommand
                     break;
                 }
                 if (Osb.Kernel.Cpu.Pit.Ticks >= deadline) break;
+                NativeMethods.halt();
             }
             if (!replied) Vga.WriteLine("Request timed out.");
         }

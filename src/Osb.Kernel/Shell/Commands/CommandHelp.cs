@@ -238,10 +238,18 @@ internal static class CommandHelp
         "  /I matches case-insensitively (default is case-sensitive).\n" +
         "  Without [file], filters the piped input: DIR | GREP txt\n" +
         "\0" +
+        "NET\n" +
+        "  Shows or sets the network interface addressing.\n" +
+        "  Usage: NET                 show the current configuration\n" +
+        "  NET <ip>                  assign a static address (classful netmask)\n" +
+        "  NET DHCP                  ask a DHCP server for an address\n" +
+        "  NET AUTO                  DHCP, falling back to the built-in address\n" +
+        "  (alias: IFCONFIG)\n" +
+        "\0" +
         "PING\n" +
         "  Sends ICMP echo requests and reports the replies with a round-trip time.\n" +
         "  Usage: PING <ip> [count]   (count defaults to 4)\n" +
-        "  The interface is static: 10.0.2.15/24, gateway 10.0.2.2.\n" +
+        "  Set the address first with NET, or get one with NET DHCP.\n" +
         "\0" +
         "PCI\n" +
         "  Lists the PCI bus: address, vendor:device id, class and IRQ.\n" +

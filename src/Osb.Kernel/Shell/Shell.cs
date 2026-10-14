@@ -617,6 +617,13 @@ internal static unsafe class Shell
             return;
         }
 
+        if (ShellText.Eq(line, len, "NET") || ShellText.StartsWith(line, len, "NET ") ||
+            ShellText.Eq(line, len, "IFCONFIG") || ShellText.StartsWith(line, len, "IFCONFIG "))
+        {
+            NetCommand.Run(line, len);
+            return;
+        }
+
         if (ShellText.Eq(line, len, "DEMO")) { TaskCommands.Demo(background); return; }
         if (ShellText.Eq(line, len, "TASK") || ShellText.Eq(line, len, "PS")) { TaskCommands.List(); return; }
         if (ShellText.Eq(line, len, "KILL") || ShellText.StartsWith(line, len, "KILL ")) { TaskCommands.Kill(line, len); return; }

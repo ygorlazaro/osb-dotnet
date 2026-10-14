@@ -51,7 +51,8 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("          TRASH /U <name>       undelete back to the original folder");
         Vga.WriteLine("          GREP [/I] <pattern> [file]   filter lines (/I = caseless)");
         Vga.WriteLine("Pipes:    A | B        A's console output becomes B's input");
-        Vga.WriteLine("Network:  PING <ip> [count]   ICMP echo (static 10.0.2.15/24, gw 10.0.2.2)");
+        Vga.WriteLine("Network:  PING <ip> [count]   ICMP echo with round-trip times");
+        Vga.WriteLine("          NET [ip | DHCP | AUTO]   show or set the interface address");
         Vga.WriteLine("          PCI [net | B:D.F]   PCI bus, network adapter, device detail");
         Vga.WriteLine("          OSLANG <script.OSL> [args]  run an OSLANG script (A:)");
         Vga.WriteLine("          SLEEP   TIME  DATE  MEM  HALT  POWEROFF  REBOOT");

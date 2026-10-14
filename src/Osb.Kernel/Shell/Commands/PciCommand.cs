@@ -140,6 +140,11 @@ internal static unsafe class PciCommand
         byte* mac = stackalloc byte[18];
         Osb.Kernel.Network.E1000.FormatMac(mac, Osb.Kernel.Network.E1000.Mac);
         Vga.Write("  driver     e1000, bound, link up\n");
+        Vga.Write("  rx ring    head ");
+        Vga.WriteDec((ulong)Osb.Kernel.Network.E1000.RxHead);
+        Vga.Write(" tail ");
+        Vga.WriteDec((ulong)Osb.Kernel.Network.E1000.RxTail);
+        Vga.PutChar('\n');
         Vga.Write("  mac        ");
         // One byte at a time: the formatted MAC is 17 bytes, but WriteStr
         // counts 16-bit characters and would read past the end of it.

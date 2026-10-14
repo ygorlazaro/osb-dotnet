@@ -94,6 +94,13 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
 - **Pipes**: `A | B` captura a saída de A e a anexa após o primeiro `\n` da linha
   de B; `GREP [/I] <padrão> [arquivo]` filtra linhas (com `[arquivo]` lê o arquivo;
   sem, filtra o stdin do pipe). Pipelines rodam em primeiro plano.
+- **Rede**: driver Intel PRO/1000 (e1000) polled, sobre PCI. `PCI` lista o bus
+  (`PCI net` detalha o adaptador; `PCI B:D.F` detalha um dispositivo); `PING <ip>
+  [n]` manda ICMP echo e mostra o tempo de ida e volta; `NET` mostra o
+  endereçamento, `NET <ip>` fixa um endereço estático e `NET DHCP` (ou `NET AUTO`)
+  negotiate com um servidor DHCP. Sem DHCP há um endereço estático embutido
+  (10.0.2.15/24, gateway 10.0.2.2) — por padrão o shell não configura a rede na
+  inicialização, para não travar o boot esperando um servidor.
 
 ## Arquitetura
 
@@ -125,6 +132,13 @@ src/Osb.Kernel/
 │   ├── Ata.cs          # ATA PIO (setor de 512 bytes)
 │   ├── Ext4.cs         # ext4 simplificado (blocos, inodes, diretórios, resolução)
 │   └── Cwd.cs          # drive + diretório atual (namespace DOS)
+├── Network/            # rede (PCI, driver e pilha IPv4)
+│   ├── Pci.cs          # config space (0xCF8/0xCFC) + varredura de bus
+│   ├── E1000.cs        # driver Intel PRO/1000 polled (anéis TX/RX, sem IRQ)
+│   ├── NetStack.cs     # estado da interface, helpers de quadro/checksum
+│   ├── NetStack.Ip.cs  # IPv4/UDP/ICMP (transmissão)
+│   ├── NetStack.Arp.cs # resolução de endereço
+│   └── Dhcp.cs         # cliente DHCP: DISCOVER -> OFFER -> REQUEST -> ACK
 ├── Shell/              # o prompt e os comandos
 │   ├── Shell.cs        # laço de entrada (serial/teclado) + despacho de comandos
 │   ├── Environment.cs  # $VAR / SET
@@ -185,6 +199,10 @@ chmod +x build.sh
 teclado/mouse do host. O kernel espelha a VGA na serial e **também lê a serial como
 entrada**, então você digita diretamente na shell pelo terminal — é só digitar um comando
 e Enter. Para sair: `POWEROFF` no prompt do OSB (ACPI S5 → o QEMU encerra sozinho).
+
+`run` anexa um e1000 numa rede de usuário do QEMU (`-netdev user -device e1000`),
+que é o que `PING` e `NET DHCP` esperam. Nessa rede o endereço é 10.0.2.15/24,
+gateway 10.0.2.2 e o servidor DHCP é o próprio 10.0.2.2.
 
 Se rodar com janela (`run-gui` ou QEMU manual), o grab de input pode prender o mouse/
 teclado da sessão: **Ctrl+Alt+G** libera o grab e **Ctrl+Alt+2** abre o monitor do QEMU

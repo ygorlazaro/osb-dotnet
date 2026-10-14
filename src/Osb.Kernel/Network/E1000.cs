@@ -38,8 +38,11 @@ internal static unsafe class E1000
     // control bits
     private const uint CtlRst = 1u << 26;
     private const uint RctlEn = 1u << 1;
-    private const uint RctlBroadcast = 1u << 3;
-    private const uint RctlPromisc = 1u << 6;
+    // BAM is the broadcast accept bit, bit 15. Bit 3 is UPE (unicast
+    // promiscuous) and does NOT accept broadcast frames - relying on it makes
+    // the card drop every broadcast, which silently breaks DHCP.
+    private const uint RctlBam = 1u << 15;
+    private const uint RctlUpe = 1u << 3;          // unicast promiscuous
     private const uint TctlEn = 1u << 1;
     // Classic e1000 (82540) reports link state in STATUS bit 1 (LU).
     // Bit 21 is the e1000e layout and reads 0 here. Bit 31 is PHYRA, a
@@ -164,7 +167,8 @@ internal static unsafe class E1000
         RegWrite(RegTdt, 0);
 
         // enable receive + transmit
-        RegWrite(RegRctl, RegRead(RegRctl) | RctlEn | RctlBroadcast);
+        // Receive must accept broadcast: the DHCP offer arrives as one.
+        RegWrite(RegRctl, RegRead(RegRctl) | RctlEn | RctlBam | RctlUpe);
         RegWrite(RegTctl, RegRead(RegTctl) | TctlEn);
 
         // Report link speed/duplex for PING to display. Read after TCTL is
@@ -179,6 +183,11 @@ internal static unsafe class E1000
 
     public static bool Ready => _ready;
     public static ulong Mac => _mac;
+
+    // Receive cursors, for diagnostics. RDT must stay ahead of RDH or the
+    // card stops accepting frames.
+    public static int RxHead { get { return (int)RegRead(RegRdh); } }
+    public static int RxTail { get { return (int)RegRead(RegRdt); } }
 
     // Negotiated speed in Mbps (10/100/1000), from STATUS bits 8-6.
     public static int Speed;
