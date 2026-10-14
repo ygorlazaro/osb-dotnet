@@ -32,7 +32,7 @@ internal static unsafe class Environment
     public static void Init()
     {
         Set("PATH", "A:\\OSB\\BIN;A:\\OSB\\CONF");
-        Set("PROMPT", "$P$G");
+        Set("PROMPT", "$P$_[@] ");
         Set("USER", "guest");
         Set("HOME", "A:\\HOME\\guest");
         Set("TEMP", "A:\\OSB\\TEMP");

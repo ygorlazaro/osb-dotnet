@@ -90,6 +90,10 @@ internal static class Layout
     public const int EnvNameBufSize = 512;
     public const int EnvValueBufSize = 4096;
 
+    // Shell history (fixed ring, no managed arrays)
+    public const int MaxHistory = 256;
+    public const int HistoryLineCap = 128;
+
     // Scheduler
     public const int SlotConsole = 0;             // the shell / console (PID 1)
     public const int TaskCount = 8;               // console + 7 process slots

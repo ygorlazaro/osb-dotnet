@@ -28,7 +28,7 @@ mkdir -p "$OBJ/fs"
 rm -f "$OUT_IMG"
 dd if=/dev/zero of="$OUT_IMG" bs=1M count=16 >/dev/null 2>&1
 mke2fs -t ext4 -b 4096 \
-  -O ^has_journal,^extent,^64bit,^metadata_csum,^flex_bg,^dir_index \
+  -O ^has_journal,^metadata_csum,^flex_bg,^dir_index \
   -L "OSB" "$OUT_IMG" >/dev/null 2>&1
 cat > "$OBJ/fs/populate.txt" <<'EOF'
 mkdir /OSB

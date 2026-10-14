@@ -66,6 +66,14 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   `VER`, `ABOUT`, `HELP`, `CLS`, `ECHO <texto>`, `TICKS`, `SLEEP <s>`, `TIME`, `DATE`, `MEM`,
   `DEMO [&]`, `SPAWN [BAD] [&]`, `RING3 [BAD] [&]`, `TASK`/`PS`, `KILL <pid>`, `WAIT <pid>`,
   `TAB <pid>`, `HALT`, `POWEROFF`, `REBOOT`.
+- **Histórico e autocomplete na shell**:
+  - `HISTORY [n]` lista o histórico numerado (os **100 últimos** por padrão);
+  - `(:N)` re-executa a entrada N do histórico (ex.: `(:45)`);
+  - as **setas Up/Down** (ou `ESC [ A` / `ESC [ B` no serial) navegam pelo
+    histórico, preservando a linha em edição;
+  - **TAB** completa nomes de comando (primeiro token), flags (`/S` de `LN`)
+    e nomes de arquivo/diretório da ext4 em `A:` (relativos, absolutos, com
+    `\` automático para diretórios).
 
 ## Arquitetura
 
@@ -102,6 +110,8 @@ src/Osb.Kernel/
 │   ├── Environment.cs  # $VAR / SET
 │   ├── Prompt.cs       # $PROMPT no estilo DOS ($P$G...)
 │   ├── JobControl.cs   # foreground/background, espera e reap
+│   ├── History.cs      # anel de histórico + HISTORY/(:N)/setas Up/Down
+│   ├── Completion.cs   # TAB: comandos, /flags e nomes de arquivo
 │   ├── ShellText.cs    # comparações/parse/padding de texto
 │   └── Commands/       # SystemCommands, EnvironmentCommands, FileCommands, TaskCommands
 ├── OslangKernel.cs     # interpretador OSLANG 0.72 (lexer/parser/runtime) no kernel

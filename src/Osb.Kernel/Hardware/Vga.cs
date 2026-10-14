@@ -8,14 +8,38 @@ internal static unsafe class Vga
 {
     private static int _row;
     private static int _col;
+    private static byte _attr = 0x07;
+    private static byte _serialAttr = 0x07;
+    public static byte Attr => _attr;
+    public static void SetColor(byte fg, byte bg)
+    {
+        if (fg == bg) return;
+        _attr = (byte)(((bg & 0x0F) << 4) | (fg & 0x0F));
+    }
+    public static void SetAttr(byte a)
+    {
+        _attr = a;
+    }
+
 
     public static void Clear()
     {
         ushort* vga = (ushort*)Layout.VgaBase;
         for (int i = 0; i < Layout.VgaWidth * Layout.VgaHeight; i++)
-            vga[i] = (ushort)(' ' | (Layout.Attr << 8));
+            vga[i] = (ushort)(' ' | (_attr << 8));
         _row = 0;
         _col = 0;
+        // Mirror the clear to the serial console: ESC[2J clears the screen,
+        // ESC[H homes the cursor. Without this, CLS is a no-op on a headless
+        // serial session (the VGA memory is wiped but the terminal keeps the
+        // old text).
+        Serial.PutChar((char)27);
+        Serial.PutChar('[');
+        Serial.PutChar('2');
+        Serial.PutChar('J');
+        Serial.PutChar((char)27);
+        Serial.PutChar('[');
+        Serial.PutChar('H');
     }
 
     public static void Scroll()
@@ -24,12 +48,68 @@ internal static unsafe class Vga
         for (int i = 0; i < (Layout.VgaHeight - 1) * Layout.VgaWidth; i++)
             vga[i] = vga[i + Layout.VgaWidth];
         for (int i = (Layout.VgaHeight - 1) * Layout.VgaWidth; i < Layout.VgaHeight * Layout.VgaWidth; i++)
-            vga[i] = (ushort)(' ' | (Layout.Attr << 8));
+            vga[i] = (ushort)(' ' | (_attr << 8));
         _row = Layout.VgaHeight - 1;
+    }
+
+    private static void WriteSerialDec(int v)
+    {
+        if (v >= 10) WriteSerialDec(v / 10);
+        Serial.PutChar((char)('0' + (v % 10)));
+    }
+
+    // VGA palette -> ANSI color codes.
+    // VGA: 0=black 1=blue 2=green 3=cyan 4=red 5=magenta 6=brown 7=light grey
+    //      8=dark grey 9=light blue 10=light green 11=light cyan 12=light red
+    //      13=light magenta 14=yellow 15=white
+    // ANSI: 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
+    //       90=bright black 91=bright red 92=bright green 93=bright yellow
+    //       94=bright blue 95=bright magenta 96=bright cyan 97=bright white
+    private static int VgaToAnsiFg(int c)
+    {
+        switch (c)
+        {
+            case 0: return 30; case 1: return 34; case 2: return 32; case 3: return 36;
+            case 4: return 31; case 5: return 35; case 6: return 33; case 7: return 37;
+            case 8: return 90; case 9: return 94; case 10: return 92; case 11: return 96;
+            case 12: return 91; case 13: return 95; case 14: return 93; default: return 97;
+        }
+    }
+
+    private static int VgaToAnsiBg(int c)
+    {
+        switch (c)
+        {
+            case 0: return 40; case 1: return 44; case 2: return 42; case 3: return 46;
+            case 4: return 41; case 5: return 45; case 6: return 43; case 7: return 47;
+            case 8: return 100; case 9: return 104; case 10: return 102; case 11: return 106;
+            case 12: return 101; case 13: return 105; case 14: return 103; default: return 107;
+        }
+    }
+
+    private static void EmitSerialColor()
+    {
+        int fg = _attr & 0x0F;
+        int bg = (_attr >> 4) & 0x0F;
+        int fgCode = VgaToAnsiFg(fg);
+        int bgCode = VgaToAnsiBg(bg);
+        Serial.PutChar((char)27);
+        Serial.PutChar('[');
+        Serial.PutChar('0');
+        Serial.PutChar(';');
+        WriteSerialDec(fgCode);
+        Serial.PutChar(';');
+        WriteSerialDec(bgCode);
+        Serial.PutChar('m');
+        _serialAttr = _attr;
     }
 
     public static void PutChar(char c)
     {
+        if (_attr != _serialAttr)
+        {
+            EmitSerialColor();
+        }
         Serial.PutChar(c);
         if (c == '\n')
         {
@@ -43,7 +123,7 @@ internal static unsafe class Vga
         else
         {
             ushort* vga = (ushort*)Layout.VgaBase;
-            vga[_row * Layout.VgaWidth + _col] = (ushort)(c | (Layout.Attr << 8));
+            vga[_row * Layout.VgaWidth + _col] = (ushort)(c | (_attr << 8));
             _col++;
             if (_col >= Layout.VgaWidth)
             {
@@ -63,6 +143,14 @@ internal static unsafe class Vga
             for (int i = 0; i < s.Length; i++)
                 PutChar(p[i]);
         }
+    }
+
+    // Writes a char buffer of a known length (no managed strings in the
+    // shell's completion/history paths).
+    public static void WriteStr(char* s, int len)
+    {
+        for (int i = 0; i < len; i++)
+            PutChar(s[i]);
     }
 
     public static void WriteLine(string s)
