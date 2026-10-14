@@ -19,6 +19,14 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("OSB: Operating System Basic, created in 2000, rebooted in C#.");
     }
 
+    public static void WhoAmI()
+    {
+        char* nm = stackalloc char[Osb.Kernel.Shell.Users.NameCap];
+        int nl = Osb.Kernel.Shell.Users.NameAt(Osb.Kernel.Shell.Users.CurrentIndex, nm);
+        Vga.WriteStr(nm, nl);
+        Vga.PutChar('\n');
+    }
+
     public static void Help()
     {
         Vga.WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
@@ -31,6 +39,14 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("          (:N)            re-run entry N of the history");
         Vga.WriteLine("          Up/Down         walk the history while editing");
         Vga.WriteLine("Editing:  TAB completes commands, /flags and filenames");
+        Vga.WriteLine("Users:    USER            list accounts (uid 0 = root)");
+        Vga.WriteLine("          USER /ADD <name> [password]   /CHANGE  /DEL <name> [/HOME]");
+        Vga.WriteLine("          USER /SUDO <name> | /UNSUDO <name>  edit the sudoers");
+        Vga.WriteLine("          LOGIN [name]    switch user (passwordless for root)");
+        Vga.WriteLine("          EXIT | LOGOUT   end the session, back to 'login:'");
+        Vga.WriteLine("Perms:    CHOWN <user> <path>   CHMOD <octal> <path>  (root/owner)");
+        Vga.WriteLine("          A:\\OSB is root-owned; HOME folders are the user's;");
+        Vga.WriteLine("          A:\\OSB\\CONF holds PASSWD and SUDOERS; SUDO runs as root");
         Vga.WriteLine("Processes:SPAWN [BAD|SPAWNER] [&]  start a ring-3 process");
         Vga.WriteLine("          RING3 [BAD] [&]  synonym for SPAWN");
         Vga.WriteLine("          TASK / PS        list processes (a simple ps)");

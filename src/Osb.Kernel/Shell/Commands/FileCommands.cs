@@ -57,6 +57,11 @@ internal static unsafe class FileCommands
         byte* din = stackalloc byte[256];
         if (!Ext4.ReadInode(ino, din)) { Vga.WriteLine("Error reading inode"); return; }
         if (!Ext4.IsDir(Ext4.InodeGetMode(din))) { Vga.WriteLine("Not a directory"); return; }
+        if (!Users.CanRead(Ext4.InodeGetUid(din), Ext4.InodeGetMode(din)))
+        {
+            Vga.WriteLine("Permission denied");
+            return;
+        }
         PrintDirectory(din, wide);
     }
 
@@ -98,6 +103,11 @@ internal static unsafe class FileCommands
         byte* cin = stackalloc byte[256];
         if (!Ext4.ReadInode(ino, cin)) { Vga.WriteLine("Error"); return; }
         if (!Ext4.IsReg(Ext4.InodeGetMode(cin))) { Vga.WriteLine("Not a file"); return; }
+        if (!Users.CanRead(Ext4.InodeGetUid(cin), Ext4.InodeGetMode(cin)))
+        {
+            Vga.WriteLine("Permission denied");
+            return;
+        }
         uint sz = Ext4.InodeGetSize(cin);
         byte* blk = stackalloc byte[Ext4.BlockSize];
         ulong off = 0;
@@ -175,8 +185,8 @@ internal static unsafe class FileCommands
                         {
                             PrintPerms(cmode);
                             ShellText.WriteDecPad((ulong)Ext4.InodeGetLinks(cin), 4);
-                            ShellText.WriteDecPad((ulong)Ext4.InodeGetUid(cin), 5);
-                            ShellText.WriteDecPad((ulong)Ext4.InodeGetGid(cin), 5);
+                            PrintOwner(Ext4.InodeGetUid(cin), 5);
+                            PrintOwner(Ext4.InodeGetGid(cin), 5);
                             ShellText.WriteDecPad((ulong)Ext4.InodeGetSize(cin), 8);
                             Vga.PutChar(' ');
                             PrintUnixDate(Ext4.InodeGetMtime(cin));
@@ -220,6 +230,21 @@ internal static unsafe class FileCommands
             Vga.PutChar((bits & 2) != 0 ? 'w' : '-');
             Vga.PutChar((bits & 1) != 0 ? 'x' : '-');
         }
+    }
+
+    // ls-style owner column: the user name when the uid is known, else the
+    // bare number (the gid column shows the same name: single-user files).
+    private static void PrintOwner(uint uid, int width)
+    {
+        char* nm = stackalloc char[Osb.Kernel.Shell.Users.NameCap];
+        int len;
+        if (Osb.Kernel.Shell.Users.NameOf(uid, nm, out len))
+        {
+            Vga.WriteStr(nm, len);
+            for (int k = len; k < width; k++) Vga.PutChar(' ');
+            return;
+        }
+        ShellText.WriteDecPad(uid, width);
     }
 
     // PrintDate for ext4 mtimes (always UTC: no timezone database here).
@@ -289,6 +314,15 @@ internal static unsafe class FileCommands
     }
 
         }
+
+    // Write permission on the directory that receives (or loses) an entry:
+    // the unix rule — you may create/remove inside a directory you can write.
+    private static unsafe bool ParentWritable(uint parentIno)
+    {
+        byte* pin = stackalloc byte[256];
+        if (!Ext4.ReadInode(parentIno, pin)) return false;
+        return Users.CanWrite(Ext4.InodeGetUid(pin), Ext4.InodeGetMode(pin));
+    }
 
     private static unsafe bool ResolveParent(char* path, int len, out uint parentIno, char* baseName, ref int baseLen)
     {
@@ -376,6 +410,7 @@ internal static unsafe class FileCommands
         uint parentIno;
         if (!ResolveParent(path, plen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return; }
         if (baseLen <= 0) { Vga.WriteLine("Usage: DEL [file]"); return; }
+        if (!ParentWritable(parentIno)) { Vga.WriteLine("Permission denied"); return; }
 
         uint childIno; byte childType;
         if (!Ext4.DirEntryExists(parentIno, baseName, baseLen, out childIno, out childType)) { Vga.WriteLine("File not found"); return; }
@@ -397,32 +432,25 @@ internal static unsafe class FileCommands
     }
 
 
-    public static unsafe void MkDir(char* line, int len)
+    // Creates a directory at `path` with the given mode (type bits included),
+    // owned by `uid`. Prints the reason and returns false on failure.
+    public static unsafe bool MakeDir(char* path, int plen, ushort mode, uint uid, out uint newIno)
     {
-        int i = 0;
-        while (i < len && line[i] == ' ') i++;
-        while (i < len && line[i] != ' ') i++;
-        while (i < len && line[i] == ' ') i++;
-        int s = i;
-        while (i < len && line[i] != ' ') i++;
-        int plen = i - s;
-        if (plen <= 0) { Vga.WriteLine("MD [directory]"); return; }
-        char* path = line + s;
-
+        newIno = 0;
         char* baseName = stackalloc char[256];
         int baseLen = 0;
         uint parentIno;
-        if (!ResolveParent(path, plen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return; }
-        if (baseLen <= 0) { Vga.WriteLine("Usage: MD [directory]"); return; }
+        if (!ResolveParent(path, plen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return false; }
+        if (baseLen <= 0) { Vga.WriteLine("Usage: MD [directory]"); return false; }
+        if (!ParentWritable(parentIno)) { Vga.WriteLine("Permission denied"); return false; }
 
         uint cino; byte ctype;
-        if (Ext4.DirEntryExists(parentIno, baseName, baseLen, out cino, out ctype)) { Vga.WriteLine("Already exists"); return; }
+        if (Ext4.DirEntryExists(parentIno, baseName, baseLen, out cino, out ctype)) { Vga.WriteLine("Already exists"); return false; }
 
-        uint newIno;
-        if (!Ext4.AllocInode(out newIno, 0x41ED)) { Vga.WriteLine("No free inode"); return; }
+        if (!Ext4.AllocInode(out newIno, mode)) { Vga.WriteLine("No free inode"); return false; }
 
         uint dirBlock;
-        if (!Ext4.AllocBlock(out dirBlock)) { Ext4.FreeInode(newIno); Vga.WriteLine("No free block"); return; }
+        if (!Ext4.AllocBlock(out dirBlock)) { Ext4.FreeInode(newIno); Vga.WriteLine("No free block"); return false; }
         byte* db = stackalloc byte[Ext4.BlockSize];
         for (int k = 0; k < Ext4.BlockSize; k++) db[k] = 0;
         Ext4.Wr32(db, Layout.DirIno, newIno);
@@ -441,7 +469,8 @@ internal static unsafe class FileCommands
 
         byte* inBuf = stackalloc byte[256];
         for (int k = 0; k < 256; k++) inBuf[k] = 0;
-        Ext4.Wr16(inBuf, Layout.InoMode, 0x41ED);
+        Ext4.Wr16(inBuf, Layout.InoMode, mode);
+        Ext4.Wr16(inBuf, Layout.InoUid, (ushort)uid);
         Ext4.Wr16(inBuf, Layout.InoLinks, 2);
         Ext4.Wr32(inBuf, Layout.InoSizeLo, Ext4.BlockSize);
         Ext4.Wr32(inBuf, Layout.InoSizeHi, 0);
@@ -456,13 +485,13 @@ internal static unsafe class FileCommands
         Ext4.Wr16(pin, Layout.InoLinks, (ushort)(links + 1));
         Ext4.WriteInode(parentIno, pin);
 
-        if (Ext4.DirAddEntry(parentIno, baseName, baseLen, newIno, 2))
-            Vga.WriteLine("OK");
-        else { Ext4.FreeInode(newIno); Ext4.FreeBlock(dirBlock); Vga.WriteLine("Error adding entry"); }
+        if (Ext4.DirAddEntry(parentIno, baseName, baseLen, newIno, 2)) return true;
+        Ext4.FreeInode(newIno); Ext4.FreeBlock(dirBlock);
+        Vga.WriteLine("Error adding entry");
+        return false;
     }
 
-    // ---- RD / RMDIR ----
-    public static unsafe void RdDir(char* line, int len)
+    public static unsafe void MkDir(char* line, int len)
     {
         int i = 0;
         while (i < len && line[i] == ' ') i++;
@@ -471,23 +500,34 @@ internal static unsafe class FileCommands
         int s = i;
         while (i < len && line[i] != ' ') i++;
         int plen = i - s;
-        if (plen <= 0) { Vga.WriteLine("RD [directory]"); return; }
+        if (plen <= 0) { Vga.WriteLine("MD [directory]"); return; }
         char* path = line + s;
 
+        // the new folder is owned by the current user, mode 0755 (like unix)
+        if (MakeDir(path, plen, (ushort)(0x4000 | 0x1ED), (uint)Users.Uid, out _))
+            Vga.WriteLine("OK");
+    }
+
+    // ---- RD / RMDIR ----
+    // Removes an empty directory at `path`. Prints the reason and returns false
+    // on failure (not a directory, not empty, missing).
+    public static unsafe bool RemoveDir(char* path, int len)
+    {
         char* baseName = stackalloc char[256];
         int baseLen = 0;
         uint parentIno;
-        if (!ResolveParent(path, plen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return; }
-        if (baseLen <= 0) { Vga.WriteLine("Usage: RD [directory]"); return; }
+        if (!ResolveParent(path, len, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return false; }
+        if (baseLen <= 0) { Vga.WriteLine("Usage: RD [directory]"); return false; }
+        if (!ParentWritable(parentIno)) { Vga.WriteLine("Permission denied"); return false; }
 
         uint cino; byte ctype;
-        if (!Ext4.DirEntryExists(parentIno, baseName, baseLen, out cino, out ctype)) { Vga.WriteLine("Not found"); return; }
+        if (!Ext4.DirEntryExists(parentIno, baseName, baseLen, out cino, out ctype)) { Vga.WriteLine("Not found"); return false; }
         byte* inBuf = stackalloc byte[256];
         Ext4.ReadInode(cino, inBuf);
-        if (!Ext4.IsDir(Ext4.InodeGetMode(inBuf))) { Vga.WriteLine("Not a directory"); return; }
+        if (!Ext4.IsDir(Ext4.InodeGetMode(inBuf))) { Vga.WriteLine("Not a directory"); return false; }
 
         bool empty;
-        if (!Ext4.DirIsEmpty(cino, out empty) || !empty) { Vga.WriteLine("Directory not empty"); return; }
+        if (!Ext4.DirIsEmpty(cino, out empty) || !empty) { Vga.WriteLine("Directory not empty"); return false; }
 
         uint sz = Ext4.InodeGetSize(inBuf);
         uint nb = (sz + (uint)Ext4.BlockSize - 1) / (uint)Ext4.BlockSize;
@@ -504,8 +544,24 @@ internal static unsafe class FileCommands
         Ext4.WriteInode(parentIno, pin);
 
         Ext4.FreeInode(cino);
-        if (Ext4.DirRemoveEntry(parentIno, baseName, baseLen)) Vga.WriteLine("OK");
-        else Vga.WriteLine("Error removing entry");
+        if (Ext4.DirRemoveEntry(parentIno, baseName, baseLen)) return true;
+        Vga.WriteLine("Error removing entry");
+        return false;
+    }
+
+    public static unsafe void RdDir(char* line, int len)
+    {
+        int i = 0;
+        while (i < len && line[i] == ' ') i++;
+        while (i < len && line[i] != ' ') i++;
+        while (i < len && line[i] == ' ') i++;
+        int s = i;
+        while (i < len && line[i] != ' ') i++;
+        int plen = i - s;
+        if (plen <= 0) { Vga.WriteLine("RD [directory]"); return; }
+        char* path = line + s;
+
+        if (RemoveDir(path, plen)) Vga.WriteLine("OK");
     }
 
     public static unsafe void Ren(char* line, int len)
@@ -533,6 +589,7 @@ internal static unsafe class FileCommands
         int oldBaseLen = 0;
         uint oldParent;
         if (!ResolveParent(oldPath, oldLen, out oldParent, oldBase, ref oldBaseLen)) { Vga.WriteLine("Path not found"); return; }
+        if (!ParentWritable(oldParent)) { Vga.WriteLine("Permission denied"); return; }
 
         uint childIno; byte childType;
         if (!Ext4.DirEntryExists(oldParent, oldBase, oldBaseLen, out childIno, out childType)) { Vga.WriteLine("Not found"); return; }
@@ -542,6 +599,7 @@ internal static unsafe class FileCommands
         uint newParent;
         if (!ResolveParent(newPath, newLen, out newParent, newBase, ref newBaseLen)) { Vga.WriteLine("Path not found"); return; }
         if (newBaseLen <= 0) { Vga.WriteLine("Usage: REN old new"); return; }
+        if (newParent != oldParent && !ParentWritable(newParent)) { Vga.WriteLine("Permission denied"); return; }
 
         uint existingIno; byte existingType;
         if (Ext4.DirEntryExists(newParent, newBase, newBaseLen, out existingIno, out existingType)) { Vga.WriteLine("Target already exists"); return; }
@@ -604,6 +662,11 @@ internal static unsafe class FileCommands
         byte* sin = stackalloc byte[256];
         Ext4.ReadInode(srcIno, sin);
         if (Ext4.IsDir(Ext4.InodeGetMode(sin))) { Vga.WriteLine("Cannot copy directory"); return; }
+        if (!Users.CanRead(Ext4.InodeGetUid(sin), Ext4.InodeGetMode(sin)))
+        {
+            Vga.WriteLine("Permission denied");
+            return;
+        }
 
         char* dstPath = line + s2;
         int dstLen = l2;
@@ -627,6 +690,11 @@ internal static unsafe class FileCommands
             Ext4.ReadInode(dstIno, din);
             if (Ext4.IsDir(Ext4.InodeGetMode(din)))
             {
+                if (!Users.CanWrite(Ext4.InodeGetUid(din), Ext4.InodeGetMode(din)))
+                {
+                    Vga.WriteLine("Permission denied");
+                    return;
+                }
                 char* bname = srcBase;
                 int bnameLen = srcBaseLen;
                 uint ex; byte ext;
@@ -650,6 +718,7 @@ internal static unsafe class FileCommands
         uint parentIno;
         if (!ResolveParent(dstPath, dstLen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return; }
         if (baseLen <= 0) { Vga.WriteLine("Usage: COPY src dst"); return; }
+        if (!ParentWritable(parentIno)) { Vga.WriteLine("Permission denied"); return; }
         uint ex2; byte exType;
         if (Ext4.DirEntryExists(parentIno, baseName, baseLen, out ex2, out exType)) { Vga.WriteLine("Target already exists"); return; }
 
@@ -722,6 +791,7 @@ internal static unsafe class FileCommands
             uint parentIno;
             if (!ResolveParent(dst, dstLen, out parentIno, baseName, ref baseLen)) { Vga.WriteLine("Path not found"); return; }
             if (baseLen <= 0) { Vga.WriteLine("Usage: LN /S target destination"); return; }
+            if (!ParentWritable(parentIno)) { Vga.WriteLine("Permission denied"); return; }
             uint ex; byte exType;
             if (Ext4.DirEntryExists(parentIno, baseName, baseLen, out ex, out exType)) { Vga.WriteLine("Target already exists"); return; }
             uint linkIno;
@@ -742,6 +812,7 @@ internal static unsafe class FileCommands
         uint parentIno2;
         if (!ResolveParent(dst, dstLen, out parentIno2, baseName2, ref baseLen2)) { Vga.WriteLine("Path not found"); return; }
         if (baseLen2 <= 0) { Vga.WriteLine("Usage: LN source destination"); return; }
+        if (!ParentWritable(parentIno2)) { Vga.WriteLine("Permission denied"); return; }
         uint ex2; byte exType2;
         if (Ext4.DirEntryExists(parentIno2, baseName2, baseLen2, out ex2, out exType2)) { Vga.WriteLine("Target already exists"); return; }
 
@@ -796,13 +867,20 @@ internal static unsafe class FileCommands
 
         Vga.SetColor(fg, bg);
         Vga.Clear();
-        Vga.WriteLine("Color set. Saved to A:\\OSB\\CONF\\COLOR.CFG");
 
+        // Saving needs a writable CONF: a non-root user still gets the color
+        // for this session, it just does not persist (unix-style).
         char* confParent = stackalloc char[12];
         fixed (char* _cp = "A:\\OSB\\CONF") { for (int k = 0; k < 11; k++) confParent[k] = _cp[k]; }
         confParent[11] = '\0';
         uint parentIno;
-        if (!Ext4.Resolve(confParent, 11, out parentIno)) return;
+        if (!Ext4.Resolve(confParent, 11, out parentIno)) { Vga.WriteLine("Color set."); return; }
+        if (!ParentWritable(parentIno))
+        {
+            Vga.WriteLine("Color set (not saved: permission denied).");
+            return;
+        }
+        Vga.WriteLine("Color set. Saved to A:\\OSB\\CONF\\COLOR.CFG");
 
         char* fn = stackalloc char[10];
         fixed (char* _cf = "COLOR.CFG") { for (int k = 0; k < 9; k++) fn[k] = _cf[k]; }

@@ -41,6 +41,10 @@ mkdir /OSB/APPS
 EOF
 printf 'OSB File System test.\nCase-sensitive filenames: ON\nHome is A:\\HOME.\n' > "$OBJ/fs/welcome.txt"
 
+# Login system seeds: PASSWD (root, passwordless, uid 0) and SUDOERS.
+printf 'root::0:A:\\OSB\n' > "$OBJ/fs/passwd.txt"
+printf 'root\n' > "$OBJ/fs/sudoers.txt"
+
 # Create example OSLANG scripts
 mkdir -p "$OBJ/fs/apps"
 cat > "$OBJ/fs/apps/simple.osl" <<'EOF'
@@ -439,8 +443,11 @@ FUNCTION MAIN()
 END FUNCTION
 EOF
 
-{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE0.OSL\n' "$OBJ/fs/apps/phase0.osl"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/PHASE2.OSL\n' "$OBJ/fs/apps/phase2.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; } > "$OBJ/fs/populate2.txt"
+{ cat "$OBJ/fs/populate.txt"; printf 'write "%s" /OSB/README.TXT\n' "$OBJ/fs/welcome.txt"; printf 'write "%s" /OSB/APPS/PHASE0.OSL\n' "$OBJ/fs/apps/phase0.osl"; printf 'write "%s" /OSB/APPS/PHASE1.OSL\n' "$OBJ/fs/apps/phase1.osl"; printf 'write "%s" /OSB/APPS/PHASE2.OSL\n' "$OBJ/fs/apps/phase2.osl"; printf 'write "%s" /OSB/APPS/SIMPLE.OSL\n' "$OBJ/fs/apps/simple.osl"; printf 'write "%s" /OSB/APPS/HELLO.OSL\n' "$OBJ/fs/apps/hello.osl"; printf 'write "%s" /OSB/APPS/CLASS_DEMO.OSL\n' "$OBJ/fs/apps/class_demo.osl"; printf 'write "%s" /OSB/APPS/SIMPLE_CLASS.OSL\n' "$OBJ/fs/apps/simple_class.osl"; printf 'write "%s" /OSB/APPS/ENUM_DEMO.OSL\n' "$OBJ/fs/apps/enum_demo.osl"; printf 'write "%s" /OSB/APPS/DOWHILE.OSL\n' "$OBJ/fs/apps/dowhile.osl"; printf 'write "%s" /OSB/APPS/TRYCATCH.OSL\n' "$OBJ/fs/apps/trycatch.osl"; printf 'write "%s" /OSB/APPS/TEST_FUNC.OSL\n' "$OBJ/fs/apps/test_func.osl"; printf 'write "%s" /OSB/CONF/PASSWD\n' "$OBJ/fs/passwd.txt"; printf 'write "%s" /OSB/CONF/SUDOERS\n' "$OBJ/fs/sudoers.txt"; printf 'sif /OSB/TEMP mode 040777\n'; printf 'sif /OSB/CONF/PASSWD mode 0100600\n'; printf 'sif /OSB/CONF/SUDOERS mode 0100600\n'; } > "$OBJ/fs/populate2.txt"
 debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
+# debugfs "write" does not update the inode/block bitmaps: reconcile them or the
+# kernel's allocators would hand out the seeded files' inodes (e.g. SUDOERS).
+e2fsck -fy "$OUT_IMG" >/dev/null 2>&1
 echo "OK -> $OUT_IMG"
 
 # Locate the native AOT compiler shipped with the SDK (NuGet cache).

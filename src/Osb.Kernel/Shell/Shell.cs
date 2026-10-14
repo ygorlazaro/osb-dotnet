@@ -14,11 +14,151 @@ namespace Osb.Kernel.Shell;
 
 internal static unsafe class Shell
 {
+    // Boot into a session: the login prompt runs until somebody gets in; the
+    // input loop returns on EXIT/LOGOUT, which drops back to the prompt.
     public static void Run()
     {
-        Ext4.Mount();
-        Osb.Kernel.Shell.Commands.FileCommands.LoadColor();
-        Prompt.Write(); Vga.PutChar('\n');
+        Users.Init();
+        for (;;)
+        {
+            LoginSequence();          // returns only on a successful login
+            Ext4.Mount();
+            Osb.Kernel.Shell.Commands.FileCommands.LoadColor();
+            Prompt.Write(); Vga.PutChar('\n');
+            Session();                // the input loop; returns on EXIT/LOGOUT
+            Users.Logout();
+        }
+    }
+
+    // Interactive login: "login:" and, for password-protected accounts,
+    // "Password:" (no echo). Loops until a login succeeds.
+    public static void LoginSequence()
+    {
+        char* name = stackalloc char[32];
+        char* pass = stackalloc char[32];
+        while (true)
+        {
+            if (ConsoleControl.TakeCtrlC()) { Vga.PutChar('\n'); continue; }
+
+            Vga.Write("login: ");
+            int nlen = ReadLine(name, 32, echo: true);
+            if (nlen <= 0) continue;
+
+            int idx = Users.Find(name, nlen);
+            if (idx < 0) { Vga.WriteLine("Login incorrect"); continue; }
+
+            if (Users.PassLen(idx) > 0)
+            {
+                Vga.Write("Password: ");
+                int plen = ReadLine(pass, 32, echo: false);
+                Vga.PutChar('\n');
+                if (!Users.PassMatches(idx, pass, plen))
+                {
+                    Vga.WriteLine("Login incorrect");
+                    continue;
+                }
+            }
+            SessionSetup(idx);
+            Vga.PutChar('\n');
+            return;
+        }
+    }
+
+    // Applies a successful login: session identity, $USER/$HOME, and the home
+    // directory as the current one (A:\OSB when the folder is gone).
+    public static void SessionSetup(int idx)
+    {
+        Users.SetSession(idx);
+
+        char* userVar = stackalloc char[8];
+        fixed (char* p = "USER") { for (int k = 0; k < 4; k++) userVar[k] = p[k]; }
+
+        char* nm = stackalloc char[Users.NameCap];
+        int nl = Users.NameAt(idx, nm);
+        Environment.SetChars(userVar, 4, nm, nl);          // $USER
+
+        char* home = stackalloc char[64];
+        int hl = Users.HomeAt(idx, home);
+        char* homeVar = stackalloc char[8];
+        fixed (char* p = "HOME") { for (int k = 0; k < 4; k++) homeVar[k] = p[k]; }
+        Environment.SetChars(homeVar, 4, home, hl);        // $HOME
+
+        if (Ext4.Mount())
+        {
+            byte* canon = stackalloc byte[300];
+            int clen = 0;
+            uint ino;
+            if (Ext4.ResolveCanonical(home, hl, out ino, canon, ref clen))
+            {
+                Cwd.Set(canon, clen);
+                return;
+            }
+        }
+        byte* root = stackalloc byte[4];
+        root[0] = (byte)'A'; root[1] = (byte)':'; root[2] = (byte)'\\';
+        Cwd.Set(root, 3);
+    }
+
+    // One input line from the serial console or the PS/2 keyboard. `echo`
+    // prints what is typed (off for passwords). Returns the length.
+    public static int ReadLine(char* buf, int cap, bool echo)
+    {
+        int len = 0;
+        bool shift = false;
+        while (true)
+        {
+            if (ConsoleControl.TakeCtrlC())
+            {
+                len = 0;
+                Vga.PutChar('\n');
+                continue;
+            }
+
+            int ch = Serial.Pop();
+            if (ch < 0)
+            {
+                int sc = Keyboard.Pop();
+                if (sc < 0) { NativeMethods.halt(); continue; }
+                if (sc == 0x2A || sc == 0x36) { shift = true; continue; }
+                if (sc == 0xAA || sc == 0xB6) { shift = false; continue; }
+                if ((sc & 0x80) != 0) continue;
+                if (sc == 0x1C) ch = '\r';
+                else if (sc == 0x0E) ch = '\b';
+                else
+                {
+                    char c = Keyboard.MapScancode((byte)sc, shift);
+                    if (c == 0) continue;
+                    ch = c;
+                }
+            }
+
+            if (ch == '\r' || ch == '\n') { Vga.PutChar('\n'); buf[len] = '\0'; return len; }
+            if (ch == '\b' || ch == (char)0x7F)
+            {
+                if (len > 0)
+                {
+                    len--;
+                    if (echo)
+                    {
+                        Vga.PutChar('\b');
+                        Vga.PutChar(' ');
+                        Vga.PutChar('\b');
+                    }
+                }
+                continue;
+            }
+            if (ch >= ' ' && ch < 127 && len < cap - 1)
+            {
+                buf[len++] = (char)ch;
+                if (echo) Vga.PutChar((char)ch);
+            }
+        }
+    }
+
+    // The console input loop: reads the line from serial/keyboard and runs it.
+    // Returns on EXIT/LOGOUT (the login prompt takes over).
+    private static void Session()
+    {
         char* line = stackalloc char[128];
         int len = 0;
         bool shift = false;
@@ -28,6 +168,8 @@ internal static unsafe class Shell
 
         while (true)
         {
+            if (_sessionOver) { _sessionOver = false; return; }
+
             if (ConsoleControl.TakeCtrlC())
             {
                 len = 0;
@@ -94,6 +236,8 @@ internal static unsafe class Shell
         }
     }
 
+    private static bool _sessionOver;
+
     // Up/Down through the history, redrawing the edit line on screen.
     private static void HistoryNav(char* line, ref int len, bool up)
     {
@@ -126,7 +270,7 @@ internal static unsafe class Shell
             Execute(line, len);
             History.NavReset();
             len = 0;
-            Prompt.Write();
+            if (!_sessionOver) Prompt.Write();
             return;
         }
         if (c == '\b' || c == (char)0x7F)
@@ -204,6 +348,13 @@ internal static unsafe class Shell
         }
         if (len == 0) return;
 
+        Dispatch(line, len, background);
+    }
+
+    // The command dispatch: first match wins. Public so SUDO can re-enter it
+    // as root. `background` carries the trailing '&' parsed by Execute.
+    public static void Dispatch(char* line, int len, bool background = false)
+    {
         if (ShellText.Eq(line, len, "VER")) { SystemCommands.Version(); return; }
         if (ShellText.Eq(line, len, "ABOUT")) { SystemCommands.About(); return; }
         if (ShellText.Eq(line, len, "HELP")) { SystemCommands.Help(); return; }
@@ -211,9 +362,15 @@ internal static unsafe class Shell
         if (ShellText.Eq(line, len, "MEM")) { SystemCommands.Memory(); return; }
         if (ShellText.Eq(line, len, "HALT")) { SystemCommands.Halt(); return; }
         if (ShellText.Eq(line, len, "POWEROFF") || ShellText.Eq(line, len, "SHUTDOWN") ||
-            ShellText.Eq(line, len, "EXIT") || ShellText.Eq(line, len, "QUIT"))
+            ShellText.Eq(line, len, "QUIT"))
         {
             SystemCommands.PowerOff();
+            return;
+        }
+        // EXIT/LOGOUT end the session: back to the login prompt
+        if (ShellText.Eq(line, len, "EXIT") || ShellText.Eq(line, len, "LOGOUT"))
+        {
+            _sessionOver = true;
             return;
         }
         if (ShellText.Eq(line, len, "REBOOT")) { SystemCommands.Reboot(); return; }
@@ -241,6 +398,36 @@ internal static unsafe class Shell
         if (ShellText.Eq(line, len, "PWD"))
         {
             FileCommands.Pwd(line, len);
+            return;
+        }
+        if (ShellText.Eq(line, len, "WHOAMI"))
+        {
+            SystemCommands.WhoAmI();
+            return;
+        }
+        if (ShellText.Eq(line, len, "USER") || ShellText.StartsWith(line, len, "USER "))
+        {
+            UserCommands.User(line, len);
+            return;
+        }
+        if (ShellText.Eq(line, len, "LOGIN") || ShellText.StartsWith(line, len, "LOGIN "))
+        {
+            UserCommands.Login(line, len);
+            return;
+        }
+        if (ShellText.StartsWith(line, len, "CHOWN"))
+        {
+            UserCommands.Chown(line, len);
+            return;
+        }
+        if (ShellText.StartsWith(line, len, "CHMOD"))
+        {
+            UserCommands.Chmod(line, len);
+            return;
+        }
+        if (ShellText.Eq(line, len, "SUDO") || ShellText.StartsWith(line, len, "SUDO "))
+        {
+            UserCommands.Sudo(line, len);
             return;
         }
         if (ShellText.Eq(line, len, "CLEAR"))

@@ -74,6 +74,19 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   - **TAB** completa nomes de comando (primeiro token), flags (`/S` de `LN`)
     e nomes de arquivo/diretório da ext4 em `A:` (relativos, absolutos, com
     `\` automático para diretórios).
+- **Sistema de login** (estilo unix):
+  - o boot cai no prompt `login:`; **root entra sem senha**; contas com senha
+    pedem `Password:` (sem eco);
+  - `USER` lista as contas; `USER /ADD <nome> [senha]`, `USER /CHANGE <nome>
+    [senha]`, `USER /DEL <nome> [/HOME]`, `USER /SUDO` / `USER /UNSUDO`;
+  - `LOGIN [nome]` troca de usuário; `EXIT`/`LOGOUT` volta ao `login:`;
+  - `CHOWN <usuário> <caminho>` (root), `CHMOD <octal> <caminho>` (dono/root),
+    `SUDO <comando>` (quem está no SUDOERS, confirmando a própria senha);
+  - persistência em `A:\OSB\CONF\PASSWD` (`nome:senha:uid:home`, modo 0600) e
+    `A:\OSB\CONF\SUDOERS`;
+  - tudo sob `A:\OSB` é do root (uid 0), exceto `A:\OSB\HOME\<usuário>` (do
+    usuário, criado no `/ADD`, é o PWD inicial do login) e `A:\OSB\TEMP`
+    (modo 0777, compartilhado). `DIR` mostra o nome do dono.
 
 ## Arquitetura
 
@@ -112,8 +125,10 @@ src/Osb.Kernel/
 │   ├── JobControl.cs   # foreground/background, espera e reap
 │   ├── History.cs      # anel de histórico + HISTORY/(:N)/setas Up/Down
 │   ├── Completion.cs   # TAB: comandos, /flags e nomes de arquivo
+│   ├── Users.cs        # contas, sessão, permissões (PASSWD/SUDOERS)
 │   ├── ShellText.cs    # comparações/parse/padding de texto
-│   └── Commands/       # SystemCommands, EnvironmentCommands, FileCommands, TaskCommands
+│   └── Commands/       # SystemCommands, EnvironmentCommands, FileCommands,
+│                       # UserCommands (USER/LOGIN/CHOWN/CHMOD/SUDO), TaskCommands
 ├── OslangKernel.cs     # interpretador OSLANG 0.72 (lexer/parser/runtime) no kernel
 ├── boot.S              # bootstrap Multiboot2: 32-bit -> long mode -> chama kmain
 │                       # (+ helpers: outb/inb, mem*, lidt, sti/cli, halt, lgdt/ltr,

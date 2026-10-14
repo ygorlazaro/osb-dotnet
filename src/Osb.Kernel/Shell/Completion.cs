@@ -25,7 +25,7 @@ namespace Osb.Kernel.Shell;
 internal static unsafe class Completion
 {
     private const int CmdNameCap = 12;      // max chars per command name
-    private const int CmdCount = 49;        // commands in the table below
+    private const int CmdCount = 56;        // commands in the table below
 
     private unsafe struct CmdTable
     {
@@ -348,7 +348,8 @@ internal static unsafe class Completion
         Set(i++, "COLOR"); Set(i++, "LN"); Set(i++, "LNK"); Set(i++, "OSLANG");
         Set(i++, "DEMO"); Set(i++, "TASK"); Set(i++, "PS"); Set(i++, "KILL");
         Set(i++, "WAIT"); Set(i++, "TAB"); Set(i++, "SPAWN"); Set(i++, "RING3");
-        Set(i++, "HISTORY");
+        Set(i++, "HISTORY"); Set(i++, "USER"); Set(i++, "LOGIN"); Set(i++, "LOGOUT");
+        Set(i++, "EXIT"); Set(i++, "WHOAMI"); Set(i++, "CHOWN"); Set(i++, "CHMOD"); Set(i++, "SUDO");
     }
 
     private static int CopyCmdName(int i, char* dst)

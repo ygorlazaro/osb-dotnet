@@ -386,6 +386,34 @@ internal static unsafe class Ext4
         return Resolve(cc, cl, out ino);
     }
 
+    // Keeps the free-blocks/free-inodes summary counters (superblock + group
+    // descriptor) in sync with the bitmaps, so the fs stays e2fsck-clean.
+    // Uses one static block buffer: the fs layer already runs deep in the
+    // stack with its 4 KiB scratch buffers, and these paths must not grow it.
+    private unsafe struct MetaBlock { public fixed byte data[4096]; }
+    private static MetaBlock _meta;
+
+    private static void AdjustFreeCounts(int blockDelta, int inodeDelta, int dirDelta)
+    {
+        fixed (byte* p = _meta.data)
+        {
+            // superblock sits at byte 1024 of block 0:
+            // s_free_blocks_count_lo at +12, s_free_inodes_count at +16
+            ReadBlock(0UL, p);
+            Wr32(p + 1024 + 12, 0, (uint)((int)Rd32(p + 1024 + 12, 0) + blockDelta));
+            Wr32(p + 1024 + 16, 0, (uint)((int)Rd32(p + 1024 + 16, 0) + inodeDelta));
+            WriteBlock(0UL, p);
+
+            // group descriptor 0 at block 1:
+            // bg_free_blocks_count +12, bg_free_inodes_count +14, bg_used_dirs_count +16
+            ReadBlock(1UL, p);
+            Wr16(p, 12, (ushort)((int)Rd16(p, 12) + blockDelta));
+            Wr16(p, 14, (ushort)((int)Rd16(p, 14) + inodeDelta));
+            Wr16(p, 16, (ushort)((int)Rd16(p, 16) + dirDelta));
+            WriteBlock(1UL, p);
+        }
+    }
+
     public static unsafe bool AllocBlock(out uint block)
     {
         block = 0;
@@ -402,6 +430,7 @@ internal static unsafe class Ext4
                 for (int k = 0; k < BlockSize; k++) zb[k] = 0;
                 WriteBlock(i, zb);
                 block = i;
+                AdjustFreeCounts(-1, 0, 0);
                 return true;
             }
         }
@@ -416,6 +445,7 @@ internal static unsafe class Ext4
         ReadBlock(_blkBitmapBlock, bm);
         bm[block >> 3] = (byte)(bm[block >> 3] & ~(byte)(1 << (int)(block & 7)));
         WriteBlock(_blkBitmapBlock, bm);
+        AdjustFreeCounts(1, 0, 0);
         return true;
     }
 
@@ -427,9 +457,11 @@ internal static unsafe class Ext4
         ReadBlock(_inoBitmapBlock, bm);
         for (uint i = 1; i < _inodesPerGroup; i++)
         {
-            if ((bm[i >> 3] & (byte)(1 << (int)(i & 7))) == 0)
+            // the inode bitmap is 1-based: inode N lives at bit N-1
+            int bit = (int)(i - 1);
+            if ((bm[bit >> 3] & (byte)(1 << (bit & 7))) == 0)
             {
-                bm[i >> 3] = (byte)(bm[i >> 3] | (byte)(1 << (int)(i & 7)));
+                bm[bit >> 3] = (byte)(bm[bit >> 3] | (byte)(1 << (bit & 7)));
                 WriteBlock(_inoBitmapBlock, bm);
                 ino = i;
                 byte* inBuf = stackalloc byte[256];
@@ -443,6 +475,7 @@ internal static unsafe class Ext4
                 Wr32(inBuf, Layout.InoBlocksLo, 0);
                 Wr16(inBuf, Layout.InoBlocksHi, 0);
                 WriteInode(ino, inBuf);
+                AdjustFreeCounts(0, -1, (mode & 0xF000) == 0x4000 ? 1 : 0);
                 return true;
             }
         }
@@ -458,8 +491,10 @@ internal static unsafe class Ext4
         // and a regular file in its own blocks. Without this, deleting a
         // slow symlink leaks its target block for the life of the fs.
         byte* inBuf = stackalloc byte[256];
+        bool wasDir = false;
         if (ReadInode(ino, inBuf))
         {
+            wasDir = IsDir(InodeGetMode(inBuf));
             uint sz = InodeGetSize(inBuf);
             uint blocks = (sz + (uint)BlockSize - 1) / (uint)BlockSize;
             if (blocks == 0 && sz > 0) blocks = 1;
@@ -481,8 +516,10 @@ internal static unsafe class Ext4
         }
         byte* bm = stackalloc byte[BlockSize];
         ReadBlock(_inoBitmapBlock, bm);
-        bm[ino >> 3] = (byte)(bm[ino >> 3] & ~(byte)(1 << (int)(ino & 7)));
+        int bit = (int)(ino - 1);   // the inode bitmap is 1-based: inode N lives at bit N-1
+        bm[bit >> 3] = (byte)(bm[bit >> 3] & ~(byte)(1 << (bit & 7)));
         WriteBlock(_inoBitmapBlock, bm);
+        AdjustFreeCounts(0, 1, wasDir ? -1 : 0);
         for (int k = 0; k < 256; k++) inBuf[k] = 0;
         WriteInode(ino, inBuf);
         return true;
@@ -497,7 +534,9 @@ internal static unsafe class Ext4
     private static unsafe void SetInodeBlocks(byte* ino, uint blocks512)
     {
         Wr32(ino, Layout.InoBlocksLo, blocks512);
-        Wr16(ino, Layout.InoBlocksHi, (ushort)(blocks512 >> 32));
+        // i_blocks_hi: blocks512 is a uint, so the high word needs a 64-bit
+        // shift (a uint >> 32 would shift by 32 % 32 == 0)
+        Wr16(ino, Layout.InoBlocksHi, (ushort)((ulong)blocks512 >> 32));
     }
 
     private static unsafe uint GetBlockPtr(byte* ino, int idx)
@@ -516,6 +555,8 @@ internal static unsafe class Ext4
         if (!_mounted && !Mount()) return false;
         byte* inode = stackalloc byte[256];
         if (!ReadInode(ino, inode)) return false;
+        uint iflags = Rd32(inode, Layout.InoFlags);
+        bool wasExtent = (iflags & 0x00080000U) != 0;
         // free old blocks
         uint oldSize = InodeGetSize(inode);
         uint oldBlocks = (oldSize + (uint)BlockSize - 1) / (uint)BlockSize;
@@ -531,6 +572,10 @@ internal static unsafe class Ext4
             if (ib != 0) FreeBlock(ib);
         }
         for (int k = Layout.InoBlock; k < Layout.InoBlock + 15 * 4; k += 4) Wr32(inode, k, 0);
+        // the rewrite below uses legacy direct pointers: an extent-mapped inode
+        // (like the seeded PASSWD/SUDOERS) must lose the extents flag, or reads
+        // keep parsing i_block as an extent header and find no data
+        if (wasExtent) Wr32(inode, Layout.InoFlags, iflags & ~0x00080000U);
 
         uint needed = (uint)((len + BlockSize - 1) / BlockSize);
         // ensure at least zero blocks
