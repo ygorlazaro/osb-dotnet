@@ -102,6 +102,12 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   (10.0.2.15/24, gateway 10.0.2.2) — por padrão o shell não configura a rede na
   inicialização, para não travar o boot esperando um servidor.
 
+  Limite conhecido: a rede de usuário do QEMU não leva ICMP para a internet.
+  O slirp encapsula o ICMP externo dentro de UDP/7 e nada responde nessa porta
+  hoje, então `PING 8.8.8.8` dá timeout mesmo com o roteamento correto — o
+  pacote sai endereçado ao gateway, como deve. Alvos dentro da rede do QEMU
+  (por exemplo o próprio 10.0.2.2) respondem normalmente.
+
 ## Arquitetura
 
 ```

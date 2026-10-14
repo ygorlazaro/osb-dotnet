@@ -92,10 +92,27 @@ internal static unsafe class NetCommand
             Vga.WriteLine("NET: no network adapter.");
             return;
         }
+
+        // Remember what already works. A DHCP request can fail transiently,
+        // and replacing a working lease with the built-in address because of
+        // that would take a working network away from the user.
+        bool hadAddress = NetStack.Up && NetStack.Ip != 0;
+        uint keepIp = NetStack.Ip, keepMask = NetStack.Netmask, keepGw = NetStack.Gateway;
+        bool keepWasDhcp = NetStack.FromDhcp;
+
         if (Dhcp.Run()) { ReportSuccess(); return; }
         ReportFailure();
-        // No server answered; keep the built-in address so the user is not
-        // left with nothing.
+
+        if (hadAddress)
+        {
+            NetStack.Configure(keepIp, keepMask, keepGw, NetStack.Dns, keepWasDhcp);
+            Vga.WriteLine("keeping the addressing already in force.");
+            Show();
+            return;
+        }
+
+        // Nothing was configured before, so fall back rather than leaving the
+        // interface with no address at all.
         NetStack.Configure(NetStack.DefaultIp, NetStack.DefaultNetmask,
                            NetStack.DefaultGateway, NetStack.DefaultDns, false);
         Vga.WriteLine("falling back to the built-in static address.");

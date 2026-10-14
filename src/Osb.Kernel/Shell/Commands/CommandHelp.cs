@@ -250,6 +250,7 @@ internal static class CommandHelp
         "  Sends ICMP echo requests and reports the replies with a round-trip time.\n" +
         "  Usage: PING <ip> [count]   (count defaults to 4)\n" +
         "  Set the address first with NET, or get one with NET DHCP.\n" +
+        "  Addresses off the local network are sent via the gateway.\n" +
         "\0" +
         "PCI\n" +
         "  Lists the PCI bus: address, vendor:device id, class and IRQ.\n" +
