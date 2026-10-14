@@ -17,7 +17,7 @@ Design intent:
 
 - Drive letters (`A:`, etc.), `\` path separators, per-drive current directories.
 - DOS-like internal commands (`DIR`, `CD`, `TYPE`, `COPY`, `DEL`, `REN`, `MD`,
-  `RD`, `CLS`, `VER`, etc.).
+  `RD`, `CLS`, `VER`, `TRASH`, etc.).
 - External programs loaded from the on-disk filesystem.
 - Multitasking/preemptive scheduling without Unix process semantics.
 - Syscalls through a DOS-like `INT 21h`-style ABI.
@@ -68,6 +68,10 @@ Main namespaces/classes:
 - `Osb.Kernel.Shell`
   - `Shell`, `Environment`, `Prompt`, `History`, `Completion`, `JobControl`,
     `ShellText`, `Users`, command modules.
+- `Osb.Kernel.Shell.Commands`
+  - `FileCommands` (DEL moves files into the per-user trash), `TrashCommands`
+    (`TRASH [/F pattern]` search, `TRASH /U name` undelete; trash is
+    `$HOME\TRASH` on the ext4 volume, per user, root included).
 - `Kernel` partial classes
   - Boot orchestration + embedded OSLANG 0.72 interpreter.
 - `MiniCoreLib`

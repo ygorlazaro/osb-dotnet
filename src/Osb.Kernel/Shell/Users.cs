@@ -58,19 +58,55 @@ internal static unsafe class Users
 
         if (!LoadPasswd())
         {
-            // fresh image: root only, passwordless, home A:\OSB
+            // fresh image: root only, passwordless, home A:\OSB\ROOT
             _users.count = 0;
-            AddEntry("root", "", 0, "A:\\OSB");
+            AddEntry("root", "", 0, "A:\\OSB\\ROOT");
             _users.sudoers[0] = 1;
             SavePasswd();
         }
+        else
+        {
+            MigrateRootHome();
+        }
         LoadSudoers();
+
+        // every user gets $HOME and $HOME\TRASH on the ext4 volume
+        Osb.Kernel.Shell.Commands.TrashCommands.EnsureAll();
 
         // TEMP is the shared scratch area: world-writable, root-owned.
         char* temp = stackalloc char[16];
         int tl = 0;
         SetLit(temp, ref tl, "A:\\OSB\\TEMP");
         ChmodPath(temp, tl, (ushort)(0x4000 | 0x1FF));
+    }
+
+    // Older images seeded root's home as A:\OSB; the root home is
+    // A:\OSB\ROOT now. Rewrites PASSWD when the old value is found.
+    private static void MigrateRootHome()
+    {
+        for (int i = 0; i < _users.count; i++)
+        {
+            if (_users.uids[i] != 0) return;
+            if (_users.homeLens[i] == 7)
+            {
+                fixed (char* op = "A:\\OSB")
+                {
+                    bool same = true;
+                    for (int k = 0; k < 7; k++)
+                        if (_users.homes[i * HomeCap + k] != op[k]) { same = false; break; }
+                    if (same)
+                    {
+                        fixed (char* np = "A:\\OSB\\ROOT")
+                        {
+                            for (int k = 0; k < 11; k++) _users.homes[i * HomeCap + k] = np[k];
+                        }
+                        _users.homeLens[i] = 11;
+                        SavePasswd();
+                    }
+                }
+            }
+            return;
+        }
     }
 
     // ---- session ----

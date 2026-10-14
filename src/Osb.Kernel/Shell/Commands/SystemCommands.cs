@@ -32,7 +32,9 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
         Vga.WriteLine("          SET [NAME=value]  env ($VAR, case-insensitive names)");
         Vga.WriteLine("Files:    DIR [path] [/W]  CD [path]  PWD  TYPE <file>  (ext4/A:)");
-        Vga.WriteLine("          MD  RD  DEL  REN/MOVE  COPY  SIZE  LN [/S]  COLOR  CLEAR/CLS");
+        Vga.WriteLine("          MD  RD  DEL (to trash)  REN/MOVE  COPY  SIZE  LN [/S]  COLOR  CLEAR/CLS");
+        Vga.WriteLine("          TRASH [/F <pattern>]  list/search the per-user trash ($HOME\\TRASH)");
+        Vga.WriteLine("          TRASH /U <name>       undelete back to the original folder");
         Vga.WriteLine("          OSLANG <script.OSL> [args]  run an OSLANG script (A:)");
         Vga.WriteLine("          SLEEP   TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
         Vga.WriteLine("History:  HISTORY [n]     numbered list (100 latest by default)");

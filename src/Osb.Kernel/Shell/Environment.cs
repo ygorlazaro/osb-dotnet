@@ -21,6 +21,7 @@ internal static unsafe class Environment
         public fixed int valueLen[Layout.MaxEnvVars];
         public fixed byte names[Layout.EnvNameBufSize];
         public fixed byte values[Layout.EnvValueBufSize];
+        public fixed byte locked[Layout.MaxEnvVars];  // 1 = kernel-managed, SET refuses
     }
 
     private static EnvTable _env;
@@ -34,12 +35,13 @@ internal static unsafe class Environment
         Set("PATH", "A:\\OSB\\BIN");
         Set("PROMPT", "$USER@OSB $P$G");
         Set("USER", "guest");
-        Set("HOME", "A:\\HOME\\guest");
+        Set("HOME", "A:\\OSB\\ROOT");   // root's home; login rewrites it
         Set("TEMP", "A:\\OSB\\TEMP");
         Set("COMSPEC", "A:\\OSB\\BIN\\COMMAND.COM");
         Set("OS", "OSB");
         Set("VER", "0.1.0");
         Set("LASTDRIVE", "Z");
+        Lock("HOME");                     // $HOME is read-only for SET
     }
 
     // Sets/changes a variable (string overload for the boot defaults).
@@ -54,6 +56,34 @@ internal static unsafe class Environment
 
     public static bool SetChars(char* name, int nlen, char* value, int vlen)
     {
+        return SetCore(name, nlen, value, vlen, force: false);
+    }
+
+    // Kernel-internal setter (login): bypasses the read-only flag so
+    // $HOME can follow the session user.
+    public static bool ForceSetChars(char* name, int nlen, char* value, int vlen)
+    {
+        return SetCore(name, nlen, value, vlen, force: true);
+    }
+
+    // Marks an existing variable read-only (SET refuses to change it).
+    public static void Lock(string name)
+    {
+        fixed (char* n = name)
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                if (_env.nameLen[i] != name.Length) continue;
+                bool same = true;
+                for (int k = 0; k < name.Length; k++)
+                    if ((char)_env.names[_env.nameOff[i] + k] != n[k]) { same = false; break; }
+                if (same) { _env.locked[i] = 1; return; }
+            }
+        }
+    }
+
+    private static bool SetCore(char* name, int nlen, char* value, int vlen, bool force)
+    {
         if (nlen <= 0) return false;
         for (int i = 0; i < _count; i++)
         {
@@ -66,6 +96,7 @@ internal static unsafe class Environment
                 if (c != (char)_env.names[_env.nameOff[i] + k]) { same = false; break; }
             }
             if (!same) continue;
+            if (!force && _env.locked[i] != 0) return false;
             if (_valuePos + vlen > Layout.EnvValueBufSize) return false;
             _env.valueOff[i] = _valuePos;
             _env.valueLen[i] = vlen;

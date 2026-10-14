@@ -418,6 +418,27 @@ internal static unsafe class FileCommands
         if (!Ext4.ReadInode(childIno, inBuf)) { Vga.WriteLine("Error"); return; }
         if (Ext4.IsDir(Ext4.InodeGetMode(inBuf))) { Vga.WriteLine("Is a directory; use RD."); return; }
 
+        // canonical path, remembered in the trash index for TRASH /U
+        byte* canon = stackalloc byte[300];
+        int canonLen = 0;
+        uint canonIno;
+        Ext4.ResolveCanonical(path, plen, out canonIno, canon, ref canonLen);
+
+        // the file goes to the per-user trash ($HOME\TRASH); files
+        // already in the trash, or deletes when the trash cannot be
+        // used, free the file for real
+        if (TrashCommands.MoveToTrash(parentIno, baseName, baseLen, childIno, childType, canon, canonLen))
+        {
+            Vga.WriteLine("OK");
+            return;
+        }
+        HardDelete(parentIno, baseName, baseLen, childIno, inBuf);
+        Vga.WriteLine("OK");
+    }
+
+    // Frees a file's blocks and inode and removes its directory entry.
+    private static unsafe void HardDelete(uint parentIno, char* baseName, int baseLen, uint childIno, byte* inBuf)
+    {
         uint sz = Ext4.InodeGetSize(inBuf);
         uint nb = (sz + (uint)Ext4.BlockSize - 1) / (uint)Ext4.BlockSize;
         if (nb == 0 && sz > 0) nb = 1;
@@ -427,8 +448,7 @@ internal static unsafe class FileCommands
             if (pb != 0) Ext4.FreeBlock(pb);
         }
         Ext4.FreeInode(childIno);
-        if (Ext4.DirRemoveEntry(parentIno, baseName, baseLen)) Vga.WriteLine("OK");
-        else Vga.WriteLine("Error removing entry");
+        Ext4.DirRemoveEntry(parentIno, baseName, baseLen);
     }
 
 

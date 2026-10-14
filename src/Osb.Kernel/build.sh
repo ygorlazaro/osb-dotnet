@@ -38,11 +38,13 @@ mkdir /OSB/HELP
 mkdir /OSB/HOME
 mkdir /OSB/TEMP
 mkdir /OSB/APPS
+mkdir /OSB/ROOT
+mkdir /OSB/ROOT/TRASH
 EOF
-printf 'OSB File System test.\nCase-sensitive filenames: ON\nHome is A:\\HOME.\n' > "$OBJ/fs/welcome.txt"
+printf 'OSB File System test.\nCase-sensitive filenames: ON\nHome is A:\\OSB\\ROOT.\n' > "$OBJ/fs/welcome.txt"
 
-# Login system seeds: PASSWD (root, passwordless, uid 0) and SUDOERS.
-printf 'root::0:A:\\OSB\n' > "$OBJ/fs/passwd.txt"
+# Login system seeds: PASSWD (root, passwordless, uid 0, home A:\OSB\ROOT) and SUDOERS.
+printf 'root::0:A:\\OSB\\ROOT\n' > "$OBJ/fs/passwd.txt"
 printf 'root\n' > "$OBJ/fs/sudoers.txt"
 
 # Create example OSLANG scripts

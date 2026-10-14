@@ -115,6 +115,13 @@ internal static unsafe class UserCommands
                 Vga.WriteLine("User added, but the home folder could not be created");
                 return;
             }
+
+            // per-user trash: $HOME\TRASH (created by every boot too)
+            char* trash = stackalloc char[80];
+            int tl = 0;
+            for (int k = 0; k < hl; k++) trash[tl++] = home[k];
+            fixed (char* tp = "\\TRASH") { for (int k = 0; k < 6; k++) trash[tl++] = tp[k]; }
+            FileCommands.MakeDir(trash, tl, (ushort)(0x4000 | 0x1ED), (uint)nextUid, out _);
         }
         Vga.WriteLine("OK");
     }

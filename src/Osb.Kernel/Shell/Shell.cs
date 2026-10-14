@@ -81,7 +81,7 @@ internal static unsafe class Shell
         int hl = Users.HomeAt(idx, home);
         char* homeVar = stackalloc char[8];
         fixed (char* p = "HOME") { for (int k = 0; k < 4; k++) homeVar[k] = p[k]; }
-        Environment.SetChars(homeVar, 4, home, hl);        // $HOME
+        Environment.ForceSetChars(homeVar, 4, home, hl);   // $HOME (read-only)
 
         if (Ext4.Mount())
         {
@@ -503,6 +503,12 @@ internal static unsafe class Shell
         if (ShellText.Eq(line, len, "KISS") || ShellText.StartsWith(line, len, "KISS "))
         {
             KissCommand.Run(line, len);
+            return;
+        }
+
+        if (ShellText.Eq(line, len, "TRASH") || ShellText.StartsWith(line, len, "TRASH "))
+        {
+            TrashCommands.Run(line, len);
             return;
         }
 
