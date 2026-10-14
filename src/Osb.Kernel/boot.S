@@ -191,6 +191,24 @@ inw:
     inw  %dx, %ax
     ret
 
+/* 32-bit port output (PCI configuration space is accessed through 0xCF8/0xCFC). */
+.global outl
+.type outl, @function
+outl:
+    movw %di, %dx
+    movl %esi, %eax
+    outl %eax, %dx
+    ret
+
+/* 32-bit port input. */
+.global inl
+.type inl, @function
+inl:
+    movw %di, %dx
+    xorl %eax, %eax
+    inl  %dx, %eax
+    ret
+
 .global memcpy
 .type memcpy, @function
 memcpy:

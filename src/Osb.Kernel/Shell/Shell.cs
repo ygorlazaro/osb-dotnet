@@ -605,6 +605,18 @@ internal static unsafe class Shell
             return;
         }
 
+        if (ShellText.Eq(line, len, "PCI") || ShellText.StartsWith(line, len, "PCI "))
+        {
+            PciCommand.Run(line, len);
+            return;
+        }
+
+        if (ShellText.Eq(line, len, "PING") || ShellText.StartsWith(line, len, "PING "))
+        {
+            PingCommand.Run(line, len);
+            return;
+        }
+
         if (ShellText.Eq(line, len, "DEMO")) { TaskCommands.Demo(background); return; }
         if (ShellText.Eq(line, len, "TASK") || ShellText.Eq(line, len, "PS")) { TaskCommands.List(); return; }
         if (ShellText.Eq(line, len, "KILL") || ShellText.StartsWith(line, len, "KILL ")) { TaskCommands.Kill(line, len); return; }

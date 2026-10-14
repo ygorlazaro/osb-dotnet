@@ -613,6 +613,7 @@ case "${1:-}" in
     # to 64 GiB, so values like 2G exercise the multi-directory identity map.
     exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m "${OSB_MEM:-64M}" \
       -drive file="$OUT_IMG",if=ide,index=0 \
+      -netdev user,id=net0 -device e1000,netdev=net0 \
       -display none -serial stdio -no-reboot
     ;;
   run-gui)
