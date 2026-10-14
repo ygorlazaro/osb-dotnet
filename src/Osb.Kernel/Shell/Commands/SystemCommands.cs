@@ -49,6 +49,8 @@ internal static unsafe class SystemCommands
         Vga.WriteLine("          MD  RD  DEL (to trash)  REN/MOVE  COPY  SIZE  LN [/S]  COLOR  CLEAR/CLS");
         Vga.WriteLine("          TRASH [/F <pattern>]  list/search the per-user trash ($HOME\\TRASH)");
         Vga.WriteLine("          TRASH /U <name>       undelete back to the original folder");
+        Vga.WriteLine("          GREP [/I] <pattern> [file]   filter lines (/I = caseless)");
+        Vga.WriteLine("Pipes:    A | B        A's console output becomes B's input");
         Vga.WriteLine("          OSLANG <script.OSL> [args]  run an OSLANG script (A:)");
         Vga.WriteLine("          SLEEP   TIME  DATE  MEM  HALT  POWEROFF  REBOOT");
         Vga.WriteLine("History:  HISTORY [n]     numbered list (100 latest by default)");

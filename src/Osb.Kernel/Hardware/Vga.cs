@@ -10,6 +10,38 @@ internal static unsafe class Vga
     private static int _col;
     private static byte _attr = 0x07;
     private static byte _serialAttr = 0x07;
+
+    // ---- pipe capture ----
+    // While capture is active, PutChar appends to a static buffer
+    // instead of the console, so one pipeline stage can feed the
+    // next. Bounded: overflow is dropped.
+
+    private const int CapBufSize = 4096;
+    private static bool _capture;
+    private static int _capLen;
+    private unsafe struct CapBuf { public fixed byte data[CapBufSize]; }
+    private static CapBuf _cap;
+
+    public static int CaptureLength => _capLen;
+
+    // Captured text; valid from BeginCapture until the next one.
+    // Returned as byte*: each char was stored as one byte.
+    public static byte* CaptureBuffer
+    {
+        get { fixed (byte* p = _cap.data) return p; }
+    }
+
+    public static void BeginCapture()
+    {
+        _capture = true;
+        _capLen = 0;
+    }
+
+    // Stops capturing; the buffer stays valid until the next BeginCapture.
+    public static void EndCapture()
+    {
+        _capture = false;
+    }
     public static byte Attr => _attr;
     public static int Width => Layout.VgaWidth;
     public static int Height => Layout.VgaHeight;
@@ -26,6 +58,7 @@ internal static unsafe class Vga
 
     public static void Clear()
     {
+        if (_capture) return;   // a piped CLS affects nothing but the next stage
         ushort* vga = (ushort*)Layout.VgaBase;
         for (int i = 0; i < Layout.VgaWidth * Layout.VgaHeight; i++)
             vga[i] = (ushort)(' ' | (_attr << 8));
@@ -108,6 +141,14 @@ internal static unsafe class Vga
 
     public static void PutChar(char c)
     {
+        if (_capture)
+        {
+            if (_capLen < CapBufSize)
+            {
+                fixed (byte* p = _cap.data) p[_capLen++] = (byte)c;
+            }
+            return;
+        }
         if (_attr != _serialAttr)
         {
             EmitSerialColor();

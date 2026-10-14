@@ -91,6 +91,9 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   página de ajuda (uso, flags, exemplos); `HELP <comando>` mostra a mesma página,
   e `HELP` sozinho lista todos os comandos. Comandos externos recebem o `/?` e
   tratam a ajuda por conta própria.
+- **Pipes**: `A | B` captura a saída de A e a anexa após o primeiro `\n` da linha
+  de B; `GREP [/I] <padrão> [arquivo]` filtra linhas (com `[arquivo]` lê o arquivo;
+  sem, filtra o stdin do pipe). Pipelines rodam em primeiro plano.
 
 ## Arquitetura
 

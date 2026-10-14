@@ -348,7 +348,66 @@ internal static unsafe class Shell
         }
         if (len == 0) return;
 
+        // A '|' chains commands: each stage's console output feeds the
+        // next stage's input (appended after the stage's own arguments).
+        // Pipelines always run in the foreground (a trailing '&' is
+        // ignored while piping).
+        bool pipe = false;
+        for (int k = 0; k < len; k++) if (line[k] == '|') { pipe = true; break; }
+        if (pipe) { RunPipes(line, len); return; }
+
         Dispatch(line, len, background);
+    }
+
+    // ---- pipes ----
+    // "A | B" runs A, captures its console output, and appends it to
+    // B's command line, so commands like GREP can filter it. The
+    // captured text lands after the first '\n' of the next stage's
+    // line; commands that read piped input split there.
+
+    private const int PipeCap = 4096;
+    private unsafe struct PipeBuf { public fixed char data[PipeCap]; }
+    private static PipeBuf _pipeStage;
+
+    private static void RunPipes(char* line, int len)
+    {
+        fixed (char* stage = _pipeStage.data)
+        {
+            int pos = 0;
+            bool first = true;
+            while (pos <= len)
+            {
+                int s = pos;
+                while (pos < len && line[pos] != '|') pos++;
+                int sl = pos - s;
+                while (sl > 0 && line[s + sl - 1] == ' ') sl--;
+                while (sl > 0 && line[s] == ' ') { s++; sl--; }
+
+                int kl = 0;
+                for (int k = 0; k < sl; k++) stage[kl++] = line[s + k];
+                if (!first)
+                {
+                    stage[kl++] = '\n';
+                    byte* cap = Vga.CaptureBuffer;
+                    int capLen = Vga.CaptureLength;
+                    for (int k = 0; k < capLen && kl < PipeCap - 1; k++) stage[kl++] = (char)cap[k];
+                }
+
+                if (kl > 0)
+                {
+                    // Capture only when another stage follows: the last
+                    // stage must print to the console, not the buffer.
+                    bool more = pos < len;   // stopped at a '|', not at the end
+                    if (more) Vga.BeginCapture();
+                    Dispatch(stage, kl, false);
+                    if (more) Vga.EndCapture();
+                }
+
+                first = false;
+                if (pos >= len) break;
+                pos++;   // skip '|'
+            }
+        }
     }
 
     // The command dispatch: first match wins. Public so SUDO can re-enter it
@@ -537,6 +596,12 @@ internal static unsafe class Shell
         if (ShellText.Eq(line, len, "TRASH") || ShellText.StartsWith(line, len, "TRASH "))
         {
             TrashCommands.Run(line, len);
+            return;
+        }
+
+        if (ShellText.Eq(line, len, "GREP") || ShellText.StartsWith(line, len, "GREP "))
+        {
+            GrepCommand.Run(line, len);
             return;
         }
 

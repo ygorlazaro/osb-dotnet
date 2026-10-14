@@ -25,6 +25,7 @@ internal static class CommandHelp
         "  Without arguments: the command list. With a name: that\n" +
         "  command's help page.\n" +
         "  Usage: HELP [command]   (or: COMMAND /?)\n" +
+        "  Pipes: A | B feeds A's output as B's input.\n" +
         "\0" +
         "CLS\n" +
         "  Clears the screen.\n" +
@@ -230,6 +231,12 @@ internal static class CommandHelp
         "  Usage: TRASH [/F <pattern>]\n" +
         "  /F searches file names inside the trash (case-insensitive).\n" +
         "  TRASH /U <name> undeletes a file back to its original folder.\n" +
+        "\0" +
+        "GREP\n" +
+        "  Prints the lines that contain a pattern (a line filter).\n" +
+        "  Usage: GREP [/I] <pattern> [file]\n" +
+        "  /I matches case-insensitively (default is case-sensitive).\n" +
+        "  Without [file], filters the piped input: DIR | GREP txt\n" +
         "\0" +
         "DEMO\n" +
         "  Starts a demo (kernel) task.\n" +

@@ -17,7 +17,7 @@ Design intent:
 
 - Drive letters (`A:`, etc.), `\` path separators, per-drive current directories.
 - DOS-like internal commands (`DIR`, `CD`, `TYPE`, `COPY`, `DEL`, `REN`, `MD`,
-  `RD`, `CLS`, `VER`, `TRASH`, etc.).
+  `RD`, `CLS`, `VER`, `TRASH`, `GREP`, etc.).
 - External programs loaded from the on-disk filesystem.
 - Multitasking/preemptive scheduling without Unix process semantics.
 - Syscalls through a DOS-like `INT 21h`-style ABI.
@@ -72,7 +72,9 @@ Main namespaces/classes:
 - `Osb.Kernel.Shell.Commands`
   - `FileCommands` (DEL moves files into the per-user trash), `TrashCommands`
     (`TRASH [/F pattern]` search, `TRASH /U name` undelete; trash is
-    `$HOME\TRASH` on the ext4 volume, per user, root included).
+    `$HOME\TRASH` on the ext4 volume, per user, root included),
+    `GrepCommand` (`GREP [/I] pattern [file]` line filter; without [file]
+    it filters piped stdin).
 - `Kernel` partial classes
   - Boot orchestration + embedded OSLANG 0.72 interpreter.
 - `MiniCoreLib`
@@ -91,6 +93,9 @@ Key subsystem concepts:
 - Storage: ATA PIO + simplified ext4 read/write support, mounted as `A:`.
 - User model: accounts, password files, sudoers, ownership/mode checks.
 - Environment: `$VAR`, `SET`, `PROMPT`, history, completion.
+- Pipes: `A | B` captures A's console output (Vga capture mode) and
+  appends it after the first `\n` of B's command line; `GREP` reads it
+  there. Pipelines run in the foreground.
 
 Embedded language:
 
