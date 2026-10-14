@@ -27,10 +27,24 @@ internal static unsafe class SystemCommands
         Vga.PutChar('\n');
     }
 
-    public static void Help()
+    public static unsafe void Help(char* line, int len)
+    {
+        int i = 4;
+        while (i < len && line[i] == ' ') i++;
+        if (i >= len) { Overview(); return; }
+        int s = i;
+        while (i < len && line[i] != ' ') i++;
+        if (CommandHelp.TryShow(line + s, i - s)) return;
+        Vga.Write("No help for ");
+        for (int k = s; k < i; k++) Vga.PutChar(line[k]);
+        Vga.PutChar('\n');
+    }
+
+    public static void Overview()
     {
         Vga.WriteLine("Commands: VER  ABOUT  HELP  CLS  ECHO <text>  SET  TICKS");
         Vga.WriteLine("          SET [NAME=value]  env ($VAR, case-insensitive names)");
+        Vga.WriteLine("Detail:   COMMAND /?        shows the help page of one command");
         Vga.WriteLine("Files:    DIR [path] [/W]  CD [path]  PWD  TYPE <file>  (ext4/A:)");
         Vga.WriteLine("          MD  RD  DEL (to trash)  REN/MOVE  COPY  SIZE  LN [/S]  COLOR  CLEAR/CLS");
         Vga.WriteLine("          TRASH [/F <pattern>]  list/search the per-user trash ($HOME\\TRASH)");

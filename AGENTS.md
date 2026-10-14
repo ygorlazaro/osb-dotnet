@@ -25,7 +25,8 @@ Design intent:
 
 The repository also contains a hosted `Osb.Shell`/`Osb.Xwin` desktop prototype and
 an OSLANG language/tooling stack, but `Osb.Kernel` is the bare-metal kernel and
-should be treated as freestanding code.
+should be treated as freestanding code. **Osb.Shell is LEGACY: do not modify it.**
+All new work targets `Osb.Kernel`.
 
 ## Code policy
 

@@ -87,6 +87,10 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   - tudo sob `A:\OSB` é do root (uid 0), exceto `A:\OSB\HOME\<usuário>` (do
     usuário, criado no `/ADD`, é o PWD inicial do login) e `A:\OSB\TEMP`
     (modo 0777, compartilhado). `DIR` mostra o nome do dono.
+- **Ajuda de comandos**: todo comando interno aceita `/?` (ou `-?`) e exibe sua
+  página de ajuda (uso, flags, exemplos); `HELP <comando>` mostra a mesma página,
+  e `HELP` sozinho lista todos os comandos. Comandos externos recebem o `/?` e
+  tratam a ajuda por conta própria.
 
 ## Arquitetura
 

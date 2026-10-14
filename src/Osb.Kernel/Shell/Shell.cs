@@ -355,9 +355,37 @@ internal static unsafe class Shell
     // as root. `background` carries the trailing '&' parsed by Execute.
     public static void Dispatch(char* line, int len, bool background = false)
     {
+        // COMMAND /? (or -?) - per-command help page. Unknown commands
+        // fall through, so external programs receive the flag themselves.
+        {
+            int i = 0;
+            while (i < len && line[i] == ' ') i++;
+            int cs = i;
+            while (i < len && line[i] != ' ') i++;
+            int cl = i - cs;
+            bool help = false;
+            while (i < len)
+            {
+                while (i < len && line[i] == ' ') i++;
+                if (i >= len) break;
+                int s = i;
+                while (i < len && line[i] != ' ') i++;
+                if (i - s == 2 && (line[s] == '/' || line[s] == '-') && line[s + 1] == '?')
+                {
+                    help = true;
+                    break;
+                }
+            }
+            if (help && CommandHelp.TryShow(line + cs, cl)) return;
+        }
+
         if (ShellText.Eq(line, len, "VER")) { SystemCommands.Version(); return; }
         if (ShellText.Eq(line, len, "ABOUT")) { SystemCommands.About(); return; }
-        if (ShellText.Eq(line, len, "HELP")) { SystemCommands.Help(); return; }
+        if (ShellText.Eq(line, len, "HELP") || ShellText.StartsWith(line, len, "HELP "))
+        {
+            SystemCommands.Help(line, len);
+            return;
+        }
         if (ShellText.Eq(line, len, "CLS")) { SystemCommands.Clear(); return; }
         if (ShellText.Eq(line, len, "MEM")) { SystemCommands.Memory(); return; }
         if (ShellText.Eq(line, len, "HALT")) { SystemCommands.Halt(); return; }
