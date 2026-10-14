@@ -71,9 +71,23 @@ internal static unsafe class Gfx
     //     frame no matter what the guest draws. "-display egl-headless"
     //     reflects guest state correctly (verified against the text console).
     //
-    // Remaining suspect: the 640x480 CRTC timing table. Register values of
-    // 0x00..0xFF do not produce that geometry - QEMU derives a height of
-    // 787 from them - so the table itself needs replacing with a real one.
+    // Remaining fault: the sequencer and CRTC writes do not read back
+    // (SR2, SR4, CRTC13 all read 0) while the graphics controller write
+    // does, and the card keeps reporting 720x400.
+    //
+    // The baseline rules out the environment. tools/baseline.py boots an ISO
+    // whose GRUB entry switches to gfxterm: GRUB gets a graphics mode
+    // (800x600, via the BIOS VBE interface) and renders text correctly, under
+    // -display none, -vnc and -display egl-headless alike. So QEMU renders
+    // graphics for a guest here; the fault is in this legacy VGA programming.
+    //
+    // Note what GRUB does NOT do: it never touches a sequencer or CRTC
+    // register. It asks the BIOS for a mode and writes the linear
+    // framebuffer. Given that the legacy path is fighting the model, the
+    // cheaper win is probably the Bochs display device (-device
+    // bochs-display): a linear framebuffer at its BAR0, set through two I/O
+    // ports, with no VGA programming and no BIOS at all. It is also what the
+    // simulated card identifies as 1234:1111.
 
     // ---- mode control ----
 
