@@ -34,7 +34,6 @@ internal static unsafe class GfxCommand
         }
 
         Gfx.Enter();
-        Font.Load();
         Test();
     }
 
