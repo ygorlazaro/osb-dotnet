@@ -10,6 +10,16 @@ internal static class Layout
     public const int VgaHeight = 25;
     public const byte Attr = 0x07; // light grey on black
 
+    // VGA graphics (mode 12h: 640x480, 16 colours, 4 bit planes)
+    public const uint VgaGraphBase = 0xA0000;
+    public const int GfxWidth = 640;
+    public const int GfxHeight = 480;
+    public const int GfxBytesPerRow = GfxWidth / 8;   // 80 bytes per scanline
+    public const int GfxPlaneSize = GfxBytesPerRow * GfxHeight; // 38400
+    public const int GfxPlaneCount = 4;
+    // VGA BIOS keeps the 8x16 character generator at F000:FA6E.
+    public const ulong BiosFont8x16 = 0xF000FA6E;
+
     // IDT + PIC
     public const int IdtSize = 256 * 16;          // 256 entries x 16 bytes
     public const ushort KernelSelector = 0x08;    // GDT: 64-bit code at offset 8

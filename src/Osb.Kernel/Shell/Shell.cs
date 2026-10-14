@@ -624,6 +624,12 @@ internal static unsafe class Shell
             return;
         }
 
+        if (ShellText.Eq(line, len, "GFX") || ShellText.StartsWith(line, len, "GFX "))
+        {
+            GfxCommand.Run(line, len);
+            return;
+        }
+
         if (ShellText.Eq(line, len, "DEMO")) { TaskCommands.Demo(background); return; }
         if (ShellText.Eq(line, len, "TASK") || ShellText.Eq(line, len, "PS")) { TaskCommands.List(); return; }
         if (ShellText.Eq(line, len, "KILL") || ShellText.StartsWith(line, len, "KILL ")) { TaskCommands.Kill(line, len); return; }
