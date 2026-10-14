@@ -324,7 +324,7 @@ internal static unsafe class FileCommands
         return Users.CanWrite(Ext4.InodeGetUid(pin), Ext4.InodeGetMode(pin));
     }
 
-    private static unsafe bool ResolveParent(char* path, int len, out uint parentIno, char* baseName, ref int baseLen)
+    public static unsafe bool ResolveParent(char* path, int len, out uint parentIno, char* baseName, ref int baseLen)
     {
         baseLen = 0;
         parentIno = 0;

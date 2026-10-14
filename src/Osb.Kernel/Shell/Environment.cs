@@ -31,7 +31,7 @@ internal static unsafe class Environment
     // Boot defaults for the OSB session environment.
     public static void Init()
     {
-        Set("PATH", "A:\\OSB\\BIN;A:\\OSB\\CONF");
+        Set("PATH", "A:\\OSB\\BIN");
         Set("PROMPT", "$USER@OSB $P$G");
         Set("USER", "guest");
         Set("HOME", "A:\\HOME\\guest");

@@ -39,6 +39,27 @@ internal static unsafe class AddressSpace
         byte* s = (byte*)blobSrc;
         for (ulong i = 0; i < blobEnd - blobSrc; i++) b[i] = s[i];
 
+        return Finish(block, pt);
+    }
+
+    // Same as Create, but the image comes from a byte buffer (a file read from
+    // disk, for external A:\OSB\BIN programs).
+    public static bool CreateBuf(byte* src, int len)
+    {
+        ulong block = PhysicalMemory.Alloc(Layout.BlockFrames, Layout.BlockAlign);
+        if (block == 0) return false;
+        ulong pt = PhysicalMemory.Alloc(3, Layout.FrameSize);
+        if (pt == 0) { PhysicalMemory.Free(block, Layout.BlockFrames); return false; }
+
+        byte* b = (byte*)block;
+        for (ulong i = 0; i < (ulong)Layout.BlockFrames * Layout.FrameSize; i++) b[i] = 0;
+        for (int i = 0; i < len; i++) b[i] = src[i];
+
+        return Finish(block, pt);
+    }
+
+    private static bool Finish(ulong block, ulong pt)
+    {
         ulong pml4 = pt, pdpt = pt + 4096, pd = pt + 8192;
         ulong* P = (ulong*)pml4;
         ulong* D = (ulong*)pdpt;

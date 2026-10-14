@@ -11,6 +11,8 @@ internal static unsafe class Vga
     private static byte _attr = 0x07;
     private static byte _serialAttr = 0x07;
     public static byte Attr => _attr;
+    public static int Width => Layout.VgaWidth;
+    public static int Height => Layout.VgaHeight;
     public static void SetColor(byte fg, byte bg)
     {
         if (fg == bg) return;
@@ -189,6 +191,34 @@ internal static unsafe class Vga
     {
         if (v < 10) PutChar('0');
         WriteDec((ulong)v);
+    }
+
+
+    public static void SetCursor(int row, int col)
+    {
+        if (row < 1) row = 1;
+        if (row > Layout.VgaHeight) row = Layout.VgaHeight;
+        if (col < 1) col = 1;
+        if (col > Layout.VgaWidth) col = Layout.VgaWidth;
+        _row = row - 1;
+        _col = col - 1;
+        ushort pos = (ushort)(_row * Layout.VgaWidth + _col);
+        NativeMethods.outb(0x3D4, 0x0E);
+        NativeMethods.outb(0x3D5, (byte)((pos >> 8) & 0xFF));
+        NativeMethods.outb(0x3D4, 0x0F);
+        NativeMethods.outb(0x3D5, (byte)(pos & 0xFF));
+    }
+
+    public static void WriteAt(int row, int col, string s)
+    {
+        SetCursor(row, col);
+        Write(s);
+    }
+
+    public static void WriteAt(int row, int col, char* buf, int len)
+    {
+        SetCursor(row, col);
+        WriteStr(buf, len);
     }
 
     public static ulong ParseUInt(char* s, int start, int end)

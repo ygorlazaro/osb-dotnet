@@ -9,6 +9,7 @@ using System.Runtime;
 using Osb.Kernel.Cpu;
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
+using Osb.Kernel.Storage;
 
 namespace Osb.Kernel.Processes;
 
@@ -17,7 +18,9 @@ internal enum SpawnResult
 {
     Ok,
     NoSlot,          // every process slot is in use
-    OutOfMemory      // no room for a private 2 MiB block
+    OutOfMemory,     // no room for a private 2 MiB block
+    NotFound,        // no such file on A:
+    BadImage         // not a valid OSBEXE image
 }
 
 // Read-only snapshot of one task slot, for the "ps" listing and job control.
@@ -35,6 +38,9 @@ internal static unsafe class Scheduler
     public const int Console = Layout.SlotConsole;   // the shell / console (PID 1)
     public const int Count = Layout.TaskCount;       // console + process slots
 
+    // Argument string capacity for external programs (per slot).
+    public const int ArgsCap = 96;
+
     private unsafe struct TaskTable
     {
         public fixed ulong sp[Count];             // saved kernel SP (osb_switch)
@@ -51,6 +57,7 @@ internal static unsafe class Scheduler
         public fixed ulong round[Count];          // demo: rounds printed
         public fixed ulong deadline[Count];       // demo: next print tick
         public fixed byte name[Count * Layout.MaxName];
+        public fixed byte args[Count * ArgsCap];  // external programs: argument string
     }
 
     private unsafe struct StackPool { public fixed byte bytes[Count * Layout.StackSize]; }
@@ -165,6 +172,40 @@ internal static unsafe class Scheduler
         }
     }
 
+    // Name from a char buffer (external commands carry no managed string).
+    private static void SetNameChars(int slot, char* name, int len)
+    {
+        int o = slot * Layout.MaxName;
+        for (int i = 0; i < Layout.MaxName; i++) _tasks.name[o + i] = 0;
+        if (len > Layout.MaxName - 1) len = Layout.MaxName - 1;
+        for (int i = 0; i < len; i++) _tasks.name[o + i] = (byte)name[i];
+    }
+
+    // The argument string handed to an external program (read back by the
+    // AH=23h syscall). Trailing spaces are trimmed.
+    public static void SetArgs(int slot, char* args, int len)
+    {
+        int o = slot * ArgsCap;
+        for (int i = 0; i < ArgsCap; i++) _tasks.args[o + i] = 0;
+        while (len > 0 && args[len - 1] == ' ') len--;
+        if (len > ArgsCap - 1) len = ArgsCap - 1;
+        for (int i = 0; i < len; i++) _tasks.args[o + i] = (byte)args[i];
+    }
+
+    // Copies the current task's argument string out (0-terminated).
+    public static int GetArgs(int slot, byte* dst, int cap)
+    {
+        int o = slot * ArgsCap;
+        int n = 0;
+        while (n < ArgsCap - 1 && _tasks.args[o + n] != 0 && n < cap - 1)
+        {
+            dst[n] = _tasks.args[o + n];
+            n++;
+        }
+        dst[n] = 0;
+        return n;
+    }
+
     private static int AllocSlot()
     {
         for (int i = Console + 1; i < Count; i++)
@@ -232,6 +273,71 @@ internal static unsafe class Scheduler
         if (prog == Layout.ProgBad) return "BAD";
         if (prog == Layout.ProgSpawner) return "SPAWNER";
         return "HELLO";
+    }
+
+    // ---- external commands (A:\OSB\BIN\*.EXE) ----
+
+    // The OSBEXE image is staged here before AddressSpace copies it into the
+    // private block. Only the console spawns, so one buffer is enough.
+    private unsafe struct ImgBuf { public fixed byte data[16384]; }
+    private static ImgBuf _img;
+
+    // Load and start an executable file from the ext4 image. The file starts
+    // with the 16-byte OSBEXE header ("OSBX", version, entry offset, image
+    // size); the code lands at UserBase and the process enters ring 3 at
+    // UserBase + entry. Returns why it refused, for the shell to explain.
+    public static SpawnResult SpawnFile(char* path, int pathLen, int parentSlot, out int pid)
+    {
+        pid = -1;
+        if (!Ext4.Mount()) return SpawnResult.NotFound;
+        uint ino;
+        if (!Ext4.Resolve(path, pathLen, out ino)) return SpawnResult.NotFound;
+        byte* inode = stackalloc byte[256];
+        if (!Ext4.ReadInode(ino, inode)) return SpawnResult.NotFound;
+        if (!Ext4.IsReg(Ext4.InodeGetMode(inode))) return SpawnResult.NotFound;
+
+        byte* buf = ImgData();
+        int got = 0;
+        if (!Ext4.ReadFileAll(ino, buf, 16384, out got) || got < 16) return SpawnResult.BadImage;
+
+        // header: magic "OSBX" | u16 version | u16 header size | u32 entry | u32 size
+        if (buf[0] != 'O' || buf[1] != 'S' || buf[2] != 'B' || buf[3] != 'X') return SpawnResult.BadImage;
+        uint version = (uint)(buf[4] | (buf[5] << 8));
+        if (version != 1) return SpawnResult.BadImage;
+        uint entryOff = (uint)(buf[8] | (buf[9] << 8) | (buf[10] << 16) | ((uint)buf[11] << 24));
+        uint imgSize = (uint)(buf[12] | (buf[13] << 8) | (buf[14] << 16) | ((uint)buf[15] << 24));
+        if (imgSize == 0 || 16 + imgSize > (uint)got) return SpawnResult.BadImage;
+        if (entryOff >= imgSize) return SpawnResult.BadImage;
+
+        if (!AddressSpace.CreateBuf(buf + 16, (int)imgSize)) return SpawnResult.OutOfMemory;
+
+        int slot = AllocSlot();
+        if (slot < 0) return SpawnResult.NoSlot;
+
+        // the task name is the file's base name, like the shell's "MEM.EXE"
+        char* nm = stackalloc char[16];
+        int nl = 0;
+        int start = 0;
+        for (int k = pathLen - 1; k >= 0; k--)
+        {
+            if (path[k] == '\\' || path[k] == '/') { start = k + 1; break; }
+        }
+        for (int k = start; k < pathLen && nl < 15; k++) nm[nl++] = path[k];
+
+        SeedSlot(slot, NativeMethods.osb_sched_get_user_entry(), "USER", Layout.KindUser);
+        SetNameChars(slot, nm, nl);
+        _tasks.arg[slot] = Layout.UserBase + entryOff;   // user RIP in the private block
+        _tasks.cr3[slot] = AddressSpace.Cr3;
+        _tasks.ublock[slot] = AddressSpace.Block;
+        _tasks.ptphys[slot] = AddressSpace.PageTables;
+        _tasks.ppid[slot] = _tasks.pid[parentSlot];
+        pid = _tasks.pid[slot];
+        return SpawnResult.Ok;
+    }
+
+    private static byte* ImgData()
+    {
+        fixed (byte* p = _img.data) { return p; }
     }
 
     // Force-terminate a slot: release its address space and free the slot. Used

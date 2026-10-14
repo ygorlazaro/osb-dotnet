@@ -4,22 +4,22 @@ USING OSL.APP
 
 CLASS KISS
 
-    PRIVATE VAR Lines
-    PRIVATE VAR Filename
-    PRIVATE VAR Path
-    PRIVATE VAR Row
-    PRIVATE VAR Col
-    PRIVATE VAR ScrollTop
-    PRIVATE VAR Modified
-    PRIVATE VAR Running
-    PRIVATE VAR Status
-    PRIVATE VAR Width
-    PRIVATE VAR Height
-    PRIVATE VAR VisibleRows
-    PRIVATE VAR LineNumberWidth
-    PRIVATE VAR TextWidth
+    PRIVATE Lines
+    PRIVATE Filename
+    PRIVATE Path
+    PRIVATE Row
+    PRIVATE Col
+    PRIVATE ScrollTop
+    PRIVATE Modified
+    PRIVATE Running
+    PRIVATE Status
+    PRIVATE Width
+    PRIVATE Height
+    PRIVATE VisibleRows
+    PRIVATE LineNumberWidth
+    PRIVATE TextWidth
 
-    PUBLIC FUNCTION RUN(Args)
+    FUNCTION RUN(Args)
         Row = 0
         Col = 0
         ScrollTop = 0
@@ -64,8 +64,8 @@ CLASS KISS
         OSL.CONSOLE.EXIT()
     END
 
-    PRIVATE FUNCTION LOAD()
-        IF LEFT(Path, 1) <> "/" THEN
+    FUNCTION LOAD()
+        IF Path.LEFT(1) <> "/" THEN
             FullPath = PWD() + "/" + Path
         ELSE
             FullPath = Path
@@ -80,7 +80,7 @@ CLASS KISS
         END
     END
 
-    PRIVATE FUNCTION SAVE()
+    FUNCTION SAVE()
         IF Path = "" THEN
             OSL.CONSOLE.SHOWCURSOR()
             OSL.CONSOLE.SETCURSOR(Height, 1)
@@ -95,7 +95,7 @@ CLASS KISS
             Path = TempFilename
         END
 
-        IF LEFT(Path, 1) <> "/" THEN
+        IF Path.LEFT(1) <> "/" THEN
             FullPath = PWD() + "/" + Path
         ELSE
             FullPath = Path
@@ -105,7 +105,7 @@ CLASS KISS
         Status = "Saved"
     END
 
-    PRIVATE FUNCTION RENDER()
+    FUNCTION RENDER()
         Size = OSL.CONSOLE.SIZE()
         Width = Size.WIDTH
         Height = Size.HEIGHT
@@ -114,15 +114,15 @@ CLASS KISS
         TextWidth = Width - LineNumberWidth
 
         OSL.CONSOLE.BEGINFRAME()
-        RenderContent()
-        RenderStatus()
+        ME.RenderContent()
+        ME.RenderStatus()
         OSL.CONSOLE.ENDFRAME()
     END
 
-    PRIVATE FUNCTION RENDERCONTENT()
+    FUNCTION RENDERCONTENT()
         IF Filename <> "" THEN
-            Ext = RIGHT(Filename, 4)
-            UseHighlight = (Ext = ".osl" OR RIGHT(Filename, 7) = ".oslang")
+            Ext = Filename.RIGHT(4)
+            UseHighlight = (Ext = ".osl" OR Filename.RIGHT(7) = ".oslang")
         ELSE
             UseHighlight = FALSE
         END
@@ -131,12 +131,12 @@ CLASS KISS
             IF LineIndex < COUNT(Lines) THEN
                 RawText = Lines[LineIndex]
                 IF COUNT(RawText) > TextWidth THEN
-                    Text = LEFT(RawText, TextWidth)
+                    Text = RawText.LEFT(TextWidth)
                 ELSE
-                    Text = RawText + REPEAT(" ", TextWidth - COUNT(RawText))
+                    Text = RawText + " ".REPEAT(TextWidth - COUNT(RawText))
                 END
             ELSE
-                Text = REPEAT(" ", TextWidth)
+                Text = " ".REPEAT(TextWidth)
             END
 
             IF LineIndex < COUNT(Lines) THEN
@@ -145,15 +145,11 @@ CLASS KISS
                 LineNumber = "~"
             END
             OSL.CONSOLE.WRITE(i + 1, 1, LineNumber + " ")
-            IF UseHighlight THEN
-                OSL.CONSOLE.WRITE(i + 1, LineNumberWidth + 1, OSL.APP.HIGHLIGHT(Text, TextWidth))
-            ELSE
-                OSL.CONSOLE.WRITE(i + 1, LineNumberWidth + 1, Text)
-            END
+            OSL.CONSOLE.WRITE(i + 1, LineNumberWidth + 1, Text)
         END
     END
 
-    PRIVATE FUNCTION RENDERSTATUS()
+    FUNCTION RENDERSTATUS()
         Title = Filename
         IF Title = "" THEN
             Title = "(untitled)"
@@ -163,7 +159,7 @@ CLASS KISS
         END
         Header = " KISS - " + Title + " "
         IF COUNT(Header) > Width THEN
-            Header = LEFT(Header, Width)
+            Header = Header.LEFT(Width)
         END
         OSL.CONSOLE.WRITE(Height - 1, 1, Header)
 
@@ -172,7 +168,7 @@ CLASS KISS
             Help = "[ Ctrl+S / Save ]   [ ESC / Exit ]"
         END
         IF COUNT(Help) > Width THEN
-            Help = LEFT(Help, Width)
+            Help = Help.LEFT(Width)
         END
         OSL.CONSOLE.WRITE(Height, 1, Help)
 
@@ -184,10 +180,10 @@ CLASS KISS
         END
     END
 
-    PRIVATE FUNCTION EnsureVisible()
+    FUNCTION EnsureVisible()
         IF Row < ScrollTop THEN
             ScrollTop = Row
-        ELSE IF Row >= ScrollTop + VisibleRows THEN
+        ELIF Row >= ScrollTop + VisibleRows THEN
             ScrollTop = Row - VisibleRows + 1
         END
         IF ScrollTop < 0 THEN
@@ -199,133 +195,167 @@ CLASS KISS
     END
     END
 
-    PRIVATE FUNCTION HANDLEKEY(Key)
-        SWITCH Key.KEY
-            CASE KEYCODE.ESC
-                IF Modified THEN
-                    IF NOT CONFIRMDISCARD() THEN
-                        RETURN
-                    END
+    FUNCTION HANDLEKEY(Key)
+
+        IF Key.KEY = KEYCODE.ESC THEN
+            IF Modified THEN
+                IF NOT ME.Confirmdiscard() THEN
+                    RETURN
                 END
-                Running = FALSE
-                RETURN
-            CASE KEYCODE.UP
-                IF Row > 0 THEN
-                    Row = Row - 1
-                    EnsureVisible()
-                END
-                Col = MATH.MIN(Col, COUNT(Lines[Row]))
-                RETURN
-            CASE KEYCODE.DOWN
-                IF Row < COUNT(Lines) - 1 THEN
-                    Row = Row + 1
-                    EnsureVisible()
-                END
-                Col = MATH.MIN(Col, COUNT(Lines[Row]))
-                RETURN
-            CASE KEYCODE.LEFT
-                IF Col > 0 THEN
-                    Col = Col - 1
-                ELIF Row > 0 THEN
-                    Row = Row - 1
-                    Col = COUNT(Lines[Row])
-                    EnsureVisible()
-                END
-                RETURN
-            CASE KEYCODE.RIGHT
-                IF Col < COUNT(Lines[Row]) THEN
-                    Col = Col + 1
-                ELIF Row < COUNT(Lines) - 1 THEN
-                    Row = Row + 1
-                    Col = 0
-                    EnsureVisible()
-                END
-                RETURN
-            CASE KEYCODE.HOME
-                Col = 0
-                RETURN
-            CASE KEYCODE.END
+            END
+            Running = FALSE
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.UP THEN
+            IF Row > 0 THEN
+                Row = Row - 1
+                ME.EnsureVisible()
+            END
+            Col = MATH.MIN(Col, COUNT(Lines[Row]))
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.DOWN THEN
+            IF Row < COUNT(Lines) - 1 THEN
+                Row = Row + 1
+                ME.EnsureVisible()
+            END
+            Col = MATH.MIN(Col, COUNT(Lines[Row]))
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.LEFT THEN
+            IF Col > 0 THEN
+                Col = Col - 1
+            ELIF Row > 0 THEN
+                Row = Row - 1
                 Col = COUNT(Lines[Row])
-                RETURN
-            CASE KEYCODE.PAGEUP
-                Row = MATH.MAX(0, Row - VisibleRows)
-                ScrollTop = MATH.MAX(0, ScrollTop - VisibleRows)
-                Col = MATH.MIN(Col, COUNT(Lines[Row]))
-                RETURN
-            CASE KEYCODE.PAGEDOWN
-                Row = MATH.MIN(COUNT(Lines) - 1, Row + VisibleRows)
-                ScrollTop = MATH.MIN(COUNT(Lines) - VisibleRows, ScrollTop + VisibleRows)
-                IF ScrollTop < 0 THEN
-                    ScrollTop = 0
-                END
-                Col = MATH.MIN(Col, COUNT(Lines[Row]))
-                RETURN
-            CASE KEYCODE.ENTER
-                Line = Lines[Row]
-                Lines = Lines.INSERTAT(Row + 1, RIGHT(Line, COUNT(Line) - Col))
-                Lines[Row] = LEFT(Line, Col)
+                ME.EnsureVisible()
+            END
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.RIGHT THEN
+            IF Col < COUNT(Lines[Row]) THEN
+                Col = Col + 1
+            ELIF Row < COUNT(Lines) - 1 THEN
                 Row = Row + 1
                 Col = 0
-                Modified = TRUE
-                RETURN
-            CASE KEYCODE.BACKSPACE
-                IF Col > 0 THEN
-                    Lines[Row] = REMOVE(Lines[Row], Col - 1, 1)
-                    Col = Col - 1
-                    Modified = TRUE
-                ELIF Row > 0 THEN
-                    Col = COUNT(Lines[Row - 1])
-                    Lines[Row - 1] = Lines[Row - 1] + Lines[Row]
-                    Lines = Lines.REMOVEAT(Row)
-                    Row = Row - 1
-                    Modified = TRUE
-                END
-                RETURN
-            CASE KEYCODE.DELETE
-                IF Col < COUNT(Lines[Row]) THEN
-                    Lines[Row] = REMOVE(Lines[Row], Col, 1)
-                    Modified = TRUE
-                ELIF Row < COUNT(Lines) - 1 THEN
-                    Lines[Row] = Lines[Row] + Lines[Row + 1]
-                    Lines = Lines.REMOVEAT(Row + 1)
-                    Modified = TRUE
-                END
-                RETURN
-            CASE KEYCODE.TAB
-                Lines[Row] = INSERT(Lines[Row], Col, "    ")
-                Col = Col + 4
-                Modified = TRUE
-                RETURN
-            DEFAULT
-                IF Key.CTRL AND Key.CHAR = "S" THEN
-                    SAVE()
-                    RETURN
-                END
-                IF Key.CTRL AND Key.CHAR = "Q" THEN
-                    IF Modified THEN
-                        IF NOT CONFIRMDISCARD() THEN
-                            RETURN
-                        END
-                    END
-                    Running = FALSE
-                    RETURN
-                END
-                IF Key.CHAR <> NULL THEN
-                    Lines[Row] = INSERT(Lines[Row], Col, Key.CHAR)
-                    Col = Col + 1
-                    Modified = TRUE
-                    RETURN
-                END
+                ME.EnsureVisible()
+            END
+            RETURN
         END
+
+        IF Key.KEY = KEYCODE.HOME THEN
+            Col = 0
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.END THEN
+            Col = COUNT(Lines[Row])
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.PAGEUP THEN
+            Row = Row - VisibleRows
+            IF Row < 0 THEN
+                Row = 0
+            END
+            ScrollTop = ScrollTop - VisibleRows
+            IF ScrollTop < 0 THEN
+                ScrollTop = 0
+            END
+            Col = MATH.MIN(Col, COUNT(Lines[Row]))
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.PAGEDOWN THEN
+            Row = Row + VisibleRows
+            IF Row > COUNT(Lines) - 1 THEN
+                Row = COUNT(Lines) - 1
+            END
+            ScrollTop = ScrollTop + VisibleRows
+            Col = MATH.MIN(Col, COUNT(Lines[Row]))
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.ENTER THEN
+            Line = Lines[Row]
+            Lines = Lines.INSERTAT(Row + 1, Line.RIGHT(COUNT(Line) - Col))
+            Lines[Row] = Line.LEFT(Col)
+            Row = Row + 1
+            Col = 0
+            Modified = TRUE
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.BACKSPACE THEN
+            IF Col > 0 THEN
+                Lines[Row] = Lines[Row].REMOVE(Col - 1, 1)
+                Col = Col - 1
+                Modified = TRUE
+            ELIF Row > 0 THEN
+                Col = COUNT(Lines[Row - 1])
+                Lines[Row - 1] = Lines[Row - 1] + Lines[Row]
+                Lines = Lines.REMOVEAT(Row)
+                Row = Row - 1
+                Modified = TRUE
+            END
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.DELETE THEN
+            IF Col < COUNT(Lines[Row]) THEN
+                Lines[Row] = Lines[Row].REMOVE(Col, 1)
+                Modified = TRUE
+            ELIF Row < COUNT(Lines) - 1 THEN
+                Lines[Row] = Lines[Row] + Lines[Row + 1]
+                Lines = Lines.REMOVEAT(Row + 1)
+                Modified = TRUE
+            END
+            RETURN
+        END
+
+        IF Key.KEY = KEYCODE.TAB THEN
+            Lines[Row] = Lines[Row].INSERT(Col, "    ")
+            Col = Col + 4
+            Modified = TRUE
+            RETURN
+        END
+
+        IF Key.CTRL AND Key.CHAR = "S" THEN
+            ME.Save()
+            RETURN
+        END
+
+        IF Key.CTRL AND Key.CHAR = "Q" THEN
+            IF Modified THEN
+                IF NOT ME.Confirmdiscard() THEN
+                    RETURN
+                END
+            END
+            Running = FALSE
+            RETURN
+        END
+
+        IF Key.CHAR <> NULL THEN
+            Lines[Row] = Lines[Row].INSERT(Col, Key.CHAR)
+            Col = Col + 1
+            Modified = TRUE
+            RETURN
+        END
+
+        RETURN
     END
 
-    PRIVATE FUNCTION CONFIRMDISCARD()
+    FUNCTION CONFIRMDISCARD()
         OSL.CONSOLE.SHOWCURSOR()
         OSL.CONSOLE.SETCURSOR(Height, 1)
         SHOW "Unsaved changes. Discard? (Y/N): "
         INPUT Answer
         OSL.CONSOLE.HIDECURSOR()
-        RETURN TOUPPER(Answer) = "Y"
+        RETURN Answer.TOUPPER() = "Y"
     END
 
 END

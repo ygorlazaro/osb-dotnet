@@ -45,6 +45,24 @@ internal static unsafe class JobControl
         if (!background) { Scheduler.MakeForeground(slot); WaitForeground(slot); }
     }
 
+    // Start an external program (an OSBEXE file on A:, e.g. A:\OSB\BIN\MEM.EXE).
+    // args is the raw argument string for the program; without '&' the shell
+    // waits for it to finish.
+    public static void StartFile(char* path, int pathLen, char* args, int argsLen, bool background)
+    {
+        int pid;
+        SpawnResult r = Scheduler.SpawnFile(path, pathLen, Scheduler.Console, out pid);
+        if (r == SpawnResult.NotFound) { Vga.WriteLine("Bad command or file name."); return; }
+        if (r == SpawnResult.BadImage) { Vga.WriteLine("Not a valid executable."); return; }
+        if (r == SpawnResult.NoSlot) { Vga.WriteLine("No free task slot."); return; }
+        if (r == SpawnResult.OutOfMemory) { Vga.WriteLine("Out of memory."); return; }
+
+        int slot;
+        if (!Scheduler.TryFindPid(pid, out slot)) return;
+        Scheduler.SetArgs(slot, args, argsLen);
+        if (!background) { Scheduler.MakeForeground(slot); WaitForeground(slot); }
+    }
+
     // Block until the foreground job ends (zombie), is aborted (Ctrl+C), or is
     // otherwise gone. A zombie is reaped here and its exit code shown.
     public static void WaitForeground(int slot)

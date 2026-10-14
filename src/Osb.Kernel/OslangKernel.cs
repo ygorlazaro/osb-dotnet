@@ -167,6 +167,7 @@ private struct ClassDef
         public Tk K;
         public char* T;
         public int L;
+        public int Line; // 1-based source line
         public double N;
     }
 
@@ -253,6 +254,10 @@ private struct ClassDef
     private static int _osErrMsgLen;
     private static bool _osErr;
     private static char* _osArgs;
+    private static char* _osCurrentMethodName;
+    private static int _osCurrentMethodNameLen;
+    private static char* _osScriptPath;
+    private static int _osScriptPathLen;
     private static int _osArgsLen;
 
     // ==================================================================
@@ -322,7 +327,15 @@ private struct ClassDef
     {
         if (_osErr) return;
         OsRaise(msg);
-        Vga.Write("OSLANG error: ");
+        Vga.Write("OSLANG error");
+        if (_osScriptPath != null && _osScriptPathLen > 0)
+        {
+            Vga.Write(" in ");
+            Vga.WriteStr(_osScriptPath, _osScriptPathLen);
+            if (_osTokCount > 0 && _osPos < _osTokCount) Vga.WriteDec((ulong)_osToks[_osPos].Line);
+            Vga.PutChar(':');
+        }
+        Vga.Write(": ");
         Vga.WriteLine(msg);
     }
 
@@ -333,7 +346,15 @@ private struct ClassDef
         OsErrAppendStr(prefix);
         OsErrAppendChars(name, len);
         OsErrAppendStr("'.");
-        Vga.Write("OSLANG error: ");
+        Vga.Write("OSLANG error");
+        if (_osScriptPath != null && _osScriptPathLen > 0)
+        {
+            Vga.Write(" in ");
+            Vga.WriteStr(_osScriptPath, _osScriptPathLen);
+            if (_osTokCount > 0 && _osPos < _osTokCount) Vga.WriteDec((ulong)_osToks[_osPos].Line);
+            Vga.PutChar(':');
+        }
+        Vga.Write(": ");
         Vga.Write(prefix);
         for (int i = 0; i < len; i++) Vga.PutChar(name[i]);
         Vga.WriteLine("'.");
@@ -790,7 +811,16 @@ private struct ClassDef
                 int start = i;
                 while (i < len && OsIsIdentPart(src[i])) i++;
                 if (n >= maxToks) { OsFail("Too many tokens."); return n; }
-                toks[n].K = OsKeyword(src + start, i - start);
+                if (n > 0 && toks[n - 1].K == Tk.Dot)
+                {
+                    // Allow reserved words as member names after a dot (e.g.
+                    // KEYCODE.END), matching the OSLANG specification.
+                    toks[n].K = Tk.Id;
+                }
+                else
+                {
+                    toks[n].K = OsKeyword(src + start, i - start);
+                }
                 toks[n].T = src + start;
                 toks[n].L = i - start;
                 n++;
@@ -850,6 +880,18 @@ private struct ClassDef
         }
         if (n >= maxToks) { OsFail("Too many tokens."); return n; }
         toks[n].K = Tk.Eof; toks[n].T = src + len; toks[n].L = 0; n++;
+        // Assign source line numbers from token start offsets.
+        int _row = 1;
+        char* _p = src;
+        for (int _i = 0; _i < n; _i++)
+        {
+            while (_p < toks[_i].T && _p < src + len)
+            {
+                if (*_p == '\n') _row++;
+                _p++;
+            }
+            toks[_i].Line = _row;
+        }
         return n;
     }
 
@@ -1699,9 +1741,15 @@ case 3:
             OsAdvance(); // ELSE
             OsParseBlock(out elseBody, out elseLen, (int)Tk.End, (int)Tk.None, (int)Tk.None);
             if (_osErr) return default;
+            OsExpect(Tk.End, "Expected END to close IF.");
+            if (OsCheck(Tk.If)) OsAdvance();
         }
-        OsExpect(Tk.End, "Expected END to close IF.");
-        if (OsCheck(Tk.If)) OsAdvance(); // optional END IF
+        else
+        {
+            OsExpect(Tk.End, "Expected END to close IF.");
+            if (OsCheck(Tk.If)) OsAdvance();
+        }
+
         Stmt s = default;
         s.K = Sk.If;
         s.E1 = cond;
@@ -3123,6 +3171,13 @@ case 3:
                 baseExpr = baseExpr->A;
             }
             // Now baseExpr->A should be the root identifier
+            if (baseExpr->A->K == Ek.Id && OsNameEq(baseExpr->A->N, baseExpr->A->NL, "MATH"))
+            {
+                char* buf2 = stackalloc char[128];
+                int nlen2 = OsBuildName(e->A, buf2, 128);
+                if (nlen2 < 0) { OsFail("Cannot call this expression."); return OsNull(); }
+                return OsStdlib(buf2, nlen2, e->Args, e->AC);
+            }
             if (baseExpr->A->K == Ek.Id && OsNameEq(baseExpr->A->N, baseExpr->A->NL, "OSL"))
             {
                 // This is an OSL namespace call - build full name and call stdlib
@@ -3142,6 +3197,18 @@ case 3:
             // Get method name
             char* methodName = e->A->N;
             int methodNameLen = e->A->NL;
+
+            OslVal _primResult;
+            if (OsValueMethod(obj, methodName, methodNameLen, e->Args, e->AC, out _primResult))
+            {
+                return _primResult;
+            }
+            else
+            {
+                Vga.Write("PRIMMISS ");
+                for (int _i=0; _i<methodNameLen && _i<32; _i++) Vga.PutChar(methodName[_i]);
+                Vga.WriteLine("");
+            }
 
             if (obj.K == VKObj && obj.L != -1)
             {
@@ -3190,6 +3257,13 @@ case 3:
 
     private static OslVal OsCallMethod(ClassDef* cls, int methodIndex, OslVal thisObj, Expr** args, int argc)
     {
+        char* _prevMethod = _osCurrentMethodName;
+        int _prevMethodLen = _osCurrentMethodNameLen;
+        _osCurrentMethodName = cls->Methods[methodIndex];
+        _osCurrentMethodNameLen = (cls->Methods[methodIndex] != null) ? (int)cls->MethodParamCounts[methodIndex]*0 + 0 : 0;
+        // method name length not stored? count manually:
+        int _mn = 0; while (_osCurrentMethodName != null && _osCurrentMethodName[_mn] != '\0') _mn++;
+        _osCurrentMethodNameLen = _mn;
         // Shares the recursion counter with OsCallFunction (B7).
         if (_osCallDepth >= MaxCallDepth)
         {
@@ -3287,6 +3361,13 @@ case 3:
             byte* mem = (byte*)obj.P;
             int classId = *(int*)mem;
             int fieldCount = *(int*)(mem + 4);
+            if (classId == -2 && fieldCount == 2)
+            {
+                OslVal* fields = (OslVal*)(mem + 8);
+                // Support field-name access even though special object lacks class metadata.
+                if (OsNameEq(e->N, e->NL, "WIDTH")) return fields[0];
+                if (OsNameEq(e->N, e->NL, "HEIGHT")) return fields[1];
+            }
             if (classId == -1 && fieldCount == 5)
             {
                 // Keyboard event object - map field names to indices
@@ -3482,6 +3563,12 @@ case 3:
 
     private static OslVal OsStdlib(char* name, int len, Expr** args, int argc)
     {
+        OslVal _helper;
+        if (OsConsoleTryStdlib(name, len, args, argc, out _helper)) return _helper;
+        if (OsFileTryStdlib(name, len, args, argc, out _helper)) return _helper;
+        if (OsAppTryStdlib(name, len, args, argc, out _helper)) return _helper;
+        if (OsMathTryStdlib(name, len, args, argc, out _helper)) return _helper;
+
         // ---- OSL.CONSOLE ----
         if (OsNameEq(name, len, "OSL.CONSOLE.PRINT")) { OsPrintArgs(args, argc, true); return OsNull(); }
         if (OsNameEq(name, len, "OSL.CONSOLE.SHOW")) { OsPrintArgs(args, argc, false); return OsNull(); }
@@ -3506,7 +3593,7 @@ case 3:
             int ch = Serial.Pop();
             int sc = -1;
             bool shift = false, ctrl = false, alt = false;
-            
+            if (ch == 27) sc = 0x01;   // treat serial ESC as KEYCODE.ESC
             if (ch < 0)
             {
                 sc = Keyboard.Pop();
@@ -3881,6 +3968,9 @@ case 3:
         while (argS < len && (line[argS] == ' ' || line[argS] == '\t')) argS++;
         int argLen = len - argS;
 
+        _osScriptPath = line + pathS;
+        _osScriptPathLen = pathE - pathS;
+
         // One-time arena allocation (4 MiB, frame-allocated, identity-mapped).
         if (_osHeap == null)
         {
@@ -3909,6 +3999,7 @@ case 3:
 
         // Define built-in KEY enum
         OsDefineKeyEnum();
+        OsDefineKeyCodeEnum();
 
         // Load the script into the arena after the built-in definitions. The cap is
         // expressed in ARENA BYTES: the source is UTF-16, so a script of N chars
@@ -3960,6 +4051,26 @@ case 3:
         int topCount;
         Stmt* top = OsParseProgram(out topCount);
         if (_osErr) { _osHeapUsed = 0; return; }
+
+        // Expose the command-line arguments as a global ARGS array, matching the
+        // OSLANG application convention used by scripts such as KISS.
+        {
+            OslVal argsArr = OsArrMake(4);
+            int s = 0;
+            while (s < _osArgsLen && _osArgs[s] == ' ') s++;
+            int e = _osArgsLen;
+            while (e > s && _osArgs[e - 1] == ' ') e--;
+            if (e > s)
+            {
+                int al = e - s;
+                char* ab = (char*)OsAlloc((al + 1) * 2);
+                for (int k = 0; k < al; k++) ab[k] = _osArgs[s + k];
+                ab[al] = '\0';
+                OsArrSetCount(argsArr, 1);
+                OsArrElem(argsArr)[0] = OsStr(ab, al);
+            }
+            fixed (char* argName = "ARGS") OsDeclareGlobal(argName, 4, argsArr);
+        }
 
         // Run the program: top-level statements first (so a top-level GLOBAL is
         // defined before MAIN reads it), then MAIN() if the program has one.

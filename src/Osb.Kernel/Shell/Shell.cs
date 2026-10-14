@@ -500,6 +500,12 @@ internal static unsafe class Shell
             return;
         }
 
+        if (ShellText.Eq(line, len, "KISS") || ShellText.StartsWith(line, len, "KISS "))
+        {
+            KissCommand.Run(line, len);
+            return;
+        }
+
         if (ShellText.Eq(line, len, "DEMO")) { TaskCommands.Demo(background); return; }
         if (ShellText.Eq(line, len, "TASK") || ShellText.Eq(line, len, "PS")) { TaskCommands.List(); return; }
         if (ShellText.Eq(line, len, "KILL") || ShellText.StartsWith(line, len, "KILL ")) { TaskCommands.Kill(line, len); return; }
@@ -517,6 +523,109 @@ internal static unsafe class Shell
             return;
         }
 
+        // not a built-in: try it as an external program in PATH (or .\...)
+        if (TryExternal(line, len, background)) return;
+
         Vga.WriteLine("Bad command or file name.");
+    }
+
+    // Try the line as an external program: a ".\"-prefixed name runs from the
+    // current directory; anything else is looked up in each PATH entry (the
+    // name, then the name with ".EXE"). Returns true when a program started.
+    private static bool TryExternal(char* line, int len, bool background)
+    {
+        // first token = program name, the rest is the argument string
+        int s = 0;
+        while (s < len && line[s] == ' ') s++;
+        int e = s;
+        while (e < len && line[e] != ' ') e++;
+        int nameLen = e - s;
+        if (nameLen <= 0) return false;
+        char* name = line + s;
+
+        int argS = e;
+        while (argS < len && line[argS] == ' ') argS++;
+        int argLen = len - argS;
+        char* args = line + argS;
+        if (argLen > 92) argLen = 92;
+
+        char* full = stackalloc char[300];
+
+        // .\prog or ./prog: relative to the current directory
+        if (nameLen >= 2 && name[0] == '.' && (name[1] == '\\' || name[1] == '/'))
+        {
+            int fl = 0;
+            byte* cwd = stackalloc byte[160];
+            int cl = Cwd.CopyTo(cwd, 160);
+            for (int k = 0; k < cl && fl < 290; k++) full[fl++] = (char)cwd[k];
+            for (int k = 2; k < nameLen && fl < 290; k++) full[fl++] = name[k];
+            if (fl == 0) return false;
+            full[fl] = '\0';
+            if (Storage.Ext4.Resolve(full, fl, out _))
+            {
+                JobControl.StartFile(full, fl, args, argLen, background);
+                return true;
+            }
+            return false;
+        }
+
+        // PATH search: each ';'-separated entry, trying name and name.EXE
+        int po, pl;
+        fixed (char* ppath = "PATH") { if (!Environment.TryGet(ppath, 4, out po, out pl)) return false; }
+        char* pathVar = stackalloc char[128];
+        int pn = pl < 127 ? pl : 127;
+        for (int k = 0; k < pn; k++) pathVar[k] = Environment.ValueAt(po + k);
+
+        int i = 0;
+        while (i < pn)
+        {
+            // one PATH entry
+            int es = i;
+            while (i < pn && pathVar[i] != ';') i++;
+            int el = i - es;
+            i++;   // skip the ';'
+            if (el <= 0) continue;
+
+            // <entry>\<name>  and  <entry>\<name>.EXE
+            if (BuildExePath(full, pathVar + es, el, name, nameLen, false) &&
+                Storage.Ext4.Resolve(full, StrLen(full), out _))
+            {
+                JobControl.StartFile(full, StrLen(full), args, argLen, background);
+                return true;
+            }
+            if (BuildExePath(full, pathVar + es, el, name, nameLen, true) &&
+                Storage.Ext4.Resolve(full, StrLen(full), out _))
+            {
+                JobControl.StartFile(full, StrLen(full), args, argLen, background);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // "<entry>\<name>" (or with ".EXE" appended), NUL-terminated in `dst`.
+    private static bool BuildExePath(char* dst, char* entry, int entryLen, char* name, int nameLen, bool exe)
+    {
+        int n = 0;
+        for (int k = 0; k < entryLen && n < 260; k++) dst[n++] = entry[k];
+        if (n == 0 || dst[n - 1] != '\\') dst[n++] = '\\';
+        for (int k = 0; k < nameLen && n < 260; k++) dst[n++] = name[k];
+        if (exe && n < 256)
+        {
+            dst[n++] = '.';
+            dst[n++] = 'E';
+            dst[n++] = 'X';
+            dst[n++] = 'E';
+        }
+        if (n >= 259) return false;
+        dst[n] = '\0';
+        return true;
+    }
+
+    private static int StrLen(char* s)
+    {
+        int n = 0;
+        while (s[n] != '\0') n++;
+        return n;
     }
 }

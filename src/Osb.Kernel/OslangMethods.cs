@@ -255,6 +255,40 @@ internal static unsafe partial class Kernel
             return parts;
         }
 
+        if (OsNameEq(name, nlen, "INSERT"))
+        {
+            int idx = (int)OsMArgNum(args, argc, 0, 0);
+            int tl;
+            char* t = OsMArgStr(args, argc, 1, out tl);
+            if (_osErr) return OsNull();
+            if (idx < 0) idx = 0;
+            if (idx > n) idx = n;
+            char* buf = (char*)OsAlloc((n + tl + 1) * 2 + 2);
+            if (buf == null) return OsNull();
+            int o = 0;
+            for (int i = 0; i < idx; i++) buf[o++] = s[i];
+            for (int i = 0; i < tl; i++) buf[o++] = t[i];
+            for (int i = idx; i < n; i++) buf[o++] = s[i];
+            return OsMakeStr(buf, o);
+        }
+
+        if (OsNameEq(name, nlen, "REMOVE"))
+        {
+            int start = (int)OsMArgNum(args, argc, 0, 0);
+            int rlen = (int)OsMArgNum(args, argc, 1, 0);
+            if (_osErr) return OsNull();
+            if (start < 0) start = 0;
+            if (start > n) start = n;
+            if (rlen < 0) rlen = 0;
+            if (start + rlen > n) rlen = n - start;
+            char* buf = (char*)OsAlloc((n - rlen + 1) * 2 + 2);
+            if (buf == null) return OsNull();
+            int o = 0;
+            for (int i = 0; i < start; i++) buf[o++] = s[i];
+            for (int i = start + rlen; i < n; i++) buf[o++] = s[i];
+            return OsMakeStr(buf, o);
+        }
+
         OsFailName(name, nlen, "Unknown STRING method '");
         return OsNull();
     }
@@ -569,6 +603,36 @@ internal static unsafe partial class Kernel
         if (OsNameEq(name, nlen, "FLAT"))
         {
             return OsFlatten(recv);
+        }
+
+        if (OsNameEq(name, nlen, "INSERTAT"))
+        {
+            int at = (int)OsMArgNum(args, argc, 0, 0);
+            OslVal item = OsMArg(args, argc, 1);
+            if (_osErr) return OsNull();
+            int c = OsArrCount(recv);
+            if (at < 0) at = 0;
+            if (at > c) at = c;
+            OslVal grown = OsArrMake(c + 1);
+            if (grown.K != VKArr) return OsNull();
+            OslVal* ge = OsArrElem(grown);
+            OslVal* oe = OsArrElem(recv);
+            for (int i = 0; i < at; i++) ge[i] = oe[i];
+            ge[at] = item;
+            for (int i = at; i < c; i++) ge[i + 1] = oe[i];
+            OsArrSetCount(grown, c + 1);
+            return grown;
+        }
+
+        if (OsNameEq(name, nlen, "REMOVEAT"))
+        {
+            int at = (int)OsMArgNum(args, argc, 0, 0);
+            int c = OsArrCount(recv);
+            if (at < 0 || at >= c) return OsNull();
+            OslVal* oe = OsArrElem(recv);
+            for (int i = at; i < c - 1; i++) oe[i] = oe[i + 1];
+            OsArrSetCount(recv, c - 1);
+            return recv;
         }
 
         OsFailName(name, nlen, "Unknown ARRAY method '");
