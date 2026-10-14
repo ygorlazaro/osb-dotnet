@@ -609,7 +609,9 @@ case "${1:-}" in
     # host keyboard/mouse. The kernel mirrors VGA -> COM1, so you still see
     # everything. Quit: `POWEROFF` at the OSB prompt (ACPI S5 -> QEMU exits).
     echo "Booting in QEMU (serial on stdio, no display) ..."
-    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M \
+    # OSB_MEM overrides the guest RAM size (default 64M); the kernel maps up
+    # to 64 GiB, so values like 2G exercise the multi-directory identity map.
+    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m "${OSB_MEM:-64M}" \
       -drive file="$OUT_IMG",if=ide,index=0 \
       -display none -serial stdio -no-reboot
     ;;
@@ -619,7 +621,7 @@ case "${1:-}" in
     # use POWEROFF at the OSB prompt to shut the emulator down cleanly.
     echo "Booting in QEMU (GUI window + serial on stdio) ..."
     echo "  Grab escape: Ctrl+Alt+G  |  monitor: Ctrl+Alt+2 then 'quit'"
-    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m 64M -serial stdio -no-reboot \
+    exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m "${OSB_MEM:-64M}" -serial stdio -no-reboot \
       -drive file="$OUT_IMG",if=ide,index=0
     ;;
   check)

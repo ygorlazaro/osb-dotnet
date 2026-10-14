@@ -36,6 +36,9 @@ internal static class Layout
     // Physical memory (frame allocator)
     public const ulong PhysFloorDefault = 0x200000;   // just above the kernel image
     public const ulong PhysTopDefault = 0x4000000;    // 64 MiB (QEMU -m 64M)
+    // Ceiling of the boot-time identity map: boot.S builds one page directory
+    // per GiB under pdpt[0..63], so the kernel addresses the first 64 GiB.
+    public const ulong PhysMapLimit = 0x1000000000UL; // 64 GiB
     public const int FrameSize = 4096;
     public const int BlockFrames = 512;               // 2 MiB user block
     public const ulong BlockAlign = 0x200000;
@@ -112,6 +115,7 @@ internal static class Layout
     public const int ProgBad = 1;
     public const int ProgSpawner = 2;             // exercises INT 21h AH=80h/81h
 
-    // Physical frame bitmap: covers up to 1 GiB at 4 KiB granularity
-    public const int MaxFrames = 262144;          // 1 GiB / 4 KiB
+    // Physical frame bitmap: covers the mapped 64 GiB at 4 KiB granularity
+    // (2 MiB of bitmap). One bit per frame, indexed from the allocator floor.
+    public const int MaxFrames = 16777216;       // 64 GiB / 4 KiB
 }

@@ -29,7 +29,10 @@ internal static unsafe partial class NativeMethods
     // per-process address spaces (boot.S)
     [DllImport("osbnative")] public static extern void osb_load_cr3(ulong cr3);
     [DllImport("osbnative")] public static extern ulong osb_master_pml4();
+    [DllImport("osbnative")] public static extern ulong osb_master_pdpt();
     [DllImport("osbnative")] public static extern ulong osb_master_pd();
+    [DllImport("osbnative")] public static extern int osb_pd_count();
+    [DllImport("osbnative")] public static extern ulong osb_kernel_end();
     // user-blob bounds (user.S)
     [DllImport("osbnative")] public static extern ulong osb_userstub_begin();
     [DllImport("osbnative")] public static extern ulong osb_userstub_end();
