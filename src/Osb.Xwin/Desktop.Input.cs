@@ -1,4 +1,4 @@
-// XWIN desktop - mouse and keyboard input handling.
+// XWIN desktop - core mouse and keyboard input handling.
 //
 // Split out of Desktop.cs (400-line rule); shares the desktop's static state
 // through the partial class. Ported from the kernel's Shell/Desktop.Input.cs.
@@ -17,9 +17,15 @@ internal static unsafe partial class Desktop
         bool leftNow = Mouse.LeftButton;
         bool rightNow = Mouse.RightButton;
 
+        // Left-button down edge: modal overlays consume the click first.
         if (leftNow && !_mouseLeftDown)
         {
-            HandleMouseDown(Mouse.X, Mouse.Y, 1);
+            if (_shutdownOpen)
+                ProcessShutdownClick(Mouse.X, Mouse.Y);
+            else if (_menuOpen)
+                ProcessMenuClick(Mouse.X, Mouse.Y);
+            else
+                HandleMouseDown(Mouse.X, Mouse.Y, 1);
             _mouseLeftDown = true;
         }
         else if (!leftNow && _mouseLeftDown)
@@ -29,44 +35,65 @@ internal static unsafe partial class Desktop
         }
 
         if (rightNow && !_mouseRightDown)
-        {
-            HandleMouseDown(Mouse.X, Mouse.Y, 2);
             _mouseRightDown = true;
-        }
         else if (!rightNow && _mouseRightDown)
-        {
-            HandleMouseUp(Mouse.X, Mouse.Y, 2);
             _mouseRightDown = false;
-        }
 
         // Keep dragging/sizing while a button is held.
         if (WindowManager.IsCapturing && (leftNow || rightNow))
             WindowManager.UpdateCapture(Mouse.X, Mouse.Y);
+
+        // Modal overlays track the pointer for hover highlighting.
+        if (_shutdownOpen)
+            ProcessShutdownMouse();
+        else if (_menuOpen)
+            ProcessMenuMouse();
     }
 
     private static void HandleMouseDown(int x, int y, int button)
     {
         if (button != 1) return;
 
-        // Taskbar: the Start button raises the Program Manager.
-        int ty = Gfx.Height - TaskbarHeight;
-        if (y >= ty)
+        // Left deskbar (top-left anchored). It sits on top of everything, so
+        // clicks here never fall through to windows/icons.
+        if (x < DeskbarWidth)
         {
-            if (x >= _taskbarStartX && x < _taskbarStartX + _startButtonW)
+            // Shutdown button at the bottom end.
+            if (y >= ShutdownButtonY() && y < ShutdownButtonY() + MenuButtonH - 4)
             {
-                if (_progmanWindow >= 0) WindowManager.BringToFront(_progmanWindow);
-                _startMenuOpen = !_startMenuOpen;
+                _shutdownOpen = true;
+                _shutdownSelected = 3; // default to Cancel
+                return;
             }
+
+            // Menu button at top: first button, opens the installed-apps menu.
+            if (y >= 6 && y < 6 + MenuButtonH - 4)
+            {
+                if (_menuOpen) _menuOpen = false;
+                else { _menuOpen = true; _menuSelected = 0; }
+                return;
+            }
+
+            // Stacked window buttons below the menu button.
+            int win = WindowButtonAt(x, y);
+            if (win >= 0)
+            {
+                if (_menuOpen) _menuOpen = false;
+                WindowManager.BringToFront(win);
+                return;
+            }
+
             return;
         }
+
+        // Click outside the deskbar closes an open menu.
+        if (_menuOpen) { _menuOpen = false; return; }
 
         int hit = WindowManager.WindowAt(x, y);
         if (hit >= 0)
         {
             int ht = WindowManager.HitTest(hit, x, y);
             if (ht == WindowManager.HtClose) { CloseWindow(hit); return; }
-
-       
 
             if (ht == WindowManager.HtCaption || ht == WindowManager.HtSysMenu)
             {
@@ -76,7 +103,7 @@ internal static unsafe partial class Desktop
 
             if (ht == WindowManager.HtMaximize)
             {
-                WindowManager.Maximize(hit, TaskbarHeight);
+                WindowManager.Maximize(hit, 0);
                 return;
             }
 
@@ -143,79 +170,70 @@ internal static unsafe partial class Desktop
 
     private static void ProcessKeyboard()
     {
+        if (_shutdownOpen)
+        {
+            int sc;
+            while ((sc = Keyboard.Pop()) >= 0)
+            {
+                if (sc == 0x01)              // Esc: cancel
+                    _shutdownOpen = false;
+                else if (sc == 0x1C)         // Enter: activate
+                    ActivateShutdown(_shutdownSelected);
+                else if (sc == 0x48)         // Up
+                {
+                    _shutdownSelected--;
+                    if (_shutdownSelected < 0) _shutdownSelected = 3;
+                }
+                else if (sc == 0x50)         // Down
+                {
+                    _shutdownSelected++;
+                    if (_shutdownSelected > 3) _shutdownSelected = 0;
+                }
+            }
+            return;
+        }
+
+        if (_menuOpen)
+        {
+            int sc;
+            while ((sc = Keyboard.Pop()) >= 0)
+            {
+                if (sc == 0x01)              // Esc: close menu
+                    _menuOpen = false;
+                else if (sc == 0x1C)         // Enter: launch selected app
+                {
+                    if (_appCount > 0)
+                    {
+                        OpenIcon(_appIconIdx[_menuSelected]);
+                        _menuOpen = false;
+                    }
+                }
+                else if (sc == 0x48)         // Up
+                {
+                    _menuSelected--;
+                    if (_menuSelected < 0) _menuSelected = _appCount - 1;
+                }
+                else if (sc == 0x50)         // Down
+                {
+                    _menuSelected++;
+                    if (_menuSelected >= _appCount) _menuSelected = 0;
+                }
+            }
+            return;
+        }
+
         if (_frameCount > 100 && Keyboard.ConsumeCtrlF4())
         {
             CloseActiveWindow();
             return;
         }
 
-        int sc;
-        while ((sc = Keyboard.Pop()) >= 0)
+        int sc2;
+        while ((sc2 = Keyboard.Pop()) >= 0)
         {
-            if (sc == 0x01)              // Esc: clear the icon selection
+            if (sc2 == 0x01)              // Esc: clear the icon selection
                 _selectedIcon = -1;
         }
-    }
-
-    private static void OpenIcon(int i)
-    {
-        if (i < 0 || i >= _iconCount) return;
-        Icon* ic = &_icons[i];
-
-        if (ic->iconType == 1)
-        {
-            WindowManager.Create(120 + i * 18, 90 + i * 14, 360, 240,
-                ic->name, ic->nameLen,
-                WindowManager.WfVisible | WindowManager.WfHasClose | WindowManager.WfHasMax |
-                WindowManager.WfHasMin | WindowManager.WfSystemMenu,
-                WindowManager.WkGroup);
-        }
-        else
-        {
-            WindowManager.Create(150 + i * 10, 110 + i * 8, 320, 200,
-                ic->name, ic->nameLen,
-                WindowManager.WfVisible | WindowManager.WfHasClose | WindowManager.WfSystemMenu,
-                WindowManager.WkApplication);
-        }
-    }
-
-    // Double-clicking a program item in the Program Manager opens it.
-    private static void OpenAppFromPoint(int x, int y)
-    {
-        int item = ProgmanItemAt(x, y);
-        if (item < 0) return;
-
-        char* name;
-        int nameLen;
-        switch (item)
-        {
-            case 0: name = _strWrite; nameLen = _strWriteLen; break;
-            case 1: name = _strPaintbrush; nameLen = _strPaintbrushLen; break;
-            case 2: name = _strCalculator; nameLen = _strCalculatorLen; break;
-            case 3: name = _strNotepad; nameLen = _strNotepadLen; break;
-            case 4: name = _strTerminal; nameLen = _strTerminalLen; break;
-            default: name = _strClock; nameLen = _strClockLen; break;
-        }
-
-        WindowManager.Create(180 + item * 12, 130 + item * 10, 320, 200,
-            name, nameLen,
-            WindowManager.WfVisible | WindowManager.WfHasClose | WindowManager.WfSystemMenu,
-            WindowManager.WkApplication);
-    }
-
-    // Mirrors the item grid painted by PaintProgmanClient.
-    private static int ProgmanItemAt(int x, int y)
-    {
-        if (_progmanWindow < 0) return -1;
-        WindowManager.GetClientArea(_progmanWindow, out int cx, out int cy, out int cw, out int ch);
-
-        int col = (x - (cx + 12)) / 150;
-        int row = (y - (cy + 26)) / 44;
-        if (col < 0 || col > 1 || row < 0 || row > 2) return -1;
-        if ((x - (cx + 12)) < 0 || (y - (cy + 26)) < 0) return -1;
-        if (col * 150 > cw) return -1;
-
-        return row * 2 + col;
     }
 
     private static void CloseActiveWindow()
@@ -228,7 +246,7 @@ internal static unsafe partial class Desktop
     {
         if (index == _progmanWindow)
         {
-_running = true; // never exit
+            _running = true; // never exit
             return;
         }
         WindowManager.Destroy(index);

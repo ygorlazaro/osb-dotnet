@@ -15,15 +15,25 @@ internal static unsafe partial class Desktop
     private static int _lastClickX, _lastClickY;
     private static int _lastClickButton;
 
-    private const int TaskbarHeight = 20;
-    private static int _taskbarStartX = 4;
-    private static int _startButtonW = 60;
+    // Left vertical deskbar (Haiku-style): top-left anchored, full height.
+    private const int DeskbarWidth = 72;
+    private const int MenuButtonH = 24;
+    private const int PanelButtonH = 20;
 
     private static int _progmanWindow = -1;
     private static int _frameCount;
-        private static byte _lastSecond = 0xff;
+
+    // App menu state (opened from the deskbar's first button).
+    private static bool _menuOpen;
+    private static int _menuSelected;
+    private static int* _appIconIdx;  // indices into _icons for type-0 (app) icons
+    private static int _appCount;
+
+    // Shutdown confirmation dialog state.
+    private static bool _shutdownOpen;
+    private static int _shutdownSelected; // 0=turn off, 1=reboot, 2=back to terminal, 3=cancel
+
     private static int _selectedIcon = -1;
-    private static bool _startMenuOpen;
 
     private static char* _strFile;
     private static int _strFileLen;
@@ -48,6 +58,12 @@ internal static unsafe partial class Desktop
     private static char* _strGroupWindow;
     private static char* _strGroupMsg;
     private static char* _strStart;
+    private static char* _strOSB;
+    private static int _strOSBLen;
+    private static char* _strShutDown;
+    private static int _strShutDownLen;
+    private static char* _strShutDownTitle;
+    private static int _strShutDownTitleLen;
     private static int _strMainLen, _strAccessoriesLen, _strGamesLen, _strStartupLen;
     private static int _strWriteLen, _strPaintbrushLen, _strCalculatorLen, _strNotepadLen;
     private static int _strTerminalLen, _strClockLen, _strAppWindowLen, _strCloseMsgLen;
@@ -90,33 +106,21 @@ internal static unsafe partial class Desktop
 
             Mouse.Refresh();
             Keyboard.Refresh();
-            Rtc.Refresh();
 
             int layoutBefore = WindowManager.LayoutVersion;
-            bool startMenuBefore = _startMenuOpen;
             int selectedIconBefore = _selectedIcon;
 
             ProcessMouse();
             ProcessKeyboard();
 
-            // Conditional repaint: redraw when the clock ticks, on the first
-            // frame, or whenever mouse/keyboard input changed visible state
-            // (window z-order, open/close, start menu, icon selection).
-            bool clockChanged = Rtc.Second != _lastSecond;
-            if (clockChanged) _lastSecond = (byte)Rtc.Second;
-
+            // Conditional repaint: redraw whenever mouse/keyboard input changed
+            // visible state (window z-order, open/close, menu, icon selection).
             bool inputChanged = WindowManager.LayoutVersion != layoutBefore ||
-                                _startMenuOpen != startMenuBefore ||
                                 _selectedIcon != selectedIconBefore;
 
-            bool needPaint = clockChanged || _frameCount == 1 || inputChanged;
+            bool needPaint = _frameCount == 1 || inputChanged;
             if (needPaint)
-            {
-                if (clockChanged && !inputChanged)
-                    PaintClockOnly();
-                else
-                    PaintDesktop();
-            }
+                PaintDesktop();
 
             if (_running) Cursor.Draw(Mouse.X, Mouse.Y);
 
@@ -150,6 +154,9 @@ internal static unsafe partial class Desktop
         _strGroupWindow = AllocString("Group Window", out _strGroupWindowLen);
         _strGroupMsg = AllocString("Double-click items to open", out _strGroupMsgLen);
         _strStart = AllocString("Start", out _strStartLen);
+        _strOSB = AllocString("OSB", out _strOSBLen);
+        _strShutDown = AllocString("Turn off PC", out _strShutDownLen);
+        _strShutDownTitle = AllocString("Turn off PC", out _strShutDownTitleLen);
 
         Gfx.Clear(Palette.Desktop);
 
@@ -165,8 +172,11 @@ internal static unsafe partial class Desktop
         _iconCount = 8;
         _icons = (Icon*)Arena.Alloc(sizeof(Icon) * _iconCount);
 
-        _iconCols = (Gfx.Width - IconStartX) / (IconWidth + IconSpacingX);
-        _iconRows = (Gfx.Height - TaskbarHeight - IconStartY) / (IconHeight + IconSpacingY + 16);
+        _iconCols = (Gfx.Width - IconStartX - DeskbarWidth) / (IconWidth + IconSpacingX);
+        _iconRows = (Gfx.Height - IconStartY) / (IconHeight + IconSpacingY + 16);
+
+        _appIconIdx = (int*)Arena.Alloc(sizeof(int) * _iconCount);
+        _appCount = 0;
 
         int idx = 0;
         _icons[idx++] = CreateIcon("Main", "MAIN.GRP", 1);
@@ -182,8 +192,11 @@ internal static unsafe partial class Desktop
         {
             int col = i % _iconCols;
             int row = i / _iconCols;
-            _icons[i].x = IconStartX + col * (IconWidth + IconSpacingX);
+            _icons[i].x = DeskbarWidth + IconStartX + col * (IconWidth + IconSpacingX);
             _icons[i].y = IconStartY + row * (IconHeight + IconSpacingY + 16);
+
+            if (_icons[i].iconType == 0)
+                _appIconIdx[_appCount++] = i;
         }
     }
 
@@ -216,7 +229,7 @@ internal static unsafe partial class Desktop
     {
         char* title = AllocString("Program Manager", out int titleLen);
         _progmanWindow = WindowManager.Create(
-            50, 50, 400, 300,
+            DeskbarWidth + 18, 60, 400, 300,
             title, titleLen,
             WindowManager.WfVisible | WindowManager.WfActive | WindowManager.WfHasClose |
             WindowManager.WfHasMax | WindowManager.WfHasMin | WindowManager.WfSystemMenu,

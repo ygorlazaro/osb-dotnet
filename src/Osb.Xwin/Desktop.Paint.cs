@@ -1,4 +1,4 @@
-// XWIN desktop - painting the desktop, icons, windows and taskbar.
+// XWIN desktop - painting the desktop, icons, windows and deskbar.
 //
 // Split out of Desktop.cs (400-line rule); shares the desktop's static state
 // through the partial class. Ported from the kernel's Shell/Desktop.Paint.cs.
@@ -13,33 +13,152 @@ internal static unsafe partial class Desktop
         DrawIcons();
         WindowManager.PaintFrames();
         PaintWindowClients();
-        DrawTaskbar();
+        DrawLeftPanel();
+
+        if (_shutdownOpen) DrawShutdownDialog();
+        else if (_menuOpen) DrawAppMenu();
     }
 
-    // Redraw only the clock region — avoids a full-screen clear/repaint
-    // flash every second.
-    private static void PaintClockOnly()
+    // ---- deskbar geometry ----
+
+    private const int DeskbarButtonX = 4;
+    private const int DeskbarButtonW = DeskbarWidth - 8;
+
+    private static int FirstWindowButtonY() => 6 + MenuButtonH + 6;
+    private static int ShutdownButtonY() => Gfx.Height - 30;
+
+    private const int ShutdownDialogW = 220;
+    private const int ShutdownDialogH = 110;
+    private static int ShutdownDialogX() => (Gfx.Width - ShutdownDialogW) / 2;
+    private static int ShutdownDialogY() => (Gfx.Height - ShutdownDialogH) / 2;
+
+    // Which stacked window button (if any) is at (x, y) in the deskbar, or -1.
+    private static int WindowButtonAt(int x, int y)
     {
-        int ty = Gfx.Height - TaskbarHeight;
-
-        Gfx.FillRect(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4, Palette.WindowFace);
-        Gfx.Bevel(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4,
-                  Palette.WindowFace, Palette.DarkGray, Palette.White);
-
-        char* buf = stackalloc char[9];
-        int h = Rtc.Hour, m = Rtc.Minute, s = Rtc.Second;
-        buf[0] = (char)('0' + (h / 10) % 10);
-        buf[1] = (char)('0' + h % 10);
-        buf[2] = ':';
-        buf[3] = (char)('0' + (m / 10) % 10);
-        buf[4] = (char)('0' + m % 10);
-        buf[5] = ':';
-        buf[6] = (char)('0' + (s / 10) % 10);
-        buf[7] = (char)('0' + s % 10);
-        buf[8] = (char)0;
-
-        Font.DrawString(Gfx.Width - 68, ty + 6, buf, 8, Palette.Black, Palette.WindowFace);
+        if (x < DeskbarButtonX || x >= DeskbarButtonX + DeskbarButtonW) return -1;
+        int by = FirstWindowButtonY();
+        int bh = PanelButtonH - 4;
+        for (int i = 0; i < WindowManager.WindowCount; i++)
+        {
+            WindowManager.GetWindowInfo(i, out _, out _, out bool vis, out bool min, out _);
+            if (!vis || min) continue;
+            if (y >= by && y < by + bh) return i;
+            by += PanelButtonH + 4;
+            if (by + bh > Gfx.Height - 34) break;
+        }
+        return -1;
     }
+
+    private static bool InDeskbarButton(int x, int y)
+    {
+        return x >= DeskbarButtonX && x < DeskbarButtonX + DeskbarButtonW;
+    }
+
+    // ---- deskbar ----
+
+    private static void DrawLeftPanel()
+    {
+        int w = DeskbarWidth;
+        int h = Gfx.Height;
+
+        Gfx.FillRect(0, 0, w, h, Palette.WindowFace);
+        Gfx.VLine(w, 0, h, Palette.DarkGray);
+
+        // Menu button (top): the first button, opens the installed-apps menu.
+        int my = 6;
+        byte mface = _menuOpen ? Palette.HighlightBg : Palette.WindowFace;
+        Gfx.FillRect(DeskbarButtonX, my, DeskbarButtonW, MenuButtonH - 4, mface);
+        Gfx.Bevel(DeskbarButtonX, my, DeskbarButtonW, MenuButtonH - 4,
+                  mface, Palette.White, Palette.DarkGray);
+        Font.DrawString(DeskbarButtonX + 6, my + 5, _strOSB, _strOSBLen, Palette.Black, mface);
+
+        // Stacked window buttons below the menu button.
+        int by = FirstWindowButtonY();
+        int bh = PanelButtonH - 4;
+        for (int i = 0; i < WindowManager.WindowCount; i++)
+        {
+            WindowManager.GetWindowInfo(i, out char* title, out int tlen,
+                                         out bool vis, out bool min, out bool active);
+            if (!vis || min) continue;
+            byte face = active ? Palette.HighlightBg : Palette.WindowFace;
+            Gfx.FillRect(DeskbarButtonX, by, DeskbarButtonW, bh, face);
+            Gfx.Bevel(DeskbarButtonX, by, DeskbarButtonW, bh, face,
+                      Palette.White, Palette.DarkGray);
+            int showLen = tlen;
+            int maxChars = (DeskbarButtonW - 6) / Font.GlyphWidth;
+            if (showLen > maxChars) showLen = maxChars;
+            if (showLen > 0)
+                Font.DrawString(DeskbarButtonX + 6, by + 4, title, showLen,
+                                active ? Palette.White : Palette.Black, face);
+            by += PanelButtonH + 4;
+            if (by + bh > Gfx.Height - 34) break;
+        }
+
+        // Shutdown button at the bottom end.
+        int sy = ShutdownButtonY();
+        Gfx.FillRect(DeskbarButtonX, sy, DeskbarButtonW, MenuButtonH - 4, Palette.LightRed);
+        Gfx.Bevel(DeskbarButtonX, sy, DeskbarButtonW, MenuButtonH - 4,
+                  Palette.LightRed, Palette.White, Palette.DarkGray);
+        Font.DrawString(DeskbarButtonX + 6, sy + 5, _strShutDown, _strShutDownLen,
+                        Palette.Black, Palette.LightRed);
+    }
+
+    // Installed-apps popup, shown below the deskbar's first button.
+    private static void DrawAppMenu()
+    {
+        int mx = DeskbarWidth + 4;
+        int my = 6 + MenuButtonH;
+        const int itemH = 18;
+        const int mw = 120;
+        int mh = _appCount * itemH + 8;
+        if (my + mh > Gfx.Height - 4) my = Gfx.Height - mh - 4;
+        if (my < 4) my = 4;
+
+        Gfx.FillRect(mx, my, mw, mh, Palette.WindowFace);
+        Gfx.Rect(mx, my, mw, mh, Palette.DarkGray);
+        Gfx.HLine(mx, my + mh - 1, mw, Palette.DarkGray);
+
+        for (int i = 0; i < _appCount; i++)
+        {
+            int iy = my + 4 + i * itemH;
+            int ico = _appIconIdx[i];
+            bool sel = i == _menuSelected;
+            if (sel)
+                Gfx.FillRect(mx + 2, iy, mw - 4, itemH - 2, Palette.HighlightBg);
+            Font.DrawString(mx + 8, iy + 4, _icons[ico].name, _icons[ico].nameLen,
+                            sel ? Palette.Highlight : Palette.IconText,
+                            sel ? Palette.HighlightBg : Palette.WindowFace);
+        }
+    }
+
+    // Turn off / reboot / back-to-terminal confirmation dialog.
+    private static void DrawShutdownDialog()
+    {
+        int dx = ShutdownDialogX();
+        int dy = ShutdownDialogY();
+
+        Gfx.FillRect(dx, dy, ShutdownDialogW, ShutdownDialogH, Palette.WindowFace);
+        Gfx.Rect(dx, dy, ShutdownDialogW, ShutdownDialogH, Palette.DarkGray);
+        Gfx.FillRect(dx, dy, ShutdownDialogW, 18, Palette.TitleActive);
+        Font.DrawString(dx + 8, dy + 4, _strShutDownTitle, _strShutDownTitleLen,
+                        Palette.TitleText, Palette.TitleActive);
+
+        string[] opts = { "Turn off", "Reboot", "Back to terminal", "Cancel" };
+        int oy = dy + 30;
+        for (int i = 0; i < 4; i++)
+        {
+            bool sel = i == _shutdownSelected;
+            if (sel)
+                Gfx.FillRect(dx + 10, oy, ShutdownDialogW - 20, 16, Palette.HighlightBg);
+            char* txt = Str(opts[i], out int len);
+            Font.DrawString(dx + 16, oy + 3, txt, len,
+                            sel ? Palette.Highlight : Palette.Black,
+                            sel ? Palette.HighlightBg : Palette.WindowFace);
+            oy += 22;
+        }
+    }
+
+    // ---- window clients ----
 
     private static void PaintWindowClients()
     {
@@ -144,7 +263,7 @@ internal static unsafe partial class Desktop
             // keep the pointer alive by drawing a literal manually via a helper below
             {
                 char* _n = (char*)Arena.Alloc(6);
-                _n[0]='M';_n[1]='a';_n[2]='i';_n[3]='n';_n[4]=(char)0;
+                _n[0] = 'M'; _n[1] = 'a'; _n[2] = 'i'; _n[3] = 'n'; _n[4] = (char)0;
                 Font.DrawString(tx, ic->y + IconHeight + 2, _n, 4, fg, bg);
             }
         }
@@ -198,38 +317,5 @@ internal static unsafe partial class Desktop
             for (int i = 0; i <= len; i++) ptr[i] = src[i];
         }
         return ptr;
-    }
-
-    // ---- taskbar ----
-
-    private static void DrawTaskbar()
-    {
-        int ty = Gfx.Height - TaskbarHeight;
-
-        Gfx.FillRect(0, ty, Gfx.Width, TaskbarHeight, Palette.WindowFace);
-        Gfx.HLine(0, ty, Gfx.Width, Palette.White);
-
-        Gfx.FillRect(_taskbarStartX, ty + 2, _startButtonW, TaskbarHeight - 4, Palette.WindowFace);
-        Gfx.Bevel(_taskbarStartX, ty + 2, _startButtonW, TaskbarHeight - 4,
-                  Palette.WindowFace, Palette.White, Palette.DarkGray);
-        Font.DrawString(_taskbarStartX + 10, ty + 6, _strStart, _strStartLen, Palette.Black, Palette.WindowFace);
-
-        // Clock: "HH:MM:SS" at the right edge.
-        char* buf = stackalloc char[9];
-        int h = Rtc.Hour, m = Rtc.Minute, s = Rtc.Second;
-        buf[0] = (char)('0' + (h / 10) % 10);
-        buf[1] = (char)('0' + h % 10);
-        buf[2] = ':';
-        buf[3] = (char)('0' + (m / 10) % 10);
-        buf[4] = (char)('0' + m % 10);
-        buf[5] = ':';
-        buf[6] = (char)('0' + (s / 10) % 10);
-        buf[7] = (char)('0' + s % 10);
-        buf[8] = (char)0;
-
-        Gfx.FillRect(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4, Palette.WindowFace);
-        Gfx.Bevel(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4,
-                  Palette.WindowFace, Palette.DarkGray, Palette.White);
-        Font.DrawString(Gfx.Width - 68, ty + 6, buf, 8, Palette.Black, Palette.WindowFace);
     }
 }

@@ -267,6 +267,20 @@ internal static unsafe partial class WindowManager
         return _windows[index].kind;
     }
 
+    public static void GetWindowInfo(int index, out char* title, out int titleLen,
+                                     out bool visible, out bool minimized, out bool active)
+    {
+        title = null; titleLen = 0;
+        visible = false; minimized = false; active = false;
+        if (index < 0 || index >= _windowCount) return;
+        Window* win = &_windows[index];
+        title = win->title;
+        titleLen = win->titleLen;
+        visible = (win->flags & WfVisible) != 0;
+        minimized = (win->flags & WfMinimized) != 0;
+        active = (win->flags & WfActive) != 0;
+    }
+
     public static void GetClientArea(int index, out int cx, out int cy, out int cw, out int ch)
     {
         cx = cy = cw = ch = 0;

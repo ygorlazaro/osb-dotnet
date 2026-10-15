@@ -26,4 +26,6 @@ internal static unsafe class Sys
 
     public static void Write(byte* p, int n) => Call(0x01, (long)p, n, 0);
     public static void Exit(int code) => osb_sys(0x4C00 | (uint)(code & 0xFF), 0, 0, 0, 0);
+    public static void PowerOff() => Call(0x58, 0, 0, 0, 0);
+    public static void Reboot() => Call(0x59, 0, 0, 0, 0);
 }

@@ -155,6 +155,16 @@ internal static unsafe class SyscallGfx
                 frame[14] = Keyboard.IsCtrlPressed ? 1UL : 0UL;
                 return true;
 
+            case 0x58: // POWEROFF -> ACPI S5 (QEMU exits); never returns
+                NativeMethods.osb_poweroff();
+                frame[14] = 0;
+                return true;
+
+            case 0x59: // REBOOT -> 8042 reset pulse; never returns
+                NativeMethods.osb_reboot();
+                frame[14] = 0;
+                return true;
+
             default:
                 return false;
         }
