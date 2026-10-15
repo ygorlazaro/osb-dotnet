@@ -12,45 +12,45 @@ internal static unsafe class Cursor
 {
     // 16x16 cursor, 2 bits per pixel:
     // 0 = transparent, 1 = white, 2 = black, 3 = inverted
-    // Windows 3.11 arrow cursor pattern
+    // Arrow cursor pointing up-left (16x16)
     private static readonly byte[] _cursorAnd = new byte[32]
     {
-        0xFF, 0xFF,  // row 0
-        0xFF, 0xFF,
-        0xF0, 0xFF,
-        0xF8, 0xFF,
-        0xFC, 0xFF,
-        0xFE, 0xFF,
-        0xFF, 0xFF,
-        0xFF, 0xFF,
-        0xFF, 0xFF,
-        0xF8, 0xFF,
-        0xF0, 0xFF,
-        0xE0, 0xFF,
-        0xE0, 0xFF,
-        0xC0, 0xFF,
-        0x80, 0xFF,
-        0x00, 0xFF,
+        0xFF, 0xFF,  // row 0: X........
+        0xFF, 0xFF,  // row 1: XX......
+        0xFF, 0xFF,  // row 2: X.X.....
+        0xFF, 0xFF,  // row 3: X..X....
+        0xFF, 0xFF,  // row 4: X...X...
+        0xFF, 0xFF,  // row 5: X....X..
+        0xFF, 0xFF,  // row 6: X.....X.
+        0xFF, 0xFF,  // row 7: X......X
+        0xFF, 0xFF,  // row 8: X.......X.......
+        0xFF, 0xFF,  // row 9: X........X......
+        0xFF, 0xFF,  // row 10: X.........X.....
+        0xFF, 0xFF,  // row 11: X..........X....
+        0xFF, 0xFF,  // row 12: X...........X...
+        0xFF, 0xFF,  // row 13: X............X..
+        0xFF, 0xFF,  // row 14: X.............X.
+        0xFF, 0xFF,  // row 15: XXXXXXXXXXXXXX..
     };
 
     private static readonly byte[] _cursorXor = new byte[32]
     {
-        0x00, 0x00,
-        0x00, 0x00,
-        0x0F, 0x00,
-        0x07, 0x00,
-        0x03, 0x00,
-        0x01, 0x00,
-        0x00, 0x00,
-        0x00, 0x00,
-        0x00, 0x00,
-        0x07, 0x00,
-        0x0F, 0x00,
-        0x1F, 0x00,
-        0x1F, 0x00,
-        0x3F, 0x00,
-        0x7F, 0x00,
-        0xFF, 0x00,
+        0x80, 0x00,  // row 0
+        0xC0, 0x00,  // row 1
+        0xA0, 0x00,  // row 2
+        0x90, 0x00,  // row 3
+        0x88, 0x00,  // row 4
+        0x84, 0x00,  // row 5
+        0x82, 0x00,  // row 6
+        0x81, 0x00,  // row 7
+        0x80, 0x80,  // row 8
+        0x80, 0x40,  // row 9
+        0x80, 0x20,  // row 10
+        0x80, 0x10,  // row 11
+        0x80, 0x08,  // row 12
+        0x80, 0x04,  // row 13
+        0x80, 0x02,  // row 14
+        0xFF, 0xC0,  // row 15
     };
 
     // Saved background under cursor (16x16)
@@ -188,22 +188,21 @@ internal static unsafe class Cursor
 
     private static void DrawVga(int x, int y)
     {
-        // Simplified: just draw a white arrow on VGA
-        // This is a fallback and won't be perfect
+        // Simplified: draw a white arrow on VGA
         for (int cy = 0; cy < 16; cy++)
         {
-            byte andMask = _cursorAnd[cy * 2];
-            byte andMask2 = _cursorAnd[cy * 2 + 1];
+            byte xorMask = _cursorXor[cy * 2];
+            byte xorMask2 = _cursorXor[cy * 2 + 1];
 
             for (int cx = 0; cx < 16; cx++)
             {
-                byte andBit;
+                byte xorBit;
                 if (cx < 8)
-                    andBit = (byte)((andMask >> (7 - cx)) & 1);
+                    xorBit = (byte)((xorMask >> (7 - cx)) & 1);
                 else
-                    andBit = (byte)((andMask2 >> (15 - cx)) & 1);
+                    xorBit = (byte)((xorMask2 >> (15 - cx)) & 1);
 
-                if (andBit == 0)
+                if (xorBit != 0)
                 {
                     Gfx.SetPixel(x + cx, y + cy, Palette.White);
                 }
