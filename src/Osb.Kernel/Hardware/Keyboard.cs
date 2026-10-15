@@ -16,6 +16,17 @@ internal static unsafe class Keyboard
 
     private static KbdRing _kbd;
     private static bool _kbdCtrl; // PS/2 Ctrl is currently held down
+    private static bool _ctrlF4;  // a Ctrl+F4 was seen (consumed by the desktop)
+
+    // Once-only read of the Ctrl+F4 event. Handled here rather than in the
+    // consumer so the Ctrl state is the one that was true when F4 arrived, not
+    // whenever the ring is next drained.
+    public static bool ConsumeCtrlF4()
+    {
+        bool v = _ctrlF4;
+        _ctrlF4 = false;
+        return v;
+    }
 
     public static void Push(byte sc)
     {
@@ -43,6 +54,7 @@ internal static unsafe class Keyboard
         if (sc == 0x1D) _kbdCtrl = true;             // Ctrl pressed
         else if (sc == 0x9D) _kbdCtrl = false;       // Ctrl released
         else if (sc == 0x2E && _kbdCtrl) ConsoleControl.RequestCtrlC();  // Ctrl+C (consume it)
+        else if (sc == 0x3E && _kbdCtrl) _ctrlF4 = true;                  // Ctrl+F4 (consume it)
         else Push(sc);
     }
 

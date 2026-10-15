@@ -1,7 +1,8 @@
 // Bochs/QEMU display device: a linear framebuffer with no VGA involved.
 //
-// The card presents as PCI 1234:1111. BAR0 is plain video RAM and BAR2 holds
-// the DISPI registers, through which the mode is set. This is the opposite
+// The card presents as PCI 1234:1111 (QEMU's "std" VGA and the standalone
+// bochs-display both use this id). BAR0 is plain video RAM and BAR2 holds the
+// DISPI registers, through which the mode is set. This is the opposite
 // approach to the legacy VGA path in LegacyVga.cs: no sequencer, no CRTC, no
 // plane arithmetic - just a byte per pixel.
 //
@@ -30,9 +31,20 @@ internal static unsafe class Bochs
     private const int RegVirtWidth = 0x6;
 
     private const ushort ExpectedId = 0xB0C5;   // B0C5 = version 5
+    private const ushort IdFallback = 0xFF00;   // seen on some builds
+
+    // ENABLE (0x01) plus LFB (0x40): scan out the linear framebuffer at BAR0
+    // rather than the VGA memory window.
+    private const uint EnableLfb = 0x41;
 
     private const int BytesPerPixel = 4;
-    private const int Pitch = 4;
+
+    // The Bochs VBE register block is reachable two ways: the classic I/O pair
+    // at 0x1CE/0x1CF, or memory-mapped in the card's BAR2. Which one a card
+    // implements varies, so Init probes both and remembers the winner.
+    private const ushort VbeIndex = 0x1CE;
+    private const ushort VbeData = 0x1CF;
+    private static bool _viaPorts;
 
     public static bool Present;
     public static bool Ready;
@@ -43,23 +55,19 @@ internal static unsafe class Bochs
     public static ulong RegBase;
 
     private static int _bus, _slot, _func;
-    private static int _pitch;
-
-    public static int Width { get { return Layout()[0]; } }
+    private static int _width, _height;
 
     // The framebuffer pointer and geometry for the drawing front-end.
     public static byte* Frame;
     public static int Stride;
 
-    private static int _width, _height;
+    public static int Width => _width;
+    public static int Height => _height;
 
-    private static int[] Layout() { return new int[] { _width, _height }; }
-
-    // Finds the card, turns on memory decoding, and sets a mode.
+    // Finds the card, turns on memory decoding, and sets a 32bpp mode.
     public static bool Init(int width, int height)
     {
         _width = width; _height = height;
-        _pitch = width * BytesPerPixel;
 
         if (!Pci.Find(VendorQemu, DeviceVga, out _bus, out _slot, out _func))
         {
@@ -74,44 +82,83 @@ internal static unsafe class Bochs
         FrameBase = bar0;
         RegBase = bar2;
 
-        // The card's registers live in its BAR2. Without memory decoding the
-        // writes are dropped and the mode never takes, which looks like a
-        // hardware fault rather than a missing bit in the command register.
+        // Without memory decoding the register writes are dropped and the mode
+        // never takes, which looks like a hardware fault rather than a missing
+        // bit in the command register.
         Pci.EnableBusMaster(_bus, _slot, _func);
 
-        // The DISPI block sits at a fixed offset inside BAR2. Reading the ID
-        // register back confirms the whole chain - device found, BAR decoded,
-        // decoding enabled, right offset - before anything is programmed on
-        // the assumption it worked.
-        ReadId = RegRead(RegId);
-        if (ReadId != ExpectedId)
+        // Reading the ID register back confirms the whole chain - device found,
+        // BAR decoded, decoding enabled, right offset - before anything is
+        // programmed on the assumption it worked. The register block is
+        // reachable either through the classic I/O pair or BAR2, so probe both.
+        ushort idPorts = PortRead(RegId);
+        ushort idMmio = RegBase != 0 ? *(ushort*)RegBase : (ushort)0xFFFF;
+
+        if (idPorts == ExpectedId || idPorts == IdFallback)
+        {
+            _viaPorts = true;
+            ReadId = idPorts;
+        }
+        else if (idMmio == ExpectedId || idMmio == IdFallback)
+        {
+            _viaPorts = false;
+            ReadId = idMmio;
+        }
+        else
         {
             Ready = false;
             return false;
         }
 
         // Disable while reprogramming, then set the mode and hand over the
-        // framebuffer.
+        // framebuffer. 32bpp is stored little-endian as BGRX.
         RegWrite(RegEnable, 0);
         RegWrite(RegXres, (ushort)width);
         RegWrite(RegYres, (ushort)height);
         RegWrite(RegBpp, (uint)BytesPerPixel * 8);
         RegWrite(RegVirtWidth, (ushort)width);
-        RegWrite(RegEnable, 1);
+        RegWrite(RegEnable, EnableLfb);
 
         Frame = (byte*)FrameBase;
-        Stride = _pitch;
+        Stride = width * BytesPerPixel;
         Ready = true;
         return true;
     }
 
+    // Hands the card back to legacy VGA (the text console the shell lives in).
+    public static void Disable()
+    {
+        if (!Ready) return;
+        RegWrite(RegEnable, 0);
+        Ready = false;
+    }
+
+    // Reads a DISPI register through the classic I/O pair, regardless of which
+    // interface Init selects.
+    private static ushort PortRead(int index)
+    {
+        NativeMethods.outw(VbeIndex, (ushort)index);
+        return NativeMethods.inw(VbeData);
+    }
+
     private static ushort RegRead(int index)
     {
+        if (_viaPorts)
+        {
+            NativeMethods.outw(VbeIndex, (ushort)index);
+            return NativeMethods.inw(VbeData);
+        }
         return *(ushort*)(RegBase + (ulong)index * 2);
     }
 
     private static void RegWrite(int index, uint v)
     {
+        if (_viaPorts)
+        {
+            NativeMethods.outw(VbeIndex, (ushort)index);
+            NativeMethods.outw(VbeData, (ushort)v);
+            return;
+        }
         *(ushort*)(RegBase + (ulong)index * 2) = (ushort)v;
     }
 
@@ -137,6 +184,7 @@ internal static unsafe class Bochs
     // Fills a run of whole pixels; the fast path for solid rectangles.
     public static void FillRun(int x, int y, int w, byte c)
     {
+        if (w <= 0) return;
         uint rgb = Rgb(c);
         uint* p = (uint*)(Frame + y * Stride + x * BytesPerPixel);
         for (int i = 0; i < w; i++) p[i] = rgb;
@@ -171,7 +219,7 @@ internal static unsafe class Bochs
 
     // Reads a pixel back as a palette index, by nearest match. Only used for
     // diagnostics and tests, so clarity beats speed.
-    private static byte NearestIndex(uint rgb)
+    internal static byte NearestIndex(uint rgb)
     {
         int r = (int)((rgb >> 16) & 0xFF);
         int g = (int)((rgb >> 8) & 0xFF);

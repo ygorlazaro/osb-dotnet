@@ -1,18 +1,21 @@
-// Legacy VGA path: four bit-planar framebuffer at A0000 (identity-mapped).
-// Modeled on Mode 12h (640x480, 16 colours). Works on real hardware but
-// does not scan out under the QEMU emulator; Bochs is preferred there.
+// Legacy VGA path: the classic Mode 12h (640x480, 16 colours).
 //
-// Sequencer / CRT controller / graphics controller / attribute ports.
-// All ports are the classic IBM VGA port addresses.
+// The card keeps its memory as four bit planes that all live at the same
+// addresses: a byte write to A0000 lands in whichever planes the sequencer's
+// map mask enables, and a byte read returns the plane the graphics
+// controller's read-map-select points at. There is no separate per-plane
+// address; the colour is assembled one bit per plane.
+//
+// This is the path for machines without the Bochs VBE device. Under QEMU the
+// linear framebuffer in Bochs.cs is preferred and selected first; Mode 12h is
+// only reached when that device is absent.
 
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 
 namespace Osb.Kernel.Graphics;
 
-// Internal accessibility is intentional: Gfx.cs (same assembly, same namespace)
-// needs to call these methods and access these members.
-internal static unsafe class LegacyVga
+internal static unsafe partial class LegacyVga
 {
     // Sequencer / CRT controller / graphics controller / attribute ports.
     private const ushort SeqIndex = 0x3C4;
@@ -22,35 +25,36 @@ internal static unsafe class LegacyVga
     private const ushort GfxIndex = 0x3CE;
     private const ushort GfxData = 0x3CF;
     private const ushort AttrIndex = 0x3C0;
-    private const ushort AttrData = 0x3C1;
+    // The attribute controller's data register is written on the *same* port as
+    // the index: each write to 0x3C0 alternates index, data, index, data... The
+    // 0x3C1 port only reads the last data byte. Sending data to 0x3C1 instead
+    // leaves the flip-flop stuck expecting data, so the next index byte is
+    // consumed as data and the whole palette is written to the wrong entries.
+    private const ushort AttrData = 0x3C0;
     private const ushort Misc = 0x3C2;
     private const ushort StatusA = 0x3DA;
 
-    // Selects which bit planes subsequent writes reach.
-    private const byte SeqMapMask = 0x0E;   // write plane enable
+    private const byte SeqMapMask = 0x02;   // sequencer: write plane enable
+    private const byte GrcReadMap = 0x04;   // graphics controller: read plane
+    private const int HighBit = 7;          // bit of the leftmost pixel in a byte
 
-    // Bit index of the leftmost pixel inside a byte.
-    private const int HighBit = 7;
+    public static bool Active;
 
-    // The framebuffer aperture: the VGA card maps the linear address 0xA0000
-    // to the segment A000:0000.  The kernel maps it via the identity mapping,
-    // so the pointer is just that address cast.
-    // Access via Layout.* as the original code does.
+    // Mode 12h geometry, from the shared Layout constants.
+    public static int Width => Layout.GfxWidth;
+    public static int Height => Layout.GfxHeight;
 
     // ---- mode control ----
 
-    // Forces the card back to plain legacy VGA.
-    //
-    // While VBE is enabled the model reads a SEPARATE copy of the sequencer
-    // registers, so every legacy write is quietly ignored: the mode appears to
-    // take effect (the card reports a new resolution) while the framebuffer is
-    // never scanned out. Turning VBE off first makes the register writes below
-    // mean what they say.
+    // While VBE is enabled the card ignores the legacy sequencer/CRTC writes:
+    // the mode looks like it took (the DISPI registers report it) while the
+    // framebuffer is never scanned out. Turning VBE off first makes the writes
+    // below mean what they say. The DISPI data port is 16 bits wide, so the
+    // disable is a word write, not two bytes.
     private static void DisableVbe()
     {
-        NativeMethods.outb(0x1CE, 0x04);
-        NativeMethods.outb(0x1CF, 0x01);
-        NativeMethods.outb(0x1CF, 0x00);        // ENABLE = 0
+        NativeMethods.outw(0x1CE, 0x04);        // VBE_DISPI_INDEX_ENABLE
+        NativeMethods.outw(0x1CF, 0x00);
     }
 
     // Program the card into Mode 12h (640x480, 16 colours).
@@ -58,296 +62,250 @@ internal static unsafe class LegacyVga
     {
         DisableVbe();
 
-        // Sequencer: clocks, all four planes writable, character generator,
-        // memory mode.
-        NativeMethods.outb(SeqIndex, 0x01);
-        NativeMethods.outb(SeqData, 0x01);
-        NativeMethods.outb(SeqData, 0x0F);
-        NativeMethods.outb(SeqData, 0x00);
-        NativeMethods.outb(SeqData, 0x00);
-        NativeMethods.outb(SeqData, 0x00);
-        NativeMethods.outb(SeqData, 0x00);
-        NativeMethods.outb(SeqData, 0x0E);
-        NativeMethods.outb(SeqData, 0x0D);
+        // Sequencer: reset, 8-dot characters, all four planes writable,
+        // sequential addressing (no odd/even or chain-4), then run.
+        NativeMethods.outb(SeqIndex, 0x00); NativeMethods.outb(SeqData, 0x01);
+        NativeMethods.outb(SeqIndex, 0x01); NativeMethods.outb(SeqData, 0x01);
+        NativeMethods.outb(SeqIndex, 0x02); NativeMethods.outb(SeqData, 0x0F);
+        NativeMethods.outb(SeqIndex, 0x03); NativeMethods.outb(SeqData, 0x00);
+        NativeMethods.outb(SeqIndex, 0x04); NativeMethods.outb(SeqData, 0x06);
+        NativeMethods.outb(SeqIndex, 0x00); NativeMethods.outb(SeqData, 0x03);
 
-        // Graphics controller. GR06 selects the graphics display and the
-        // memory map; the usual 0x0E would point the card at the B8000 text
-        // window, where writes to the framebuffer are simply dropped.
-        NativeMethods.outb(GfxIndex, 0x00);
-        NativeMethods.outb(GfxData, 0x00);
-        NativeMethods.outb(GfxData, 0x00);
-        NativeMethods.outb(GfxData, 0x00);
-        NativeMethods.outb(GfxData, 0x00);
-        NativeMethods.outb(GfxData, 0x00);
-        NativeMethods.outb(GfxData, 0x05);
-        NativeMethods.outb(GfxData, 0x0F);
-        NativeMethods.outb(GfxData, 0xFF);
+        // Graphics controller: read mode 0, write mode 0, the A0000 64K
+        // window (GR06 bit 2 set), colour-don't-care off.
+        NativeMethods.outb(GfxIndex, 0x00); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x01); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x02); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x03); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x04); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x05); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x06); NativeMethods.outb(GfxData, 0x05);
+        NativeMethods.outb(GfxIndex, 0x07); NativeMethods.outb(GfxData, 0x0F);
+        NativeMethods.outb(GfxIndex, 0x08); NativeMethods.outb(GfxData, 0xFF);
 
-        // Attribute controller: sixteen palette entries, then mode control.
-        NativeMethods.outb(StatusA, 0x00);
+        // Attribute controller: identity palette map (pixel value -> DAC
+        // entry), graphics mode, no blink.
+        NativeMethods.inb(StatusA);             // reset the address/data flip-flop
         for (byte i = 0; i < 16; i++) { NativeMethods.outb(AttrIndex, i); NativeMethods.outb(AttrData, i); }
         NativeMethods.outb(AttrIndex, 0x10); NativeMethods.outb(AttrData, 0x01);
         NativeMethods.outb(AttrIndex, 0x11); NativeMethods.outb(AttrData, 0x00);
         NativeMethods.outb(AttrIndex, 0x12); NativeMethods.outb(AttrData, 0x0F);
         NativeMethods.outb(AttrIndex, 0x13); NativeMethods.outb(AttrData, 0x00);
         NativeMethods.outb(AttrIndex, 0x14); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x15); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x16); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x17); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x18); NativeMethods.outb(AttrData, 0x0E);
-        NativeMethods.outb(AttrIndex, 0x19); NativeMethods.outb(AttrData, 0x04);
 
+        // Misc output: 25MHz dot clock, negative sync.
         NativeMethods.outb(Misc, 0xE3);
 
-        for (int i = 0; i < 24; i++)
+        // CRTC timing. Unlock registers 0-7 first (register 0x11 bit 7).
+        NativeMethods.outb(CrtcIndex, 0x11); NativeMethods.outb(CrtcData, 0x0C);
+        for (int i = 0; i < 25; i++)
         {
             NativeMethods.outb(CrtcIndex, (byte)i);
-            NativeMethods.outb(CrtcData, _mode12.crtc[i]);
+            NativeMethods.outb(CrtcData, _mode12Crtc.v[i]);
         }
 
-        NativeMethods.outb(StatusA, 0x03);            // end of reset sequence
-
-        // Leave attribute mode. The index register's bit 5 is the
-        // palette-address-source bit: while it is clear the attribute
-        // controller owns the data port and the display is blanked, so a
-        // program that stops here looks like nothing was drawn at all.
+        // Leave attribute mode; the display is blanked until this is done.
         NativeMethods.outb(AttrIndex, 0x20);
     }
 
-    private unsafe struct ModeTable { public fixed byte crtc[24]; }
-    private static readonly ModeTable _mode12 = MakeMode12();
-
-    private static ModeTable MakeMode12()
-    {
-        ModeTable t = default(ModeTable);
-        byte* c = t.crtc;
-        c[0] = 0x5F; c[1] = 0x4F; c[2] = 0x50; c[3] = 0x82;
-        c[4] = 0x54; c[5] = 0x80; c[6] = 0x0B; c[7] = 0x3E;
-        c[8] = 0x00; c[9] = 0x40; c[10] = 0x00; c[11] = 0x00;
-        c[12] = 0x00; c[13] = 0x00; c[14] = 0x00; c[15] = 0x00;
-        c[16] = 0xEA; c[17] = 0x8C; c[18] = 0xDF; c[19] = 0x28;
-        c[20] = 0x00; c[21] = 0xE7; c[22] = 0x04; c[23] = 0xE3;
-        return t;
-    }
-
-    // ---- public API (called by Gfx.cs) ----
-
-    // Initialise the graphics aperture (Mode 12h on real hardware).
     public static bool Init(int width, int height)
     {
-        // Program the card into Mode 12h (640x480, 16 colours).
         ProgramMode12();
-
-        // Enable all four bit planes so writes reach them.
         SetPlaneMask(0x0F);
-
-        // Enable the card in the text/video mode: this selects the B8000
-        // window for the VGA card, at linear address 0xA0000.
-        NativeMethods.outb(StatusA, 0x03);            // end of reset sequence
-
-        // Leave attribute mode: index register's bit 5 = 1 means the CPU data
-        // port writes directly to video memory rather than the attribute controller.
-        NativeMethods.outb(AttrIndex, 0x20);
-
         Active = true;
         Clear(0);
         return true;
     }
 
-    // Returns to the 80x25 text console the shell lives in.
-    public static void Exit()
-    {
-        // Mode 03h CRTC values, then the standard 25-row text setup.
-        for (int i = 0; i < 32; i++)
-        {
-            NativeMethods.outb(CrtcIndex, (byte)i);
-            NativeMethods.outb(CrtcData, _textCrtc.v[i]);
-        }
-        NativeMethods.outb(Misc, 0x67);
-        NativeMethods.outb(StatusA, 0x00);
-        NativeMethods.outb(AttrIndex, 0x10); NativeMethods.outb(AttrData, 0x0C);
-        NativeMethods.outb(AttrIndex, 0x04); NativeMethods.outb(AttrData, 0x00);   // allow write to index 4
-        NativeMethods.outb(AttrIndex, 0x14); NativeMethods.outb(AttrData, 0x07);
-        NativeMethods.outb(AttrIndex, 0x04); NativeMethods.outb(AttrData, 0x01);
-        NativeMethods.outb(AttrIndex, 0x20); NativeMethods.outb(AttrData, 0x00);   // normal palette
-        NativeMethods.outb(AttrIndex, 0x21); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x22); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x23); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x24); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x25); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x26); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x27); NativeMethods.outb(AttrData, 0x00);
-        NativeMethods.outb(AttrIndex, 0x28); NativeMethods.outb(AttrData, 0x0F);
-        NativeMethods.outb(SeqIndex, 0x01); NativeMethods.outb(SeqData, 0x00);   // character generator on
-        NativeMethods.outb(SeqIndex, 0x03); NativeMethods.outb(SeqData, 0x00);
-        NativeMethods.outb(SeqIndex, 0x05); NativeMethods.outb(SeqData, 0x10);   // odd/even on
-        NativeMethods.outb(SeqIndex, 0x04); NativeMethods.outb(SeqData, 0x00);   // 4-bit memory mode off
-        NativeMethods.outb(GfxIndex, 0x06); NativeMethods.outb(GfxData, 0x0E);   // back to the text window
-        NativeMethods.outb(GfxIndex, 0x08); NativeMethods.outb(GfxData, 0x00);
-        SetPlaneMask(0x0F);
-        NativeMethods.outb(StatusA, 0x03);
-        Active = false;
-    }
-
-    // Re-assert the state that drawing depends on.  Deliberately does NOT touch
+    // Re-assert the state that drawing depends on. Deliberately does not touch
     // the timing or mode registers: those are set once, from one table, so
     // there is a single place where the card's configuration is decided.
     public static void Reassert()
     {
         SetPlaneMask(0x0F);
-        NativeMethods.outb(AttrIndex, 0x10); NativeMethods.outb(AttrData, 0x01);   // graphics, not text
-        NativeMethods.outb(StatusA, 0x03);
-        NativeMethods.outb(AttrIndex, 0x20);                    // leave attribute mode
+        NativeMethods.outb(AttrIndex, 0x20);    // leave attribute mode
         Active = true;
     }
 
-    // ---- pixel access ----
+    // ---- character generator (text font) ----
+    //
+    // The 8x16 text glyphs live in plane 2 of the card's memory, and graphics
+    // modes reuse that same plane for pixels. Programming any graphics mode
+    // therefore destroys the font: on the way back the console gets the correct
+    // 80x25 timing but no glyphs, so the screen looks blank except for the
+    // CRTC-drawn cursor. Stash the table before going graphic and put it back
+    // on the way out.
 
-    // The framebuffer aperture: the VGA card maps the linear address 0xA0000
-    // to the segment A000:0000.  The kernel maps it via the identity mapping,
-    // so the pointer is just that address cast.
-    private unsafe struct CrtcTable { public fixed byte v[32]; }
-    private static readonly CrtcTable _textCrtc = MakeTextCrtc();
-
-    private static CrtcTable MakeTextCrtc()
+    public static void SaveFont()
     {
-        CrtcTable t = default(CrtcTable);
-        t.v[0] = 0x5F; t.v[1] = 0x4F; t.v[2] = 0x50; t.v[3] = 0x82;
-        t.v[4] = 0x55; t.v[5] = 0x81; t.v[6] = 0xBF; t.v[7] = 0x1F;
-        t.v[8] = 0x00; t.v[9] = 0x4F; t.v[10] = 0x0D; t.v[11] = 0x30;
-        t.v[12] = 0x37; t.v[13] = 0x06; t.v[14] = 0x1C; t.v[15] = 0x0F;
-        for (int i = 16; i < 32; i++) t.v[i] = 0;
-        return t;
+        if (_fontSaved) return;
+        BeginFontWindow();
+        byte* src = FontBase;
+        for (int i = 0; i < FontBytes; i++) _fontStore.v[i] = src[i];
+        EndFontWindow();
+        _fontSaved = true;
     }
 
-    internal static byte* Plane(int n)
+    public static void RestoreFont()
     {
-        return (byte*)(Layout.VgaGraphBase + (ulong)n * (ulong)Layout.GfxPlaneSize);
+        if (!_fontSaved) return;
+        BeginFontWindow();
+        byte* dst = FontBase;
+        for (int i = 0; i < FontBytes; i++) dst[i] = _fontStore.v[i];
+        EndFontWindow();
+        _fontSaved = false;
     }
 
-    // Selects which bit plane subsequent writes reach.
+    // Maps the flat text window onto plane 2 (the font plane). Text mode keeps
+    // the CPU window at B8000 (graphics-controller register 6, bits 2-3 = 3), and
+    // the odd/even split that normally makes B8000 read characters+attributes is
+    // selected by graphics-controller register 5 bit 4, so both are adjusted
+    // here; the memory-map register itself is left at the text value.
+    private static void BeginFontWindow()
+    {
+        NativeMethods.outb(GfxIndex, 0x05); NativeMethods.outb(GfxData, 0x00);   // odd/even off: linear window
+        NativeMethods.outb(GfxIndex, 0x04); NativeMethods.outb(GfxData, 0x02);   // reads return plane 2
+        NativeMethods.outb(GfxIndex, 0x06); NativeMethods.outb(GfxData, 0x0E);   // keep the B8000 window
+        NativeMethods.outb(SeqIndex, 0x02); NativeMethods.outb(SeqData, 0x04);   // writes reach plane 2
+    }
+
+    // Puts the graphics controller back into the text-mode map.
+    private static void EndFontWindow()
+    {
+        NativeMethods.outb(SeqIndex, 0x02); NativeMethods.outb(SeqData, 0x03);
+        NativeMethods.outb(GfxIndex, 0x04); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x05); NativeMethods.outb(GfxData, 0x10);   // odd/even (text)
+        NativeMethods.outb(GfxIndex, 0x06); NativeMethods.outb(GfxData, 0x0E);
+        SetPlaneMask(0x0F);
+    }
+
+    // Returns to the 80x25 text console the shell lives in.
+    //
+    // The register set is the classic BIOS Mode 03h table. Order matters: the
+    // CRTC timing registers 0-7 are protected by register 0x11 bit 7, so they
+    // are unlocked first; the sequencer is held in reset while the timing
+    // changes; and all 25 CRTC registers are written, because leaving the
+    // vertical timing (0x10-0x18) at the graphics values produces no sync.
+    public static void Exit()
+    {
+        NativeMethods.outb(CrtcIndex, 0x11); NativeMethods.outb(CrtcData, 0x0C);   // unlock 0-7
+
+        NativeMethods.outb(SeqIndex, 0x00); NativeMethods.outb(SeqData, 0x01);     // reset
+
+        NativeMethods.outb(Misc, 0x67);
+
+        for (int i = 0; i < 25; i++)
+        {
+            NativeMethods.outb(CrtcIndex, (byte)i);
+            NativeMethods.outb(CrtcData, _textCrtc.v[i]);
+        }
+
+        // Sequencer: 8-dot characters, plane 0/1 (text), odd/even memory.
+        NativeMethods.outb(SeqIndex, 0x01); NativeMethods.outb(SeqData, 0x00);
+        NativeMethods.outb(SeqIndex, 0x02); NativeMethods.outb(SeqData, 0x03);
+        NativeMethods.outb(SeqIndex, 0x03); NativeMethods.outb(SeqData, 0x00);
+        NativeMethods.outb(SeqIndex, 0x04); NativeMethods.outb(SeqData, 0x02);
+
+        // Graphics controller: the B8000 text window, read plane 0.
+        NativeMethods.outb(GfxIndex, 0x00); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x01); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x02); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x03); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x04); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x05); NativeMethods.outb(GfxData, 0x10);
+        NativeMethods.outb(GfxIndex, 0x06); NativeMethods.outb(GfxData, 0x0E);
+        NativeMethods.outb(GfxIndex, 0x07); NativeMethods.outb(GfxData, 0x00);
+        NativeMethods.outb(GfxIndex, 0x08); NativeMethods.outb(GfxData, 0xFF);
+
+        // Attribute controller: reset the flip-flop, load the 16-entry text
+        // palette and text attribute mode, then re-enable video.
+        NativeMethods.inb(StatusA);
+        for (byte i = 0; i < 16; i++) { NativeMethods.outb(AttrIndex, i); NativeMethods.outb(AttrData, _textAttr.v[i]); }
+        NativeMethods.outb(AttrIndex, 0x10); NativeMethods.outb(AttrData, 0x0C);
+        NativeMethods.outb(AttrIndex, 0x11); NativeMethods.outb(AttrData, 0x00);
+        NativeMethods.outb(AttrIndex, 0x12); NativeMethods.outb(AttrData, 0x0F);
+        NativeMethods.outb(AttrIndex, 0x13); NativeMethods.outb(AttrData, 0x08);
+        NativeMethods.outb(AttrIndex, 0x14); NativeMethods.outb(AttrData, 0x00);
+        NativeMethods.outb(AttrIndex, 0x20);
+
+        NativeMethods.outb(SeqIndex, 0x00); NativeMethods.outb(SeqData, 0x03);     // run
+        SetPlaneMask(0x0F);
+        Active = false;
+    }
+
+    // ---- planar access ----
+
+    private static byte* Base { get { return (byte*)Layout.VgaGraphBase; } }
+
+    // The text-mode CPU window: the character generator (plane 2) is read and
+    // written through here, not through the graphics aperture at A0000.
+    private static byte* FontBase { get { return (byte*)Layout.VgaBase; } }
+
+    // Selects which bit planes subsequent byte writes reach.
     public static void SetPlaneMask(byte mask)
     {
         NativeMethods.outb(SeqIndex, SeqMapMask);
         NativeMethods.outb(SeqData, mask);
     }
 
-    // ---- properties ---- (matching the original Gfx.cs surface)
-
-    public static bool Active;
-
-    // The card's geometry, taken from the shared Layout struct (640x480 Mode 12h).
-    public static int Width => Layout.GfxWidth;
-    public static int Height => Layout.GfxHeight;
-
-    // ---- 80x25 text mode CRTC values ----
-
-    private static byte[] _textCrtcData = new byte[32];
-
-    static LegacyVga()
+    // Selects which plane subsequent byte reads return.
+    private static void SelectReadPlane(int n)
     {
-        _textCrtcData[0] = 0x5F; _textCrtcData[1] = 0x4F; _textCrtcData[2] = 0x50; _textCrtcData[3] = 0x82;
-        _textCrtcData[4] = 0x55; _textCrtcData[5] = 0x81; _textCrtcData[6] = 0xBF; _textCrtcData[7] = 0x1F;
-        _textCrtcData[8] = 0x00; _textCrtcData[9] = 0x4F; _textCrtcData[10] = 0x0D; _textCrtcData[11] = 0x30;
-        _textCrtcData[12] = 0x37; _textCrtcData[13] = 0x06; _textCrtcData[14] = 0x1C; _textCrtcData[15] = 0x0F;
-        for (int i = 16; i < 32; i++) _textCrtcData[i] = 0;
+        NativeMethods.outb(GfxIndex, GrcReadMap);
+        NativeMethods.outb(GfxData, (byte)n);
     }
 
-    // ---- primitives ----
+    // ---- register tables ----
 
-    public static void SetPixel(int x, int y, byte c)
+    private const int FontBytes = 8192;     // 512 glyphs x 16 scan lines
+
+    private unsafe struct FontStore { public fixed byte v[FontBytes]; }
+    private static FontStore _fontStore;
+    private static bool _fontSaved;
+
+    private unsafe struct CrtcTable { public fixed byte v[32]; }
+    private static readonly CrtcTable _mode12Crtc = MakeMode12Crtc();
+    private static readonly CrtcTable _textCrtc = MakeTextCrtc();
+
+    private static CrtcTable MakeMode12Crtc()
     {
-        if (x < 0 || y < 0 || x >= Width || y >= Height) return;
-        byte* p = Plane(c & 3) + y * Layout.GfxBytesPerRow + (x >> 3);
-        byte bit = (byte)(1 << (HighBit - (x & 7)));
-        if ((c & 8) != 0) *p |= bit; else *p &= (byte)~bit;
+        CrtcTable t = default(CrtcTable);
+        // Standard Mode 12h CRTC table (registers 0x00-0x18).
+        t.v[0] = 0x5F; t.v[1] = 0x4F; t.v[2] = 0x50; t.v[3] = 0x82;
+        t.v[4] = 0x54; t.v[5] = 0x80; t.v[6] = 0x0B; t.v[7] = 0x3E;
+        t.v[8] = 0x00; t.v[9] = 0x40; t.v[10] = 0x00; t.v[11] = 0x00;
+        t.v[12] = 0x00; t.v[13] = 0x00; t.v[14] = 0x00; t.v[15] = 0x00;
+        t.v[16] = 0xEA; t.v[17] = 0x0C; t.v[18] = 0xDF; t.v[19] = 0x28;
+        t.v[20] = 0x00; t.v[21] = 0xE7; t.v[22] = 0x04; t.v[23] = 0xE3;
+        t.v[24] = 0xFF;
+        return t;
     }
 
-    public static byte GetPixel(int x, int y)
+    private static CrtcTable MakeTextCrtc()
     {
-        if (x < 0 || y < 0 || x >= Width || y >= Height) return 0;
-        byte mask = (byte)(1 << (HighBit - (x & 7)));
-        int off = y * Layout.GfxBytesPerRow + (x >> 3);
-        byte c = 0;
-        for (int n = 0; n < Layout.GfxPlaneCount; n++)
-            if ((Plane(n)[off] & mask) != 0) c |= (byte)(1 << n);
-        return c;
+        CrtcTable t = default(CrtcTable);
+        // Standard BIOS Mode 03h CRTC table (registers 0x00-0x18).
+        t.v[0] = 0x5F; t.v[1] = 0x4F; t.v[2] = 0x50; t.v[3] = 0x82;
+        t.v[4] = 0x55; t.v[5] = 0x81; t.v[6] = 0xBF; t.v[7] = 0x1F;
+        t.v[8] = 0x00; t.v[9] = 0x4F; t.v[10] = 0x0D; t.v[11] = 0x0E;
+        t.v[12] = 0x00; t.v[13] = 0x00; t.v[14] = 0x00; t.v[15] = 0x00;
+        t.v[16] = 0x9C; t.v[17] = 0x0E; t.v[18] = 0x8F; t.v[19] = 0x28;
+        t.v[20] = 0x1F; t.v[21] = 0x96; t.v[22] = 0xB9; t.v[23] = 0xA3;
+        t.v[24] = 0xFF;
+        return t;
     }
 
-    public static void Clear(byte c) { FillRect(0, 0, Width, Height, c); }
+    // The 16 text-mode palette entries the attribute controller starts from.
+    private unsafe struct AttrTable { public fixed byte v[16]; }
+    private static readonly AttrTable _textAttr = MakeTextAttr();
 
-    // Fills with a solid colour.
-    //
-    // A colour index is one bit in one plane, so filling is two passes: clear
-    // all four planes, then paint only the plane the colour needs. Painting a
-    // single plane without clearing the others is the classic planar bug -
-    // it works for colours 8..15 and quietly renders 0..7 as whatever the
-    // planes happened to hold.
-    public static void FillRect(int x, int y, int w, int h, byte c)
+    private static AttrTable MakeTextAttr()
     {
-        if (w <= 0 || h <= 0) return;
-        if (x < 0) { w += x; x = 0; }
-        if (y < 0) { h += y; y = 0; }
-        if (x + w > Width) w = Width - x;
-        if (y + h > Height) h = Height - y;
-        if (w <= 0 || h <= 0) return;
-
-        byte fill = (c & 8) != 0 ? (byte)0xFF : (byte)0x00;
-
-        if ((x & 7) != 0 || (w & 7) != 0)
-        {
-            // Partial bytes at the edges: correctness over speed.
-            for (int r = 0; r < h; r++)
-                for (int i = 0; i < w; i++)
-                    SetPixel(x + i, y + r, c);
-            return;
-        }
-
-        int bytes = w >> 3;
-        SetPlaneMask(0x0F);
-        Span(0, x, y, h, bytes);
-        SetPlaneMask((byte)(1 << (c & 3)));
-        Span(fill, x, y, h, bytes);
-        SetPlaneMask(0x0F);
-    }
-
-    // Writes one value across a run of whole bytes.
-    private static void Span(byte v, int x, int y, int h, int bytes)
-    {
-        byte* row0 = Plane(0) + y * Layout.GfxBytesPerRow + (x >> 3);
-        for (int r = 0; r < h; r++)
-        {
-            byte* row = row0 + r * Layout.GfxBytesPerRow;
-            for (int i = 0; i < bytes; i++) row[i] = v;
-        }
-    }
-
-    public static void HLine(int x, int y, int w, byte c) { FillRect(x, y, w, 1, c); }
-
-    public static void VLine(int x, int y, int h, byte c) { FillRect(x, y, 1, h, c); }
-
-    public static void Rect(int x, int y, int w, int h, byte c)
-    {
-        if (w <= 0 || h <= 0) return;
-        HLine(x, y, w, c);
-        HLine(x, y + h - 1, w, c);
-        VLine(x, y, h, c);
-        VLine(x + w - 1, y, h, c);
-    }
-
-    // Classic raised/beveled frame: a light edge on top-left, dark on
-    // bottom-right, which is what gives the Windows 3.11 windows their depth.
-    public static void Bevel(int x, int y, int w, int h, byte face, byte light, byte dark)
-    {
-        if (w <= 0 || h <= 0) return;
-        HLine(x + 1, y, w - 2, light);
-        VLine(x, y + 1, h - 2, light);
-        HLine(x + 1, y + h - 1, w - 2, dark);
-        VLine(x + w - 1, y + 1, h - 2, dark);
-        // corners
-        SetPixel(x, y, face);
-        SetPixel(x + w - 1, y, face);
-        SetPixel(x, y + h - 1, face);
-        SetPixel(x + w - 1, y + h - 1, face);
+        AttrTable t = default(AttrTable);
+        t.v[0] = 0x00; t.v[1] = 0x01; t.v[2] = 0x02; t.v[3] = 0x03;
+        t.v[4] = 0x04; t.v[5] = 0x05; t.v[6] = 0x14; t.v[7] = 0x07;
+        t.v[8] = 0x38; t.v[9] = 0x39; t.v[10] = 0x3A; t.v[11] = 0x3B;
+        t.v[12] = 0x3C; t.v[13] = 0x3D; t.v[14] = 0x3E; t.v[15] = 0x3F;
+        return t;
     }
 }

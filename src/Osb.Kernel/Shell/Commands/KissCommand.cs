@@ -31,6 +31,6 @@ internal static unsafe class KissCommand
             for (int k = argS; k < len && kl < 250; k++) kline[kl++] = line[k];
         }
         kline[kl] = '\0';
-        global::Kernel.OslangCmd(kline, kl);
+        global::Osb.Kernel.Kernel.OslangCmd(kline, kl);
     }
 }

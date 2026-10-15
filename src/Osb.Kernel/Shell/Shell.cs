@@ -583,7 +583,7 @@ internal static unsafe class Shell
         }
         if (ShellText.Eq(line, len, "OSLANG") || ShellText.StartsWith(line, len, "OSLANG "))
         {
-            global::Kernel.OslangCmd(line, len);   // interpreter entry (OslangKernel.cs)
+            global::Osb.Kernel.Kernel.OslangCmd(line, len);   // interpreter entry (OslangKernel.cs)
             return;
         }
 

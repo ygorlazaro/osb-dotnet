@@ -9,7 +9,9 @@ using Osb.Kernel.Storage;
 using Osb.Kernel.Shell;
 using Osb.Kernel.Shell.Commands;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // File helpers invoked from OsStdlib. Returns true when `name` is an
     // OSL.FILE function handled here.
@@ -182,4 +184,4 @@ internal static unsafe partial class Kernel
             }
         }
     }
-}
+}}

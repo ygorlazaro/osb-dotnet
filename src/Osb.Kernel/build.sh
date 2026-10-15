@@ -608,22 +608,27 @@ case "${1:-}" in
     # Headless: serial straight to the terminal, no GUI window to grab the
     # host keyboard/mouse. The kernel mirrors VGA -> COM1, so you still see
     # everything. Quit: `POWEROFF` at the OSB prompt (ACPI S5 -> QEMU exits).
-    echo "Booting in QEMU (serial on stdio, no display) ..."
+    # The default std VGA carries the Bochs/DISPI registers the GFX desktop
+    # uses for its linear framebuffer (PCI 0x1234:0x1111, 32bpp BGRX).
+    echo "Booting in QEMU (serial on stdio) ..."
     # OSB_MEM overrides the guest RAM size (default 64M); the kernel maps up
     # to 64 GiB, so values like 2G exercise the multi-directory identity map.
     exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m "${OSB_MEM:-64M}" \
       -drive file="$OUT_IMG",if=ide,index=0 \
       -netdev user,id=net0 -device e1000,netdev=net0 \
-      -display none -serial stdio -no-reboot
+      -vga std -display none -serial stdio -no-reboot
     ;;
   run-gui)
-    # Graphical window (to watch VGA text mode). The window grabs the mouse on
-    # click: press Ctrl+Alt+G to release, Ctrl+Alt+2 for the QEMU monitor, or
-    # use POWEROFF at the OSB prompt to shut the emulator down cleanly.
+    # Graphical window with QEMU's std VGA. The GFX desktop drives its Bochs/
+    # DISPI linear framebuffer, which scans out to this window.
+    # The window grabs the mouse on click: press Ctrl+Alt+G to release,
+    # Ctrl+Alt+2 for the QEMU monitor, or use POWEROFF at the OSB prompt
+    # to shut the emulator down cleanly.
     echo "Booting in QEMU (GUI window + serial on stdio) ..."
     echo "  Grab escape: Ctrl+Alt+G  |  monitor: Ctrl+Alt+2 then 'quit'"
     exec qemu-system-x86_64 -cdrom "$OUT_ISO" -m "${OSB_MEM:-64M}" -serial stdio -no-reboot \
-      -drive file="$OUT_IMG",if=ide,index=0
+      -drive file="$OUT_IMG",if=ide,index=0 \
+      -vga std
     ;;
   check)
     grub-file --is-x86-multiboot2 "$OBJ/kernel.elf" && echo "kernel.elf: Multiboot2 OK"

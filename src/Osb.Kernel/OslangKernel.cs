@@ -22,7 +22,9 @@ using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 using Osb.Kernel.Storage;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // ==================================================================
     //  Value model
@@ -263,8 +265,17 @@ private struct ClassDef
     // ==================================================================
     //  Arena allocator
     // ==================================================================
-    private static void* OsAlloc(int bytes)
+    public static void* OsAlloc(int bytes)
     {
+        // Auto-initialize arena on first use (for non-OSLANG callers like Desktop)
+        if (_osHeap == null)
+        {
+            ulong frames = PhysicalMemory.Alloc(1024, 0x1000);
+            if (frames == 0) { OsFail("Out of memory for arena."); return null; }
+            _osHeap = (byte*)frames;
+            _osHeapSize = 1024UL * 0x1000;
+            _osHeapUsed = 0;
+        }
         bytes = (bytes + 7) & ~7;
         if (_osHeapUsed + (ulong)bytes > _osHeapSize)
         {
@@ -4226,4 +4237,5 @@ case 3:
         }
         return dstOff;
     }
+}
 }

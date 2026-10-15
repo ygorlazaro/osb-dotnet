@@ -10,7 +10,9 @@
 // the kernel has no first-class function values yet, so there is nothing to
 // pass. They arrive with arrow functions in a later phase.
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // Argument at `i`, or NULL when the call passed fewer arguments.
     private static OslVal OsMArg(Expr** args, int argc, int i)
@@ -701,4 +703,4 @@ internal static unsafe partial class Kernel
             default: return false;
         }
     }
-}
+}}

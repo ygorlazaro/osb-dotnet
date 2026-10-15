@@ -107,6 +107,14 @@ sem sistema operacional hospedeiro, sem framework externo — compilada com **Na
   hoje, então `PING 8.8.8.8` dá timeout mesmo com o roteamento correto — o
   pacote sai endereçado ao gateway, como deve. Alvos dentro da rede do QEMU
   (por exemplo o próprio 10.0.2.2) respondem normalmente.
+- **Área de trabalho gráfica**: `GFX` abre uma área de trabalho no estilo Windows 3.11
+  (ícones, janelas, barra de tarefas), desenhada por `Gfx` sobre dois backends: o
+  framebuffer linear do Bochs/DISPI VBE (preferido — é o que aparece no `-vga std`
+  do QEMU) e o modo VGA legado 12h (640x480, quatro planos), para máquinas sem o
+  dispositivo Bochs. `GFX TEST` desenha uma tela de teste; `GFX TEXT` volta ao
+  console; **Ctrl+F4** fecha a área de trabalho e volta ao shell (a fonte 8x16 do
+  console é salva antes de entrar em modo gráfico e restaurada ao sair, então o
+  texto reaparece legível).
 
 ## Arquitetura
 

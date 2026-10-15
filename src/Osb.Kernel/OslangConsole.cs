@@ -6,7 +6,9 @@
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // Console helpers invoked from OsStdlib. Returns true when `name` is an
     // OSL.CONSOLE function handled here.
@@ -108,4 +110,4 @@ internal static unsafe partial class Kernel
         v.L = 2;
         return v;
     }
-}
+}}

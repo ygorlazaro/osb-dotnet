@@ -19,7 +19,9 @@ using Osb.Kernel.Memory;
 using Osb.Kernel.Processes;
 using Osb.Kernel.Shell;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // Entry point (named "Main" so the assembly has a managed entry point; the
     // real entry is kmain, called by _start in boot.S).
@@ -39,6 +41,7 @@ internal static unsafe partial class Kernel
         PhysicalMemory.Init();   // physical frame allocator (bitmap)
         Interrupts.Init();      // fill + load the IDT (exception + IRQ stubs)
         Scheduler.Init();       // console (slot 0) + kernel address space
+        Mouse.Init();           // PS/2 mouse on IRQ12
 
         Vga.WriteLine("OSB - Operating System Basic");
         Vga.WriteLine("Bootable kernel prototype (C# / NativeAOT, bare metal)");
@@ -51,10 +54,12 @@ internal static unsafe partial class Kernel
         Vga.WriteLine("Jobs: DEMO / SPAWN / RING3; TASK / KILL / TAB / WAIT.");
         Vga.WriteLine("Files: ATA PIO + ext4 on A: (DIR / CD / TYPE)");
         Vga.WriteLine("OSLANG: interpreter on A: (OSLANG script.osl [args])");
+        Vga.WriteLine("Mouse: PS/2 IRQ12 (stream mode).");
         Vga.WriteLine("Type HELP for commands.");
         Vga.WriteLine("");
 
         Environment.Init();     // session environment (PATH, PROMPT, USER, ...)
-        Shell.Run();            // never returns
+        Osb.Kernel.Shell.Shell.Run();            // never returns
     }
+}
 }

@@ -402,5 +402,6 @@ namespace Internal.Runtime.CompilerHelpers
         internal static void ThrowMarshalDirectiveException(ExceptionStringID id) => Fail();
         internal static void ThrowAmbiguousMatchException(ExceptionStringID id) => Fail();
         internal static void ThrowNotSupportedInlineArrayEqualsGetHashCode() => Fail();
+        internal static void ThrowIndexOutOfRangeException() => Fail();
     }
 }

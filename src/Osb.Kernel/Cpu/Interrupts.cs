@@ -24,7 +24,7 @@ internal static unsafe class Interrupts
     // slave on IRQ2). Vectors 0x20-0x2F are left free; 0x21 is the INT 21h
     // system-call gate. Masks: master unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2
     // (cascade, required for any slave IRQ) and IRQ4 (COM1 serial console);
-    // slave unmask IRQ8 (RTC).
+    // slave unmask IRQ8 (RTC) and IRQ12 (mouse).
     public static void PicInit()
     {
         NativeMethods.outb(0x20, 0x11); NativeMethods.outb(0x80, 0);  // ICW1: init, edge triggered
@@ -36,7 +36,7 @@ internal static unsafe class Interrupts
         NativeMethods.outb(0x21, 0x01); NativeMethods.outb(0x80, 0);  // ICW4: 8086/8088 mode
         NativeMethods.outb(0xA1, 0x01); NativeMethods.outb(0x80, 0);
         NativeMethods.outb(0x21, 0xE8); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2 cascade, IRQ4 (COM1)
-        NativeMethods.outb(0xA1, 0xFE); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ8 (RTC) only
+        NativeMethods.outb(0xA1, 0xBE); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ8 (RTC) and IRQ12 (mouse)
     }
 
     public static void Eoi(int irq)
@@ -141,6 +141,14 @@ internal static unsafe class Interrupts
         {
             Rtc.OnUpdateIrq();
             Eoi(8);
+            return;
+        }
+
+        // IRQ12: PS/2 mouse
+        if (vector == Layout.PicBase + 12)
+        {
+            Mouse.HandleInterrupt();
+            Eoi(12);
             return;
         }
 

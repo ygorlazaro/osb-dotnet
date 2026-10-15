@@ -1,11 +1,12 @@
-// GFX <mode> - switch the display into graphics mode and draw a test screen.
+// GFX <mode> - switch the display into graphics mode.
 //
-// This exists so the mode switch, the BIOS font and the drawing primitives
-// can be checked on a real screen before anything is built on top of them.
-// GFX TEXT returns to the 80x25 text console.
+//   GFX           - launch the Windows 3.11 style desktop
+//   GFX TEST      - draw the graphics test screen
+//   GFX TEXT      - return to 80x25 text console
 
 using Osb.Kernel.Graphics;
 using Osb.Kernel.Hardware;
+using Osb.Kernel.Shell;
 
 namespace Osb.Kernel.Shell.Commands;
 
@@ -33,14 +34,32 @@ internal static unsafe class GfxCommand
             return;
         }
 
+        bool wantTest = StartsWith(line, len, i, 'T', 'E', 'S', 'T');
+        if (wantTest)
+        {
+            Gfx.Enter();
+            Test();
+            return;
+        }
+
+        // Default: launch desktop
+        Gfx.Start(Gfx.Width, Gfx.Height);
         Gfx.Enter();
-        Test();
+        Desktop.Run();
     }
 
     private static bool StartsWith(char* p, int len, int at, char a, char b, char c, char d)
     {
         if (at + 4 > len) return false;
-        return p[at] == a && p[at + 1] == b && p[at + 2] == c && p[at + 3] == d;
+        return Upper(p[at]) == a && Upper(p[at + 1]) == b
+            && Upper(p[at + 2]) == c && Upper(p[at + 3]) == d;
+    }
+
+    // DOS commands are case-insensitive; the keywords below are written in
+    // upper case, so fold the typed characters before comparing.
+    private static char Upper(char ch)
+    {
+        return ch >= 'a' && ch <= 'z' ? (char)(ch - 32) : ch;
     }
 
     // A screen that shows what is working: palette, fills, bevels, and the

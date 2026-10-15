@@ -3,7 +3,9 @@
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     private static bool OsAppTryStdlib(char* name, int len, Expr** args, int argc, out OslVal result)
     {
@@ -28,4 +30,4 @@ internal static unsafe partial class Kernel
         if (OsNameEq(name, len, "OSL.APP.EXIT")) { _osExit = true; result = OsNull(); return true; }
         return false;
     }
-}
+}}

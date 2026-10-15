@@ -5,7 +5,9 @@
 // OslangKernel.cs (one partial class of Kernel) to keep that file navigable:
 // the tables are needed in four places and the add/grow logic was triplicated.
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // Fields, in declaration order. The index of a field in this list is its
     // slot in an instance, so the order must match the instance layout built
@@ -215,4 +217,4 @@ internal static unsafe partial class Kernel
         }
         return -1;
     }
-}
+}}

@@ -21,7 +21,9 @@
 // Split out of OslangKernel.cs (one partial class of Kernel) to keep that file
 // navigable.
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     // An anonymous function. Body is either an expression (Short != null) or a
     // statement list (Body) that ends with RETURN.
@@ -308,4 +310,4 @@ internal static unsafe partial class Kernel
         e->V = v;
         return e;
     }
-}
+}}

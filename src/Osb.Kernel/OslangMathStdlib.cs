@@ -3,7 +3,9 @@
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     private static bool OsMathTryStdlib(char* name, int len, Expr** args, int argc, out OslVal result)
     {
@@ -137,4 +139,4 @@ internal static unsafe partial class Kernel
         }
         return false;
     }
-}
+}}

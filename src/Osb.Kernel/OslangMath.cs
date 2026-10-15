@@ -7,7 +7,9 @@
 // Split out of OslangKernel.cs (one partial class of Kernel) to keep that file
 // navigable.
 
-internal static unsafe partial class Kernel
+namespace Osb.Kernel
+{
+    internal static unsafe partial class Kernel
 {
     private static double OsPi() => 3.14159265358979323846;
 
@@ -121,4 +123,4 @@ internal static unsafe partial class Kernel
         if (y < 0) return -OsPi() / 2;
         return 0;
     }
-}
+}}

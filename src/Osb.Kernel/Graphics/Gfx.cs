@@ -1,286 +1,131 @@
-// VGA graphics mode 12h: 640x480, 16 colours.
+// The graphics front-end the desktop draws through.
 //
-// The card keeps memory as four bit planes, one per bit of the colour index.
-// A pixel is a single bit in one of them, so the plane is selected through
-// the sequencer's write-plane mask and then ordinary byte writes to the
-// window at A0000 land in the right plane.
+// Two ways to put pixels on the screen, chosen once at Start():
 //
-// Everything here is bounded and allocation-free; the framebuffer is reached
-// through the identity map, so no paging work is needed.
+//   * Bochs (preferred under the emulator): a linear 32bpp framebuffer at the
+//     PCI card's BAR0, set through the DISPI VBE registers. No mode timing is
+//     programmed by hand, so it scans out reliably.
+//   * LegacyVga (real hardware): Mode 12h, four bit planes at A0000.
+//
+// Everything above this file (Desktop, WindowManager, Font, Cursor) talks only
+// to this API and never to a port.
 
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 
 namespace Osb.Kernel.Graphics;
 
+// Which backend is drawing.
+public enum Backend { None, Bochs, LegacyVga }
+
 internal static unsafe class Gfx
 {
-    public const int Width = Layout.GfxWidth;
-    public const int Height = Layout.GfxHeight;
-
-    // Sequencer / CRT controller / graphics controller / attribute ports.
-    private const ushort SeqIndex = 0x3C4;
-    private const ushort SeqData = 0x3C5;
-    private const ushort CrtcIndex = 0x3D4;
-    private const ushort CrtcData = 0x3D5;
-    private const ushort GfxIndex = 0x3CE;
-    private const ushort GfxData = 0x3CF;
-    private const ushort AttrIndex = 0x3C0;
-    private const ushort AttrData = 0x3C1;
-    private const ushort Misc = 0x3C2;
-    private const ushort StatusA = 0x3DA;
-
-    private const byte SeqMapMask = 0x0E;   // write plane enable
-
-    // Bit index of the leftmost pixel inside a byte.
-    private const int HighBit = 7;
+    internal static Backend _backend = Backend.None;
 
     public static bool Active;
 
-    private static byte* Plane(int n)
+    // Set by Start() to the mode that actually came up. Defaults to the legacy
+    // geometry so callers that touch these before Start() (Mouse.Init) are sane.
+    public static int Width = Layout.GfxWidth;
+    public static int Height = Layout.GfxHeight;
+
+    // Bring up whichever display is present. Returns true if one of them
+    // produced a usable drawing surface.
+    public static bool Start(int width, int height)
     {
-        return (byte*)(Layout.VgaGraphBase + (ulong)n * (ulong)Layout.GfxPlaneSize);
-    }
+        // Stash the text character generator first: every graphics mode below
+        // reuses the plane it lives in (see LegacyVga.SaveFont).
+        LegacyVga.SaveFont();
 
-    private static void SeqSelect(byte reg) { NativeMethods.outb(SeqIndex, reg); }
-    private static void CrtcSelect(byte reg) { NativeMethods.outb(CrtcIndex, reg); }
-    private static void GfxSelect(byte reg) { NativeMethods.outb(GfxIndex, reg); }
-
-    // Selects which bit planes subsequent writes reach.
-    public static void SetPlaneMask(byte mask)
-    {
-        SeqSelect(SeqMapMask);
-        NativeMethods.outb(SeqData, mask);
-    }
-
-    // KNOWN INCOMPLETE: the card programs mode 12h and the aperture is
-    // verified read/write correct from the guest side, but the framebuffer is
-    // not yet scanned out - QEMU still renders its text console.
-    //
-    // Established so far:
-    //   * The legacy aperture decodes only when the sequencer has 4-bit memory
-    //     mode set AND GR06 bits 2-3 are 00; GR06 = 0x0E selects the B8000
-    //     text window instead, and writes to A0000 then vanish. Fixed.
-    //   * Writes must also be released from attribute mode (index register
-    //     bit 5), or the display stays blanked.
-    //   * VBE is left enabled by the firmware and must be turned off first,
-    //     otherwise the model reads a separate copy of the sequencer
-    //     registers and every legacy write is ignored.
-    //   * A graphical display backend is required to see anything at all.
-    //     With "-display none" or "-vnc", screendump returns a byte-identical
-    //     frame no matter what the guest draws. "-display egl-headless"
-    //     reflects guest state correctly (verified against the text console).
-    //
-    // Remaining fault: the sequencer and CRTC writes do not read back
-    // (SR2, SR4, CRTC13 all read 0) while the graphics controller write
-    // does, and the card keeps reporting 720x400.
-    //
-    // The baseline rules out the environment. tools/baseline.py boots an ISO
-    // whose GRUB entry switches to gfxterm: GRUB gets a graphics mode
-    // (800x600, via the BIOS VBE interface) and renders text correctly, under
-    // -display none, -vnc and -display egl-headless alike. So QEMU renders
-    // graphics for a guest here; the fault is in this legacy VGA programming.
-    //
-    // Note what GRUB does NOT do: it never touches a sequencer or CRTC
-    // register. It asks the BIOS for a mode and writes the linear
-    // framebuffer. Given that the legacy path is fighting the model, the
-    // cheaper win is probably the Bochs display device (-device
-    // bochs-display): a linear framebuffer at its BAR0, set through two I/O
-    // ports, with no VGA programming and no BIOS at all. It is also what the
-    // simulated card identifies as 1234:1111.
-
-    // ---- mode control ----
-
-    // Mode 12h CRTC timing: the register values are simply 0..0xFF, which is
-    // what makes this mode easy to program exactly.
-    // Mode 12h register values, taken from SeaBIOS's own table for mode 0x12
-    // (vgasrc/stdvgamodes.c: sequ_0e, crtc_11, actl_10, grdc_0d). Using the
-    // firmware's table rather than a remembered one is the difference between
-    // a mode that scans out and one that quietly does not.
-    private unsafe struct ModeTable { public fixed byte crtc[24]; }
-    private static readonly ModeTable _mode12 = MakeMode12();
-
-    private static ModeTable MakeMode12()
-    {
-        ModeTable t = default(ModeTable);
-        byte* c = t.crtc;
-        c[0] = 0x5F; c[1] = 0x4F; c[2] = 0x50; c[3] = 0x82;
-        c[4] = 0x54; c[5] = 0x80; c[6] = 0x0B; c[7] = 0x3E;
-        c[8] = 0x00; c[9] = 0x40; c[10] = 0x00; c[11] = 0x00;
-        c[12] = 0x00; c[13] = 0x00; c[14] = 0x00; c[15] = 0x00;
-        c[16] = 0xEA; c[17] = 0x8C; c[18] = 0xDF; c[19] = 0x28;
-        c[20] = 0x00; c[21] = 0xE7; c[22] = 0x04; c[23] = 0xE3;
-        return t;
-    }
-
-    private static void ProgramMode12()
-    {
-        DisableVbe();
-
-        // Sequencer: clocks, all four planes writable, character generator,
-        // memory mode.
-        SeqSelect(0x00); NativeMethods.outb(SeqData, 0x01);
-        SeqSelect(0x01); NativeMethods.outb(SeqData, 0x0F);
-        SeqSelect(0x02); NativeMethods.outb(SeqData, 0x00);
-        SeqSelect(0x03); NativeMethods.outb(SeqData, 0x00);
-        SeqSelect(0x04); NativeMethods.outb(SeqData, 0x00);
-        SeqSelect(0x05); NativeMethods.outb(SeqData, 0x00);
-        SeqSelect(0x06); NativeMethods.outb(SeqData, 0x0E);
-        SeqSelect(0x07); NativeMethods.outb(SeqData, 0x0D);
-
-        // Graphics controller. GR06 selects the graphics display and the
-        // memory map; the usual 0x0E would point the card at the B8000 text
-        // window, where writes to the framebuffer are simply dropped.
-        GfxSelect(0x00); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x01); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x02); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x03); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x04); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x05); NativeMethods.outb(GfxData, 0x00);
-        GfxSelect(0x06); NativeMethods.outb(GfxData, 0x05);
-        GfxSelect(0x07); NativeMethods.outb(GfxData, 0x0F);
-        GfxSelect(0x08); NativeMethods.outb(GfxData, 0xFF);
-
-        // Attribute controller: sixteen palette entries, then mode control.
-        NativeMethods.outb(StatusA, 0x00);
-        for (byte i = 0; i < 16; i++) { AttrSelect(i); NativeMethods.outb(AttrData, i); }
-        AttrSelect(0x10); NativeMethods.outb(AttrData, 0x01);
-        AttrSelect(0x11); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x12); NativeMethods.outb(AttrData, 0x0F);
-        AttrSelect(0x13); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x14); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x15); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x16); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x17); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x18); NativeMethods.outb(AttrData, 0x0E);
-        AttrSelect(0x19); NativeMethods.outb(AttrData, 0x04);
-
-        NativeMethods.outb(Misc, 0xE3);
-
-        for (int i = 0; i < 24; i++)
+        // Prefer the linear framebuffer: it needs no hand-programmed timing.
+        if (Bochs.Init(width, height))
         {
-            CrtcSelect((byte)i);
-            NativeMethods.outb(CrtcData, _mode12.crtc[i]);
+            _backend = Backend.Bochs;
+            Width = width;
+            Height = height;
+            Active = true;
+            Report("Bochs VBE");
+            return true;
         }
 
-        NativeMethods.outb(StatusA, 0x03);            // end of reset sequence
+        // Fall back to legacy Mode 12h for machines without the Bochs device.
+        if (LegacyVga.Init(width, height))
+        {
+            _backend = Backend.LegacyVga;
+            Width = width;
+            Height = height;
+            Active = true;
+            Report("Legacy VGA Mode 12h");
+            return true;
+        }
 
-        // Leave attribute mode. The index register's bit 5 is the
-        // palette-address-source bit: while it is clear the attribute
-        // controller owns the data port and the display is blanked, so a
-        // program that stops here looks like nothing was drawn at all.
-        NativeMethods.outb(AttrIndex, 0x20);
+        _backend = Backend.None;
+        Active = false;
+        Vga.WriteLine("[Gfx] no usable display");
+        return false;
     }
 
-    // The VESA BIOS Extension registers, on the standard 0x1CE/0x1CF pair.
-    // The "Bochs display" interface is what makes them reachable without the
-    // BIOS INT 10h entry point.
-    private const ushort VbeIndex = 0x1CE;
-    private const ushort VbeData = 0x1CF;
-    private const byte DispiIndexPort = 0x04;      // select which DISPI register
-    private const byte DispiEnable = 0x04;        // DISPI index of ENABLE
-    private const byte DispiEnabled = 0x01;
-
-    private static void AttrSelect(byte reg) { NativeMethods.outb(AttrIndex, reg); }
-
-    // Forces the card back to plain legacy VGA.
-    //
-    // While VBE is enabled the model reads a SEPARATE copy of the sequencer
-    // registers, so every legacy write is quietly ignored: the mode appears to
-    // take effect (the card reports a new resolution) while the framebuffer is
-    // never scanned out. Turning VBE off first makes the register writes below
-    // mean what they say.
-    private static void DisableVbe()
+    // One status line, so a failed mode set is visible on the serial console
+    // even when nothing appears on screen.
+    private static void Report(string what)
     {
-        NativeMethods.outb(VbeIndex, DispiIndexPort);
-        NativeMethods.outb(VbeData, DispiEnable);
-        NativeMethods.outb(VbeData, 0x00);        // ENABLE = 0
+        Vga.Write("[Gfx] ");
+        Vga.Write(what);
+        Vga.Write(" ");
+        Vga.WriteDec((ulong)Width);
+        Vga.Write("x");
+        Vga.WriteDec((ulong)Height);
+        Vga.Write("\n");
     }
 
+    // Idempotent: brings the mode up if it is not already, otherwise re-asserts
+    // the state drawing depends on.
     public static void Enter()
     {
-        ProgramMode12();
-        SetPlaneMask(0x0F);
-        Active = true;
-        Clear(0);
+        if (!Active || _backend == Backend.None) Start(Width, Height);
+        else Reassert();
     }
 
-    // Re-asserts the state that drawing depends on. Deliberately does NOT touch
-    // the timing or mode registers: those are set once, from one table, so
-    // there is a single place where the card's configuration is decided.
+    // Re-assert the state that drawing depends on.
     public static void Reassert()
     {
-        SetPlaneMask(0x0F);
-        AttrSelect(0x10); NativeMethods.outb(AttrData, 0x01);   // graphics, not text
-        NativeMethods.outb(StatusA, 0x03);
-        NativeMethods.outb(AttrIndex, 0x20);                    // leave attribute mode
+        if (_backend == Backend.LegacyVga) LegacyVga.Reassert();
+        Active = _backend != Backend.None;
     }
 
     // Back to 80x25 text, where the shell lives.
     public static void Exit()
     {
-        // Mode 03h CRTC values, then the standard 25-row text setup.
-        for (int i = 0; i < 32; i++)
-        {
-            CrtcSelect((byte)i);
-            NativeMethods.outb(CrtcData, _textCrtc.v[i]);
-        }
-        NativeMethods.outb(Misc, 0x67);
-        NativeMethods.outb(StatusA, 0x00);
-        AttrSelect(0x10); NativeMethods.outb(AttrData, 0x0C);
-        AttrSelect(0x04); NativeMethods.outb(AttrData, 0x00);   // allow write to index 4
-        AttrSelect(0x14); NativeMethods.outb(AttrData, 0x07);
-        AttrSelect(0x04); NativeMethods.outb(AttrData, 0x01);
-        AttrSelect(0x20); NativeMethods.outb(AttrData, 0x00);   // normal palette
-        AttrSelect(0x21); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x22); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x23); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x24); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x25); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x26); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x27); NativeMethods.outb(AttrData, 0x00);
-        AttrSelect(0x28); NativeMethods.outb(AttrData, 0x0F);
-        SeqSelect(0x01); NativeMethods.outb(SeqData, 0x00);   // character generator on
-        SeqSelect(0x03); NativeMethods.outb(SeqData, 0x00);
-        SeqSelect(0x05); NativeMethods.outb(SeqData, 0x10);   // odd/even on
-        SeqSelect(0x04); NativeMethods.outb(SeqData, 0x00);   // 4-bit memory mode off
-        GfxSelect(0x06); NativeMethods.outb(GfxData, 0x0E);   // back to the text window
-        GfxSelect(0x08); NativeMethods.outb(GfxData, 0x00);
-        SetPlaneMask(0x0F);
-        NativeMethods.outb(StatusA, 0x03);
+        if (_backend == Backend.Bochs) Bochs.Disable();
+        // Always restore the text-mode register set, whichever backend was up,
+        // so the shell's console comes back. The character generator has to be
+        // restored as well, or the console would have no glyphs.
+        LegacyVga.Exit();
+        LegacyVga.RestoreFont();
+        _backend = Backend.None;
         Active = false;
     }
 
-    // ---- primitives ----
+    // ---- pixel access ----
 
     public static void SetPixel(int x, int y, byte c)
     {
         if (x < 0 || y < 0 || x >= Width || y >= Height) return;
-        byte* p = Plane(c & 3) + y * Layout.GfxBytesPerRow + (x >> 3);
-        byte bit = (byte)(1 << (HighBit - (x & 7)));
-        if ((c & 8) != 0) *p |= bit; else *p &= (byte)~bit;
+        if (_backend == Backend.Bochs) Bochs.SetPixel(x, y, c);
+        else if (_backend == Backend.LegacyVga) LegacyVga.SetPixel(x, y, c);
     }
 
     public static byte GetPixel(int x, int y)
     {
         if (x < 0 || y < 0 || x >= Width || y >= Height) return 0;
-        byte mask = (byte)(1 << (HighBit - (x & 7)));
-        int off = y * Layout.GfxBytesPerRow + (x >> 3);
-        byte c = 0;
-        for (int n = 0; n < Layout.GfxPlaneCount; n++)
-            if ((Plane(n)[off] & mask) != 0) c |= (byte)(1 << n);
-        return c;
+        if (_backend == Backend.Bochs) return Bochs.GetPixel(x, y);
+        if (_backend == Backend.LegacyVga) return LegacyVga.GetPixel(x, y);
+        return 0;
     }
 
     public static void Clear(byte c) { FillRect(0, 0, Width, Height, c); }
 
     // Fills with a solid colour.
-    //
-    // A colour index is one bit in one plane, so filling is two passes: clear
-    // all four planes, then paint only the plane the colour needs. Painting a
-    // single plane without clearing the others is the classic planar bug -
-    // it works for colours 8..15 and quietly renders 0..7 as whatever the
-    // planes happened to hold.
     public static void FillRect(int x, int y, int w, int h, byte c)
     {
         if (w <= 0 || h <= 0) return;
@@ -290,33 +135,14 @@ internal static unsafe class Gfx
         if (y + h > Height) h = Height - y;
         if (w <= 0 || h <= 0) return;
 
-        byte fill = (c & 8) != 0 ? (byte)0xFF : (byte)0x00;
-
-        if ((x & 7) != 0 || (w & 7) != 0)
+        if (_backend == Backend.Bochs)
         {
-            // Partial bytes at the edges: correctness over speed.
-            for (int r = 0; r < h; r++)
-                for (int i = 0; i < w; i++)
-                    SetPixel(x + i, y + r, c);
-            return;
+            // The linear path is pixel addressed, so no byte alignment to fix.
+            for (int r = 0; r < h; r++) Bochs.FillRun(x, y + r, w, c);
         }
-
-        int bytes = w >> 3;
-        SetPlaneMask(0x0F);
-        Span(0, x, y, h, bytes);
-        SetPlaneMask((byte)(1 << (c & 3)));
-        Span(fill, x, y, h, bytes);
-        SetPlaneMask(0x0F);
-    }
-
-    // Writes one value across a run of whole bytes.
-    private static void Span(byte v, int x, int y, int h, int bytes)
-    {
-        byte* row0 = Plane(0) + y * Layout.GfxBytesPerRow + (x >> 3);
-        for (int r = 0; r < h; r++)
+        else if (_backend == Backend.LegacyVga)
         {
-            byte* row = row0 + r * Layout.GfxBytesPerRow;
-            for (int i = 0; i < bytes; i++) row[i] = v;
+            LegacyVga.FillRect(x, y, w, h, c);
         }
     }
 
@@ -342,26 +168,10 @@ internal static unsafe class Gfx
         VLine(x, y + 1, h - 2, light);
         HLine(x + 1, y + h - 1, w - 2, dark);
         VLine(x + w - 1, y + 1, h - 2, dark);
-        // corners
+        // Corners
         SetPixel(x, y, face);
         SetPixel(x + w - 1, y, face);
         SetPixel(x, y + h - 1, face);
         SetPixel(x + w - 1, y + h - 1, face);
-    }
-
-    // Mode 03h CRTC values, as a fixed buffer: this is freestanding code and
-    // must not allocate managed arrays.
-    private unsafe struct CrtcTable { public fixed byte v[32]; }
-    private static readonly CrtcTable _textCrtc = MakeTextCrtc();
-
-    private static CrtcTable MakeTextCrtc()
-    {
-        CrtcTable t = default(CrtcTable);
-        t.v[0] = 0x5F; t.v[1] = 0x4F; t.v[2] = 0x50; t.v[3] = 0x82;
-        t.v[4] = 0x55; t.v[5] = 0x81; t.v[6] = 0xBF; t.v[7] = 0x1F;
-        t.v[8] = 0x00; t.v[9] = 0x4F; t.v[10] = 0x0D; t.v[11] = 0x30;
-        t.v[12] = 0x37; t.v[13] = 0x06; t.v[14] = 0x1C; t.v[15] = 0x0F;
-        for (int i = 16; i < 32; i++) t.v[i] = 0;
-        return t;
     }
 }
