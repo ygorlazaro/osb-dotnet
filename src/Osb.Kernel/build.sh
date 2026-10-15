@@ -451,6 +451,21 @@ debugfs -w -f "$OBJ/fs/populate2.txt" "$OUT_IMG" >/dev/null 2>&1
 # debugfs "write" does not update the inode/block bitmaps: reconcile them or the
 # kernel's allocators would hand out the seeded files' inodes (e.g. SUDOERS).
 e2fsck -fy "$OUT_IMG" >/dev/null 2>&1
+
+# ----- stage the external XWIN.EXE (optional, best-effort) -----
+XWIN_ROOT="$(cd "$ROOT/../Osb.Xwin" 2>/dev/null && pwd)"
+if [[ -x "$XWIN_ROOT/build.sh" ]]; then
+    mkdir -p "$OBJ/fs/xwin_stage"
+    if STAGE_BIN="$OBJ/fs/xwin_stage" "$XWIN_ROOT/build.sh" > /tmp/opencode/xwin_stage.log 2>&1; then
+        if [[ -f "$OBJ/fs/xwin_stage/XWIN.EXE" ]]; then
+            debugfs -w -R "write \"$OBJ/fs/xwin_stage/XWIN.EXE\" /OSB/BIN/XWIN.EXE" "$OUT_IMG" >/dev/null 2>&1
+            e2fsck -fy "$OUT_IMG" >/dev/null 2>&1
+            echo "  staged /OSB/BIN/XWIN.EXE"
+        fi
+    else
+        echo "  WARN: XWIN build failed (see /tmp/opencode/xwin_stage.log), continuing" >&2
+    fi
+fi
 echo "OK -> $OUT_IMG"
 
 # ----- compile the external BIN programs (MEM.EXE & DU.EXE) -----

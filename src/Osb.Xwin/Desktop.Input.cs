@@ -7,7 +7,7 @@ namespace Osb.Xwin;
 
 internal static unsafe partial class Desktop
 {
-    private const int DoubleClickTicks = 30;   // ~300 ms at 100 Hz
+    private const int DoubleClickTicks = 90;   // ~900 ms at 100 Hz
 
     private static void ProcessMouse()
     {
@@ -119,8 +119,8 @@ internal static unsafe partial class Desktop
         int now = (int)Pit.Ticks;
         bool dbl = button == _lastClickButton &&
                    now - _lastClickTime < DoubleClickTicks &&
-                   Abs(x - _lastClickX) < 4 &&
-                   Abs(y - _lastClickY) < 4;
+                   Abs(x - _lastClickX) < 12 &&
+                   Abs(y - _lastClickY) < 12;
 
         _lastClickTime = now;
         _lastClickX = x;
