@@ -20,7 +20,9 @@ internal static unsafe class Sys
 
     // Pack two signed 16-bit coordinates into one argument (low in the low
     // half, high in the high half); the kernel sign-extends both back.
-    public static long Pack(int lo, int hi) => ((long)(lo & 0xFFFF) << 16) | (long)(hi & 0xFFFF);
+    // First arg is X (high half), second is Y (low half) once packed for the
+    // kernel, which keeps X in the high half of the packed argument.
+    public static long Pack(int x, int y) => ((long)(x & 0xFFFF) << 16) | (long)(y & 0xFFFF);
 
     public static void Write(byte* p, int n) => Call(0x01, (long)p, n, 0);
     public static void Exit(int code) => osb_sys(0x4C00 | (uint)(code & 0xFF), 0, 0, 0, 0);
