@@ -20,6 +20,10 @@
     <DefineConstants>$(DefineConstants);TARGET_64BIT</DefineConstants>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="../Osb.Toolkit/*.cs" />
+  </ItemGroup>
+
   <Target Name="CustomizeReferences" BeforeTargets="BeforeCompile" AfterTargets="FindReferenceAssembliesForReferences">
     <ItemGroup>
       <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" />

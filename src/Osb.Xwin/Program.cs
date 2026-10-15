@@ -7,7 +7,10 @@ internal static unsafe class Program
     private static void XwinMain()
     {
         Arena.Init();
-        Desktop.Run();
+        Osb.Xwin.WindowManager.Init();
+        Osb.Toolkit.Controls.Init();
+        Osb.Toolkit.Desktop.InitDesktop();
+        Osb.Toolkit.App.Run();
         Sys.Exit(0);
         for (;;) { }
     }
