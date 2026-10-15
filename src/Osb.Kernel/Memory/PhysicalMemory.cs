@@ -194,11 +194,24 @@ internal static unsafe class PhysicalMemory
     private static void Clear(ulong i) { _frames.bits[i >> 3] &= (byte)~(1 << (int)(i & 7)); }
 
     // Find n consecutive free frames at the given alignment (bytes).
+    //
+    // The returned address is _floor + i*FrameSize, so aligning the *index* is
+    // not enough: _floor itself is only 4 KiB-aligned (it follows the kernel
+    // image). Start at the first frame index that makes the address - not the
+    // index - a multiple of `align`, or a >4 KiB request (the 2 MiB user block)
+    // would come back misaligned and break the 2 MiB (PS) page entry that maps
+    // it.
     public static ulong Alloc(int n, ulong align)
     {
         ulong stride = align / Layout.FrameSize;
         if (stride < 1) stride = 1;
-        for (ulong i = 0; i + (ulong)n <= _total; i += stride)
+        ulong start = 0;
+        if (align > Layout.FrameSize)
+        {
+            ulong rem = _floor % align;
+            if (rem != 0) start = (align - rem) / Layout.FrameSize;
+        }
+        for (ulong i = start; i + (ulong)n <= _total; i += stride)
         {
             bool ok = true;
             for (int j = 0; j < n; j++)
