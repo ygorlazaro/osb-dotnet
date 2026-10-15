@@ -39,9 +39,9 @@ internal static class Layout
     // Every process has the same user virtual layout (code at 0x400000, stack
     // just below 0x480000) but a *private* 2 MiB physical block behind it, so
     // one process cannot see another's memory. The block is mapped at pd[2].
-    public const ulong UserBase = 0x400000;       // user code/data region start
-    public const ulong UserLimit = 0x600000;      // end of the U/S=1 2 MiB page
-    public const ulong UserStackTop = 0x480000;   // user stack grows down from here
+    public const ulong UserBase = 0x2000000;      // user code/data region start (moved above all kernel state)
+    public const ulong UserLimit = 0x2200000;     // end of the U/S=1 2 MiB page
+    public const ulong UserStackTop = 0x2080000;  // user stack grows down from here (512 KiB image area)
 
     // Physical memory (frame allocator)
     public const ulong PhysFloorDefault = 0x200000;   // just above the kernel image
@@ -55,8 +55,8 @@ internal static class Layout
     // Frames are never handed out from [0x400000,0x600000): that 2 MiB window is
     // pd[2] in every address space, so the kernel cannot address a fresh block
     // through its physical address there (VA != phys inside the user window).
-    public const ulong ReservedLo = 0x400000;
-    public const ulong ReservedHi = 0x600000;
+    public const ulong ReservedLo = 0x2000000;
+    public const ulong ReservedHi = 0x2200000;
 
     // GDT selectors (64-bit flat, base 0)
     public const ushort KernelDataSel = 0x10;

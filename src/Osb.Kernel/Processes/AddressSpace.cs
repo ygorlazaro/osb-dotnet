@@ -89,7 +89,10 @@ internal static unsafe class AddressSpace
         ulong* T = (ulong*)pd0;
         ulong* K = (ulong*)NativeMethods.osb_master_pd();
         for (int i = 0; i < 512; i++) T[i] = K[i];
-        T[2] = block | 0x87;                 // present, rw, user, PS (2 MiB)
+        // present, rw, user, PS (2 MiB). The index follows UserBase so the user
+        // alias stays above every kernel static (the page is pd_pool[0] = GiB0 RWD).
+        int userPdIndex = (int)(Layout.UserBase / Layout.BlockAlign);
+        T[userPdIndex] = block | 0x87;
         D[0] = pd0 | 0x7;                    // GiB 0 now private
 
         P[0] = pdpt | 0x7;                   // present, rw, user

@@ -9,7 +9,7 @@ using Osb.Kernel.Storage;
 
 namespace Osb.Kernel.Cpu;
 
-internal static unsafe class Syscalls
+internal static unsafe partial class Syscalls
 {
     public static void Handle(ulong* frame)
     {
@@ -19,6 +19,9 @@ internal static unsafe class Syscalls
         ulong rdx = frame[11];           // arg2
         ulong rcx = frame[12];           // arg3
         ulong func = (rax >> 8) & 0xFF;  // AH = function number
+
+        // Graphics + input services (XWIN) live in their own partial.
+        if (SyscallGfx.Handle(func, frame)) return;
 
         if (func == 0x09) // print '$'-terminated string at RSI
         {

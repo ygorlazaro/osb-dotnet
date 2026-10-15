@@ -278,8 +278,11 @@ internal static unsafe class Scheduler
     // ---- external commands (A:\OSB\BIN\*.EXE) ----
 
     // The OSBEXE image is staged here before AddressSpace copies it into the
-    // private block. Only the console spawns, so one buffer is enough.
-    private unsafe struct ImgBuf { public fixed byte data[16384]; }
+    // private block. Only the console spawns, so one buffer is enough. The cap
+    // leaves the upper half of the 2 MiB block free for the user stack (top at
+    // Layout.UserStackTop, 512 KiB above the image base).
+    private const int ImgCap = 256 * 1024;
+    private unsafe struct ImgBuf { public fixed byte data[ImgCap]; }
     private static ImgBuf _img;
 
     // Load and start an executable file from the ext4 image. The file starts
@@ -298,7 +301,7 @@ internal static unsafe class Scheduler
 
         byte* buf = ImgData();
         int got = 0;
-        if (!Ext4.ReadFileAll(ino, buf, 16384, out got) || got < 16) return SpawnResult.BadImage;
+        if (!Ext4.ReadFileAll(ino, buf, ImgCap, out got) || got < 16) return SpawnResult.BadImage;
 
         // header: magic "OSBX" | u16 version | u16 header size | u32 entry | u32 size
         if (buf[0] != 'O' || buf[1] != 'S' || buf[2] != 'B' || buf[3] != 'X') return SpawnResult.BadImage;
