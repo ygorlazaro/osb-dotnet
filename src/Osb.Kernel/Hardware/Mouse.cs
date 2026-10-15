@@ -28,7 +28,8 @@ internal static unsafe class Mouse
 
     private static MouseRing _ring;
     private static byte _packetIndex;
-    private static sbyte _dx, _dy;
+    private static int _dx, _dy;           // decoded deltas (mouse space: +Y = up)
+    private static bool _signX, _signY;    // sign bits captured from packet byte 0
     private static byte _buttons;
 
     public static int X { get; private set; } = 320;  // Start at center
@@ -105,25 +106,29 @@ internal static unsafe class Mouse
         switch (_packetIndex)
         {
             case 0:
-                // First byte: button state + sign bits + overflow
+                // First byte: bit3 is always 1; use it to resync after a
+                // dropped/extra byte. Bits 0-2 buttons, bit4/bit5 X/Y sign,
+                // bit6/bit7 overflow.
+                if ((data & 0x08) == 0) break;  // out of sync, discard
                 _buttons = (byte)(data & 0x07);
-                // Store sign bits for next bytes
-                _dx = 0;
-                _dy = 0;
+                _signX = (data & 0x10) != 0;
+                _signY = (data & 0x20) != 0;
                 _packetIndex = 1;
                 break;
             case 1:
-                // Second byte: X delta (with sign from byte 0 bit 4)
-                _dx = (sbyte)data;
+                // Second byte: low 8 bits of the 9-bit X delta. The 9th bit
+                // (sign) lives in byte 0, so extend it here rather than
+                // trusting an 8-bit two's-complement cast.
+                _dx = data - (_signX ? 256 : 0);
                 _packetIndex = 2;
                 break;
             case 2:
-                // Third byte: Y delta (with sign from byte 0 bit 5)
-                _dy = (sbyte)data;
+                // Third byte: low 8 bits of the 9-bit Y delta (+Y = up).
+                _dy = data - (_signY ? 256 : 0);
 
                 // Clamp and update position
                 int newX = X + _dx;
-                int newY = Y - _dy;  // Y is inverted in mouse packets
+                int newY = Y - _dy;  // screen Y grows down; mouse +Y is up
 
                 if (newX < 0) newX = 0;
                 if (newX >= Gfx.Width) newX = Gfx.Width - 1;
@@ -138,8 +143,8 @@ internal static unsafe class Mouse
                 if (next >= 256) next = 0;
                 if (next != _ring.head)
                 {
-                    _ring.dx[_ring.tail] = _dx;
-                    _ring.dy[_ring.tail] = _dy;
+                    _ring.dx[_ring.tail] = (sbyte)_dx;
+                    _ring.dy[_ring.tail] = (sbyte)_dy;
                     _ring.buttons[_ring.tail] = _buttons;
                     _ring.tail = next;
                 }

@@ -36,7 +36,7 @@ internal static unsafe class Interrupts
         NativeMethods.outb(0x21, 0x01); NativeMethods.outb(0x80, 0);  // ICW4: 8086/8088 mode
         NativeMethods.outb(0xA1, 0x01); NativeMethods.outb(0x80, 0);
         NativeMethods.outb(0x21, 0xE8); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ0 (PIT), IRQ1 (kbd), IRQ2 cascade, IRQ4 (COM1)
-        NativeMethods.outb(0xA1, 0xBE); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ8 (RTC) and IRQ12 (mouse)
+        NativeMethods.outb(0xA1, 0xEE); NativeMethods.outb(0x80, 0);  // OCW1: unmask IRQ8 (RTC) and IRQ12 (mouse)
     }
 
     public static void Eoi(int irq)
