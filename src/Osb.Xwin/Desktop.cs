@@ -98,7 +98,7 @@ internal static unsafe partial class Desktop
 
             if (_running) Cursor.Draw(Mouse.X, Mouse.Y);
 
-            Pit.Sleep(2);   // ~50 frames/s at 100 Hz
+            Pit.Sleep(5);   // ~20 frames/s at 100 Hz (smoother under emulation)
         }
 
         Cursor.Restore();

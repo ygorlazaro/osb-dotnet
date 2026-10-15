@@ -69,29 +69,29 @@ internal static unsafe class SyscallGfx
                 return true;
 
             case 0x43: // FILL(xy, wh, color)
-                if (Gfx.Active) Gfx.FillRect(Lo(rdi), Hi(rdi), Lo(rsi), Hi(rsi), (byte)rdx);
+                if (Gfx.Active) Gfx.FillRect(Hi(rdi), Lo(rdi), Hi(rsi), Lo(rsi), (byte)rdx);
                 frame[14] = 0;
                 return true;
 
             case 0x44: // RECT(xy, wh, color)
-                if (Gfx.Active) Gfx.Rect(Lo(rdi), Hi(rdi), Lo(rsi), Hi(rsi), (byte)rdx);
+                if (Gfx.Active) Gfx.Rect(Hi(rdi), Lo(rdi), Hi(rsi), Lo(rsi), (byte)rdx);
                 frame[14] = 0;
                 return true;
 
             case 0x45: // BEVEL(xy, wh, face|light<<8|dark<<16)
                 if (Gfx.Active)
-                    Gfx.Bevel(Lo(rdi), Hi(rdi), Lo(rsi), Hi(rsi),
+                    Gfx.Bevel(Hi(rdi), Lo(rdi), Hi(rsi), Lo(rsi),
                               (byte)rdx, (byte)(rdx >> 8), (byte)(rdx >> 16));
                 frame[14] = 0;
                 return true;
 
             case 0x46: // PIXEL(xy, color)
-                if (Gfx.Active) Gfx.SetPixel(Lo(rdi), Hi(rdi), (byte)rsi);
+                if (Gfx.Active) Gfx.SetPixel(Hi(rdi), Lo(rdi), (byte)rsi);
                 frame[14] = 0;
                 return true;
 
             case 0x47: // LINE(xy0, xy1, color)
-                if (Gfx.Active) Line(Lo(rdi), Hi(rdi), Lo(rsi), Hi(rsi), (byte)rdx);
+                if (Gfx.Active) Line(Hi(rdi), Lo(rdi), Hi(rsi), Lo(rsi), (byte)rdx);
                 frame[14] = 0;
                 return true;
 
@@ -100,7 +100,7 @@ internal static unsafe class SyscallGfx
                 if (Gfx.Active)
                 {
                     int len = (int)(rdx > 1024 ? 1024 : rdx);
-                    Font.DrawString(Lo(rdi), Hi(rdi), (char*)rsi, len, (byte)rcx, (byte)(rcx >> 8));
+                    Font.DrawString(Hi(rdi), Lo(rdi), (char*)rsi, len, (byte)rcx, (byte)(rcx >> 8));
                 }
                 frame[14] = 0;
                 return true;
@@ -116,7 +116,7 @@ internal static unsafe class SyscallGfx
                 return true;
 
             case 0x51: // CURSOR(xy, show)
-                if ((byte)rsi != 0) Cursor.Draw(Lo(rdi), Hi(rdi));
+                if ((byte)rsi != 0) Cursor.Draw(Hi(rdi), Lo(rdi));
                 else Cursor.Restore();
                 frame[14] = 0;
                 return true;
