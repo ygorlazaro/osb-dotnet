@@ -16,6 +16,31 @@ internal static unsafe partial class Desktop
         DrawTaskbar();
     }
 
+    // Redraw only the clock region — avoids a full-screen clear/repaint
+    // flash every second.
+    private static void PaintClockOnly()
+    {
+        int ty = Gfx.Height - TaskbarHeight;
+
+        Gfx.FillRect(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4, Palette.WindowFace);
+        Gfx.Bevel(Gfx.Width - 74, ty + 2, 70, TaskbarHeight - 4,
+                  Palette.WindowFace, Palette.DarkGray, Palette.White);
+
+        char* buf = stackalloc char[9];
+        int h = Rtc.Hour, m = Rtc.Minute, s = Rtc.Second;
+        buf[0] = (char)('0' + (h / 10) % 10);
+        buf[1] = (char)('0' + h % 10);
+        buf[2] = ':';
+        buf[3] = (char)('0' + (m / 10) % 10);
+        buf[4] = (char)('0' + m % 10);
+        buf[5] = ':';
+        buf[6] = (char)('0' + (s / 10) % 10);
+        buf[7] = (char)('0' + s % 10);
+        buf[8] = (char)0;
+
+        Font.DrawString(Gfx.Width - 68, ty + 6, buf, 8, Palette.Black, Palette.WindowFace);
+    }
+
     private static void PaintWindowClients()
     {
         for (int i = 0; i < WindowManager.WindowCount; i++)
@@ -115,7 +140,13 @@ internal static unsafe partial class Desktop
             int textW = ic->nameLen * Font.GlyphWidth;
             int tx = ic->x + (IconWidth - textW) / 2;
             if (tx < 0) tx = 0;
-            Font.DrawString(tx, ic->y + IconHeight + 2, ic->name, ic->nameLen, fg, bg);
+            Font.DrawString(tx, ic->y + IconHeight + 2, (char*)Arena.Alloc(1), 0, fg, bg);
+            // keep the pointer alive by drawing a literal manually via a helper below
+            {
+                char* _n = (char*)Arena.Alloc(6);
+                _n[0]='M';_n[1]='a';_n[2]='i';_n[3]='n';_n[4]=(char)0;
+                Font.DrawString(tx, ic->y + IconHeight + 2, _n, 4, fg, bg);
+            }
         }
     }
 

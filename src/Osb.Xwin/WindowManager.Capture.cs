@@ -116,6 +116,8 @@ internal static unsafe partial class WindowManager
                 UpdateClientArea(win);
                 break;
         }
+
+        _layoutVersion++;
     }
 
     public static void EndCapture() => _captureIndex = -1;

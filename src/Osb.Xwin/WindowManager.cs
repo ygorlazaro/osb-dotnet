@@ -44,6 +44,9 @@ internal static unsafe partial class WindowManager
     private static Window* _windows;
     private static int _activeIndex = -1;
     private static int _captureIndex = -1;
+
+    private static int _layoutVersion;
+    public static int LayoutVersion => _layoutVersion;
     private static int _captureHitTest;
     private static int _captureStartX, _captureStartY;
     private static int _captureWindowX, _captureWindowY;
@@ -59,6 +62,7 @@ internal static unsafe partial class WindowManager
         public char* title;
         public int titleLen;
         public void* userData;
+        public int savedX, savedY, savedW, savedH;
     }
 
     public static int WindowCount => _windowCount;
@@ -69,6 +73,7 @@ internal static unsafe partial class WindowManager
         _windows = (Window*)Arena.Alloc(sizeof(Window) * MaxWindows);
         _activeIndex = -1;
         _captureIndex = -1;
+        _layoutVersion = 0;
     }
 
     public static int Create(int x, int y, int w, int h, char* title, int titleLen, int flags, int kind)
@@ -111,6 +116,8 @@ internal static unsafe partial class WindowManager
             _windows[i] = _windows[i + 1];
         _windowCount--;
 
+        _layoutVersion++;
+
         if (_activeIndex == index)
             _activeIndex = -1;
         else if (_activeIndex > index)
@@ -138,6 +145,7 @@ internal static unsafe partial class WindowManager
 
         _activeIndex = index;
         win->flags |= WfActive;
+        _layoutVersion++;
     }
 
     public static void SendToBack(int index)
@@ -196,6 +204,45 @@ internal static unsafe partial class WindowManager
     }
 
     public static int GetActiveIndex() => _activeIndex;
+
+    public static void Minimize(int index)
+    {
+        if (index < 0 || index >= _windowCount) return;
+        Window* win = &_windows[index];
+        win->flags |= WfMinimized;
+        // Remove from z-order by setting to -1; BringToFront will restore.
+        win->zOrder = -1;
+        _layoutVersion++;
+    }
+
+    public static void Maximize(int index, int taskbarHeight)
+    {
+        if (index < 0 || index >= _windowCount) return;
+        Window* win = &_windows[index];
+        win->flags ^= WfMaximized; // toggle
+        if ((win->flags & WfMaximized) != 0)
+        {
+            // Save current position and expand to full screen (minus taskbar).
+            win->savedX = win->x;
+            win->savedY = win->y;
+            win->savedW = win->w;
+            win->savedH = win->h;
+            win->x = 0;
+            win->y = 0;
+            win->w = Gfx.Width;
+            win->h = Gfx.Height - taskbarHeight;
+        }
+        else
+        {
+            // Restore saved position.
+            win->x = win->savedX;
+            win->y = win->savedY;
+            win->w = win->savedW;
+            win->h = win->savedH;
+        }
+        UpdateClientArea(win);
+        _layoutVersion++;
+    }
 
     public static int WindowAt(int x, int y)
     {

@@ -21,6 +21,7 @@ internal static unsafe partial class Desktop
 
     private static int _progmanWindow = -1;
     private static int _frameCount;
+        private static byte _lastSecond = 0xff;
     private static int _selectedIcon = -1;
     private static bool _startMenuOpen;
 
@@ -91,10 +92,31 @@ internal static unsafe partial class Desktop
             Keyboard.Refresh();
             Rtc.Refresh();
 
+            int layoutBefore = WindowManager.LayoutVersion;
+            bool startMenuBefore = _startMenuOpen;
+            int selectedIconBefore = _selectedIcon;
+
             ProcessMouse();
             ProcessKeyboard();
 
-            PaintDesktop();
+            // Conditional repaint: redraw when the clock ticks, on the first
+            // frame, or whenever mouse/keyboard input changed visible state
+            // (window z-order, open/close, start menu, icon selection).
+            bool clockChanged = Rtc.Second != _lastSecond;
+            if (clockChanged) _lastSecond = (byte)Rtc.Second;
+
+            bool inputChanged = WindowManager.LayoutVersion != layoutBefore ||
+                                _startMenuOpen != startMenuBefore ||
+                                _selectedIcon != selectedIconBefore;
+
+            bool needPaint = clockChanged || _frameCount == 1 || inputChanged;
+            if (needPaint)
+            {
+                if (clockChanged && !inputChanged)
+                    PaintClockOnly();
+                else
+                    PaintDesktop();
+            }
 
             if (_running) Cursor.Draw(Mouse.X, Mouse.Y);
 
@@ -174,7 +196,13 @@ internal static unsafe partial class Desktop
 
     private static char* AllocString(string s, out int len)
     {
-        len = s.Length;
+        // The freestanding runtime does not expose string.Length reliably,
+        // so derive the length by scanning the pinned char data for NUL.
+        len = 0;
+        fixed (char* src = s)
+        {
+            while (len < 256 && src[len] != (char)0) len++;
+        }
         char* ptr = (char*)Arena.Alloc((len + 1) * 2);
         fixed (char* src = s)
         {

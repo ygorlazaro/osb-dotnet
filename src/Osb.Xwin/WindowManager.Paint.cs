@@ -24,6 +24,7 @@ internal static unsafe partial class WindowManager
     private static void DrawFrame(Window* win)
     {
         if ((win->flags & WfVisible) == 0) return;
+        if ((win->flags & WfMinimized) != 0) return;
 
         bool active = (win->flags & WfActive) != 0;
         byte titleColor = active ? Palette.TitleActive : Palette.TitleInactive;

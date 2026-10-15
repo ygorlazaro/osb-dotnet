@@ -74,6 +74,18 @@ internal static unsafe partial class Desktop
                 return;
             }
 
+            if (ht == WindowManager.HtMaximize)
+            {
+                WindowManager.Maximize(hit, TaskbarHeight);
+                return;
+            }
+
+            if (ht == WindowManager.HtMinimize)
+            {
+                WindowManager.Minimize(hit);
+                return;
+            }
+
             if (ht >= WindowManager.HtLeft && ht <= WindowManager.HtBottomRight)
             {
                 WindowManager.BeginCapture(hit, ht, x, y);

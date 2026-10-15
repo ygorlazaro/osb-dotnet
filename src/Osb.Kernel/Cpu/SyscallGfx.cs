@@ -51,6 +51,7 @@ internal static unsafe class SyscallGfx
             case 0x40: // GFX_ENTER
                 Gfx.Start(Gfx.Width, Gfx.Height);
                 Gfx.Enter();
+                if (Gfx.Active) Font.DrawString(0, 0, "OK", Palette.Black, Palette.Desktop);
                 frame[14] = Gfx.Active ? 0UL : EFAULT;
                 return true;
 

@@ -14,6 +14,7 @@
 
 using System.Runtime;
 using Osb.Kernel.Cpu;
+using Osb.Kernel.Graphics;
 using Osb.Kernel.Hardware;
 using Osb.Kernel.Memory;
 using Osb.Kernel.Processes;
@@ -41,6 +42,7 @@ namespace Osb.Kernel
         PhysicalMemory.Init();   // physical frame allocator (bitmap)
         Interrupts.Init();      // fill + load the IDT (exception + IRQ stubs)
         Scheduler.Init();       // console (slot 0) + kernel address space
+        Font.Init();            // embedded 8x8 font table
         Mouse.Init();           // PS/2 mouse on IRQ12
 
         Vga.WriteLine("OSB - Operating System Basic");
