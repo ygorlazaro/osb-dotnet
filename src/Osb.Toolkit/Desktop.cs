@@ -115,7 +115,6 @@ internal static unsafe partial class Desktop
         _strShutDown = AllocString("Turn off PC", out _strShutDownLen);
         _strShutDownTitle = AllocString("Turn off PC", out _strShutDownTitleLen);
 
-        SetupIcons();
         CreateProgramManager();
     }
 

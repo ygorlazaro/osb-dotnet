@@ -12,45 +12,47 @@ internal static unsafe class Cursor
 {
     // 16x16 cursor, 2 bits per pixel:
     // 0 = transparent, 1 = white, 2 = black, 3 = inverted
-    // Arrow cursor pointing up-left (16x16)
+    // Arrow cursor pointing up (16x16), white fill with black border.
+    // AND mask: 0 = force black (border), 1 = keep/invert (fill or transparent)
+    // XOR mask: AND=1 & XOR=1 => white fill; AND=1 & XOR=0 => transparent
     private static readonly byte[] _cursorAnd = new byte[32]
     {
-        0xFF, 0xFF,  // row 0: X........
-        0xFF, 0xFF,  // row 1: XX......
-        0xFF, 0xFF,  // row 2: X.X.....
-        0xFF, 0xFF,  // row 3: X..X....
-        0xFF, 0xFF,  // row 4: X...X...
-        0xFF, 0xFF,  // row 5: X....X..
-        0xFF, 0xFF,  // row 6: X.....X.
-        0xFF, 0xFF,  // row 7: X......X
-        0xFF, 0xFF,  // row 8: X.......X.......
-        0xFF, 0xFF,  // row 9: X........X......
-        0xFF, 0xFF,  // row 10: X.........X.....
-        0xFF, 0xFF,  // row 11: X..........X....
-        0xFF, 0xFF,  // row 12: X...........X...
-        0xFF, 0xFF,  // row 13: X............X..
-        0xFF, 0xFF,  // row 14: X.............X.
-        0xFF, 0xFF,  // row 15: XXXXXXXXXXXXXX..
+        0xF1, 0xFF,  // row 0
+        0xE4, 0xFF,  // row 1
+        0xCC, 0xFF,  // row 2
+        0xED, 0xFF,  // row 3
+        0xED, 0xFF,  // row 4
+        0xED, 0xFF,  // row 5
+        0xED, 0xFF,  // row 6
+        0xED, 0xFF,  // row 7
+        0xE9, 0xFF,  // row 8
+        0xE3, 0xFF,  // row 9
+        0xFF, 0xFF,  // row 10
+        0xFF, 0xFF,  // row 11
+        0xFF, 0xFF,  // row 12
+        0xFF, 0xFF,  // row 13
+        0xFF, 0xFF,  // row 14
+        0xFF, 0xFF,  // row 15
     };
 
     private static readonly byte[] _cursorXor = new byte[32]
     {
-        0x80, 0x00,  // row 0
-        0xC0, 0x00,  // row 1
-        0xA0, 0x00,  // row 2
-        0x90, 0x00,  // row 3
-        0x88, 0x00,  // row 4
-        0x84, 0x00,  // row 5
-        0x82, 0x00,  // row 6
-        0x81, 0x00,  // row 7
-        0x80, 0x80,  // row 8
-        0x80, 0x40,  // row 9
-        0x80, 0x20,  // row 10
-        0x80, 0x10,  // row 11
-        0x80, 0x08,  // row 12
-        0x80, 0x04,  // row 13
-        0x80, 0x02,  // row 14
-        0xFF, 0xC0,  // row 15
+        0x00, 0x00,  // row 0
+        0x04, 0x00,  // row 1
+        0x0C, 0x00,  // row 2
+        0x0C, 0x00,  // row 3
+        0x0C, 0x00,  // row 4
+        0x0C, 0x00,  // row 5
+        0x0C, 0x00,  // row 6
+        0x0C, 0x00,  // row 7
+        0x08, 0x00,  // row 8
+        0x00, 0x00,  // row 9
+        0x00, 0x00,  // row 10
+        0x00, 0x00,  // row 11
+        0x00, 0x00,  // row 12
+        0x00, 0x00,  // row 13
+        0x00, 0x00,  // row 14
+        0x00, 0x00,  // row 15
     };
 
     // Saved background under cursor (16x16)

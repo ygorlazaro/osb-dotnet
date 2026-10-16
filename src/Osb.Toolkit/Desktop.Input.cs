@@ -75,6 +75,8 @@ internal static unsafe partial class Desktop
         int hit = Osb.Xwin.WindowManager.WindowAt(x, y);
         if (hit >= 0)
         {
+            Window.BringToFront(hit);
+
             int ht = Osb.Xwin.WindowManager.HitTest(hit, x, y);
             if (ht == Osb.Xwin.WindowManager.HtClose)
             {
