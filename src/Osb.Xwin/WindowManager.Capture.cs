@@ -35,7 +35,7 @@ internal static unsafe partial class WindowManager
             case HtCaption:
                 win->x = _captureWindowX + dx;
                 win->y = _captureWindowY + dy;
-                if (win->x < 0) win->x = 0;
+                if (win->x < WorkAreaLeft) win->x = WorkAreaLeft;
                 if (win->y < 0) win->y = 0;
                 if (win->x + win->w > Gfx.Width) win->x = Gfx.Width - win->w;
                 if (win->y + win->h > Gfx.Height) win->y = Gfx.Height - win->h;
@@ -46,7 +46,7 @@ internal static unsafe partial class WindowManager
                 win->x = _captureWindowX + dx;
                 win->w = _captureWindowW - dx;
                 if (win->w < 80) { win->w = 80; win->x = _captureWindowX + _captureWindowW - 80; }
-                if (win->x < 0) { win->x = 0; win->w = _captureWindowW + _captureWindowX; }
+                if (win->x < WorkAreaLeft) { win->w = _captureWindowW + _captureWindowX - WorkAreaLeft; win->x = WorkAreaLeft; }
                 UpdateClientArea(win);
                 break;
 
@@ -79,7 +79,7 @@ internal static unsafe partial class WindowManager
                 win->h = _captureWindowH - dy;
                 if (win->w < 80) { win->w = 80; win->x = _captureWindowX + _captureWindowW - 80; }
                 if (win->h < 60) { win->h = 60; win->y = _captureWindowY + _captureWindowH - 60; }
-                if (win->x < 0) { win->x = 0; win->w = _captureWindowW + _captureWindowX; }
+                if (win->x < WorkAreaLeft) { win->w = _captureWindowW + _captureWindowX - WorkAreaLeft; win->x = WorkAreaLeft; }
                 if (win->y < 0) { win->y = 0; win->h = _captureWindowH + _captureWindowY; }
                 UpdateClientArea(win);
                 break;
@@ -101,7 +101,7 @@ internal static unsafe partial class WindowManager
                 win->h = _captureWindowH + dy;
                 if (win->w < 80) { win->w = 80; win->x = _captureWindowX + _captureWindowW - 80; }
                 if (win->h < 60) win->h = 60;
-                if (win->x < 0) { win->x = 0; win->w = _captureWindowW + _captureWindowX; }
+                if (win->x < WorkAreaLeft) { win->w = _captureWindowW + _captureWindowX - WorkAreaLeft; win->x = WorkAreaLeft; }
                 if (win->y + win->h > Gfx.Height) win->h = Gfx.Height - win->y;
                 UpdateClientArea(win);
                 break;

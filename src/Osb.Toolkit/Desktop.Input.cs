@@ -35,7 +35,8 @@ internal static unsafe partial class Desktop
         if (Osb.Xwin.WindowManager.IsCapturing && (leftNow || rightNow))
             Osb.Xwin.WindowManager.UpdateCapture(Osb.Xwin.Mouse.X, Osb.Xwin.Mouse.Y);
 
-        ProcessKeyboard();
+        // Keys that move the menu / dialog selection must repaint too.
+        if (ProcessKeyboard()) changed = true;
         return changed;
     }
 
@@ -43,10 +44,15 @@ internal static unsafe partial class Desktop
     {
         if (button != 1) return;
 
+        // The shutdown dialog is modal: it owns every click until dismissed,
+        // so nothing falls through to the deskbar or the windows underneath.
+        if (_shutdownOpen) { ProcessShutdownClick(x, y); return; }
+
         if (x < DeskbarWidth)
         {
             if (y >= ShutdownButtonY() && y < ShutdownButtonY() + MenuButtonH - 4)
             {
+                _menuOpen = false;
                 _shutdownOpen = true;
                 _shutdownSelected = 3;
                 return;
@@ -70,7 +76,12 @@ internal static unsafe partial class Desktop
             return;
         }
 
-        if (_menuOpen) { _menuOpen = false; return; }
+        // App menu open: a click on an item launches it, anywhere else closes it.
+        if (_menuOpen)
+        {
+            if (!ProcessMenuClick(x, y)) _menuOpen = false;
+            return;
+        }
 
         int hit = Osb.Xwin.WindowManager.WindowAt(x, y);
         if (hit >= 0)
@@ -127,19 +138,24 @@ internal static unsafe partial class Desktop
         Osb.Xwin.WindowManager.EndCapture();
     }
 
-    private static void ProcessKeyboard()
+    // Returns true when a key was consumed that can change what is on screen
+    // (menu / dialog selection, closing a window), so the caller repaints.
+    private static bool ProcessKeyboard()
     {
+        bool any = false;
+
         if (_shutdownOpen)
         {
             int sc;
             while ((sc = Osb.Xwin.Keyboard.Pop()) >= 0)
             {
+                any = true;
                 if (sc == 0x01) _shutdownOpen = false;
                 else if (sc == 0x1C) ActivateShutdown(_shutdownSelected);
                 else if (sc == 0x48) { _shutdownSelected--; if (_shutdownSelected < 0) _shutdownSelected = 3; }
                 else if (sc == 0x50) { _shutdownSelected++; if (_shutdownSelected > 3) _shutdownSelected = 0; }
             }
-            return;
+            return any;
         }
 
         if (_menuOpen)
@@ -147,6 +163,7 @@ internal static unsafe partial class Desktop
             int sc;
             while ((sc = Osb.Xwin.Keyboard.Pop()) >= 0)
             {
+                any = true;
                 if (sc == 0x01) _menuOpen = false;
                 else if (sc == 0x1C)
                 {
@@ -159,27 +176,30 @@ internal static unsafe partial class Desktop
                 else if (sc == 0x48) { _menuSelected--; if (_menuSelected < 0) _menuSelected = _appCount - 1; }
                 else if (sc == 0x50) { _menuSelected++; if (_menuSelected >= _appCount) _menuSelected = 0; }
             }
-            return;
+            return any;
         }
 
         if (Osb.Xwin.Keyboard.ConsumeCtrlF4())
         {
             int a = Osb.Xwin.WindowManager.GetActiveIndex();
             if (a >= 0 && a != _progmanWindow) Window.Destroy(a);
-            return;
+            return true;
         }
 
         while (Osb.Xwin.Keyboard.Pop() >= 0) { }
+        return false;
     }
 
     private static void ActivateShutdown(int selected)
     {
+        _shutdownOpen = false;
         switch (selected)
         {
-            case 0: Osb.Xwin.Sys.PowerOff(); break;
-            case 1: Osb.Xwin.Sys.Reboot(); break;
+            case 0: Osb.Xwin.Sys.PowerOff(); break;   // never returns
+            case 1: Osb.Xwin.Sys.Reboot(); break;     // never returns
+            case 2: App.Exit(); break;                // back to the terminal
+            // 3 = cancel: the dialog is already closed
         }
-        _shutdownOpen = false;
     }
 
     private static void ProcessShutdownClick(int x, int y)
@@ -198,9 +218,12 @@ internal static unsafe partial class Desktop
             }
             oy += 22;
         }
+        ActivateShutdown(3);   // a click outside the options cancels
     }
 
-    private static void ProcessMenuClick(int x, int y)
+    // True when the click hit a menu item (the app was launched and the menu
+    // closed); false when it missed, and the caller closes the menu.
+    private static bool ProcessMenuClick(int x, int y)
     {
         int mx = DeskbarWidth + 4;
         int my = 6 + MenuButtonH;
@@ -212,8 +235,9 @@ internal static unsafe partial class Desktop
             {
                 OpenAppFromIndex(_appIconIdx[i]);
                 _menuOpen = false;
-                return;
+                return true;
             }
         }
+        return false;
     }
 }

@@ -40,6 +40,10 @@ internal static unsafe partial class WindowManager
     public const int HtClient = 13;
     public const int HtSysMenu = 14;
 
+    // Left edge of the usable desktop. The deskbar is drawn over everything,
+    // so maximize and drag/resize keep windows from sliding underneath it.
+    public static int WorkAreaLeft;
+
     private static int _windowCount;
     private static Window* _windows;
     private static int _activeIndex = -1;
@@ -118,7 +122,8 @@ internal static unsafe partial class WindowManager
 
         _layoutVersion++;
 
-        if (_activeIndex == index)
+        bool wasActive = _activeIndex == index;
+        if (wasActive)
             _activeIndex = -1;
         else if (_activeIndex > index)
             _activeIndex--;
@@ -127,6 +132,11 @@ internal static unsafe partial class WindowManager
             _captureIndex = -1;
         else if (_captureIndex > index)
             _captureIndex--;
+
+        // The destroyed window leaves a hole in the z values; close it, or
+        // every loop over z in [0, count) skips the window left on top.
+        NormalizeZ();
+        if (wasActive) ActivateTopmost();
     }
 
     public static void BringToFront(int index)
@@ -134,11 +144,9 @@ internal static unsafe partial class WindowManager
         if (index < 0 || index >= _windowCount) return;
 
         Window* win = &_windows[index];
-        int oldZ = win->zOrder;
-
-        for (int i = 0; i < _windowCount; i++)
-            if (_windows[i].zOrder > oldZ) _windows[i].zOrder--;
-        win->zOrder = _windowCount - 1;
+        win->flags &= ~WfMinimized;     // raising a window also restores it
+        win->zOrder = 0x7FFFFFFF;       // above everyone; NormalizeZ ranks it last
+        NormalizeZ();
 
         if (_activeIndex >= 0 && _activeIndex != index)
             _windows[_activeIndex].flags &= ~WfActive;
@@ -152,12 +160,57 @@ internal static unsafe partial class WindowManager
     {
         if (index < 0 || index >= _windowCount) return;
 
-        Window* win = &_windows[index];
-        int oldZ = win->zOrder;
+        _windows[index].zOrder = -1;    // below everyone; NormalizeZ ranks it first
+        NormalizeZ();
+        _layoutVersion++;
+    }
 
+    // Index of the window whose zOrder is z (0 = bottom), or -1.
+    public static int IndexAtZ(int z)
+    {
         for (int i = 0; i < _windowCount; i++)
-            if (_windows[i].zOrder < oldZ) _windows[i].zOrder++;
-        win->zOrder = 0;
+            if (_windows[i].zOrder == z) return i;
+        return -1;
+    }
+
+    // Rewrites zOrder as a permutation of 0..count-1 (bottom..top), keeping the
+    // current relative order and breaking ties by array index. Painting
+    // (App.Render, PaintFrames) and WindowAt all walk z over [0, count), so
+    // they rely on this invariant after every create/destroy/raise/minimize.
+    private static void NormalizeZ()
+    {
+        int* rank = stackalloc int[MaxWindows];
+        for (int i = 0; i < _windowCount; i++)
+        {
+            int zi = _windows[i].zOrder;
+            int r = 0;
+            for (int j = 0; j < _windowCount; j++)
+            {
+                int zj = _windows[j].zOrder;
+                if (zj < zi || (zj == zi && j < i)) r++;
+            }
+            rank[i] = r;
+        }
+        for (int i = 0; i < _windowCount; i++)
+            _windows[i].zOrder = rank[i];
+    }
+
+    // Gives focus to the topmost visible, non-minimized window (or nobody).
+    private static void ActivateTopmost()
+    {
+        _activeIndex = -1;
+        for (int i = 0; i < _windowCount; i++)
+            _windows[i].flags &= ~WfActive;
+
+        for (int z = _windowCount - 1; z >= 0; z--)
+        {
+            int i = IndexAtZ(z);
+            if (i < 0) continue;
+            if ((_windows[i].flags & (WfVisible | WfMinimized)) != WfVisible) continue;
+            _activeIndex = i;
+            _windows[i].flags |= WfActive;
+            return;
+        }
     }
 
     public static int HitTest(int index, int x, int y)
@@ -165,7 +218,8 @@ internal static unsafe partial class WindowManager
         if (index < 0 || index >= _windowCount) return HtNowhere;
 
         Window* win = &_windows[index];
-        if ((win->flags & WfVisible) == 0) return HtNowhere;
+        // A minimized window is not on screen, so it must not catch clicks.
+        if ((win->flags & (WfVisible | WfMinimized)) != WfVisible) return HtNowhere;
 
         if (x < win->x || x >= win->x + win->w || y < win->y || y >= win->y + win->h)
             return HtNowhere;
@@ -210,8 +264,12 @@ internal static unsafe partial class WindowManager
         if (index < 0 || index >= _windowCount) return;
         Window* win = &_windows[index];
         win->flags |= WfMinimized;
-        // Remove from z-order by setting to -1; BringToFront will restore.
+        win->flags &= ~WfActive;
+        // Sink it to the bottom of the stack (NormalizeZ makes -1 the lowest
+        // rank); BringToFront restores it. Focus moves to the next window.
         win->zOrder = -1;
+        NormalizeZ();
+        if (_activeIndex == index) ActivateTopmost();
         _layoutVersion++;
     }
 
@@ -227,9 +285,9 @@ internal static unsafe partial class WindowManager
             win->savedY = win->y;
             win->savedW = win->w;
             win->savedH = win->h;
-            win->x = 0;
+            win->x = WorkAreaLeft;
             win->y = 0;
-            win->w = Gfx.Width;
+            win->w = Gfx.Width - WorkAreaLeft;
             win->h = Gfx.Height - taskbarHeight;
         }
         else

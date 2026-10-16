@@ -48,22 +48,33 @@ internal static unsafe class App
     private static void Render()
     {
         Graphics.Clear(Palette.Desktop);
-        Desktop.PaintBackground();
-        Window.PaintFrames();
 
-        for (int i = 0; i < Osb.Xwin.WindowManager.WindowCount; i++)
+        // Layers, bottom to top: desktop icons, windows, desktop controls,
+        // then the deskbar with the menu / shutdown dialog over everything.
+        Desktop.PaintIcons();
+
+        // Painter's algorithm: walk z from the bottom and finish each window
+        // (frame, client, controls) before the next one. Drawing all frames
+        // first and all clients afterwards (in array order) lets a lower
+        // window's client paint over a higher window's frame and client.
+        int count = Osb.Xwin.WindowManager.WindowCount;
+        for (int z = 0; z < count; z++)
         {
+            int i = Osb.Xwin.WindowManager.IndexAtZ(z);
+            if (i < 0) continue;
+
             bool vis, min;
             Osb.Xwin.WindowManager.GetWindowInfo(i, out _, out _, out vis, out min, out _);
             if (!vis || min) continue;
+
+            Osb.Xwin.WindowManager.PaintFrame(i);   // also fills the client background
             Rect client;
             Window.GetClientArea(i, out client);
-            Graphics.FillRect(client.X, client.Y, client.W, client.H, Palette.WindowFace);
             Desktop.PaintWindowClient(i, client.X, client.Y, client.W, client.H);
             Controls.PaintOwner(i);
         }
 
-        Controls.PaintOwner(-1);   // desktop controls (taskbar, etc.)
-        Desktop.PaintIcons();
+        Controls.PaintOwner(-1);    // desktop controls (screen coordinates)
+        Desktop.PaintBackground();  // deskbar on top of windows, then menu / dialog
     }
 }

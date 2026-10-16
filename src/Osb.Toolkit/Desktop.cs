@@ -115,6 +115,10 @@ internal static unsafe partial class Desktop
         _strShutDown = AllocString("Turn off PC", out _strShutDownLen);
         _strShutDownTitle = AllocString("Turn off PC", out _strShutDownTitleLen);
 
+        // The deskbar is painted over the windows: keep them out from under it.
+        Osb.Xwin.WindowManager.WorkAreaLeft = DeskbarWidth + 1;
+
+        SetupAppMenu();
         CreateProgramManager();
     }
 
@@ -140,9 +144,6 @@ internal static unsafe partial class Desktop
 
         _iconCols = (Osb.Xwin.Gfx.Width - IconStartX - DeskbarWidth) / (IconWidth + IconSpacingX);
 
-        _appIconIdx = (int*)Osb.Xwin.Arena.Alloc(sizeof(int) * _iconCount);
-        _appCount = 0;
-
         int idx = 0;
         _icons[idx++] = CreateIcon("Main", "MAIN.GRP", 1);
         _icons[idx++] = CreateIcon("Accessories", "ACCESS.GRP", 1);
@@ -159,9 +160,31 @@ internal static unsafe partial class Desktop
             int row = i / _iconCols;
             _icons[i].x = DeskbarWidth + IconStartX + col * (IconWidth + IconSpacingX);
             _icons[i].y = IconStartY + row * (IconHeight + IconSpacingY + 16);
+        }
+    }
 
-            if (_icons[i].iconType == 0)
-                _appIconIdx[_appCount++] = i;
+    // The deskbar's app menu lists the Program Manager programs. _appIconIdx
+    // holds program numbers (what OpenAppFromIndex takes), not desktop icon
+    // indices, so the menu works whether or not SetupIcons ever runs.
+    private const int AppMenuCount = 6;
+
+    private static void SetupAppMenu()
+    {
+        _appCount = AppMenuCount;
+        _appIconIdx = (int*)Osb.Xwin.Arena.Alloc(sizeof(int) * AppMenuCount);
+        for (int i = 0; i < AppMenuCount; i++) _appIconIdx[i] = i;
+    }
+
+    private static char* AppName(int app, out int len)
+    {
+        switch (app)
+        {
+            case 0: len = _strWriteLen; return _strWrite;
+            case 1: len = _strPaintbrushLen; return _strPaintbrush;
+            case 2: len = _strCalculatorLen; return _strCalculator;
+            case 3: len = _strNotepadLen; return _strNotepad;
+            case 4: len = _strTerminalLen; return _strTerminal;
+            default: len = _strClockLen; return _strClock;
         }
     }
 
@@ -233,8 +256,7 @@ internal static unsafe partial class Desktop
             Graphics.DrawString(mx, cy + 4, _strWindow, _strWindowLen, Palette.MenuText, Palette.WindowFace);
             Graphics.DrawString(mx + 14, cy + 4, _strHelp, _strHelpLen, Palette.MenuText, Palette.WindowFace);
 
-            Controls.PaintOwner(index);
-
+            // The program-item buttons are painted by App.Render (Controls.PaintOwner).
             int lineY = cy + ch - 16;
             if (lineY > cy + 130)
                 Graphics.DrawString(cx + 12, lineY, _strCloseMsg, _strCloseMsgLen, Palette.DarkGray, Palette.WindowFace);

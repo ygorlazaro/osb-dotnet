@@ -24,8 +24,9 @@ internal static unsafe partial class Desktop
         int bh = PanelButtonH - 4;
         for (int i = 0; i < Osb.Xwin.WindowManager.WindowCount; i++)
         {
-            Osb.Xwin.WindowManager.GetWindowInfo(i, out _, out _, out bool vis, out bool min, out _);
-            if (!vis || min) continue;
+            // Minimized windows keep their button: it is the way to restore them.
+            Osb.Xwin.WindowManager.GetWindowInfo(i, out _, out _, out bool vis, out _, out _);
+            if (!vis) continue;
             if (y >= by && y < by + bh) return i;
             by += PanelButtonH + 4;
             if (by + bh > Osb.Xwin.Gfx.Height - 34) break;
@@ -54,8 +55,10 @@ internal static unsafe partial class Desktop
         {
             Osb.Xwin.WindowManager.GetWindowInfo(i, out char* title, out int tlen,
                 out bool vis, out bool min, out bool active);
-            if (!vis || min) continue;
+            if (!vis) continue;
             byte face = active ? Palette.HighlightBg : Palette.WindowFace;
+            // A minimized window's button is greyed; clicking it restores it.
+            byte textColor = active ? Palette.White : (min ? Palette.DarkGray : Palette.Black);
             Graphics.FillRect(DeskbarButtonX, by, DeskbarButtonW, bh, face);
             Graphics.Bevel(DeskbarButtonX, by, DeskbarButtonW, bh, face,
                 Palette.White, Palette.DarkGray);
@@ -64,7 +67,7 @@ internal static unsafe partial class Desktop
             if (showLen > maxChars) showLen = maxChars;
             if (showLen > 0)
                 Graphics.DrawString(DeskbarButtonX + 6, by + 4, title, showLen,
-                    active ? Palette.White : Palette.Black, face);
+                    textColor, face);
             by += PanelButtonH + 4;
             if (by + bh > Osb.Xwin.Gfx.Height - 34) break;
         }
@@ -94,11 +97,11 @@ internal static unsafe partial class Desktop
         for (int i = 0; i < _appCount; i++)
         {
             int iy = my + 4 + i * itemH;
-            int ico = _appIconIdx[i];
+            char* name = AppName(_appIconIdx[i], out int nameLen);
             bool sel = i == _menuSelected;
             if (sel)
                 Graphics.FillRect(mx + 2, iy, mw - 4, itemH - 2, Palette.HighlightBg);
-            Graphics.DrawString(mx + 8, iy + 4, _icons[ico].name, _icons[ico].nameLen,
+            Graphics.DrawString(mx + 8, iy + 4, name, nameLen,
                 sel ? Palette.Highlight : Palette.IconText,
                 sel ? Palette.HighlightBg : Palette.WindowFace);
         }

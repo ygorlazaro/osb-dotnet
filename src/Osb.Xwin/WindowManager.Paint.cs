@@ -21,6 +21,16 @@ internal static unsafe partial class WindowManager
         }
     }
 
+    // Paints one window's frame (border, title bar, buttons, client background).
+    // App.Render calls this window by window, bottom to top, so each window is
+    // fully drawn (frame + client + controls) before the next, higher one.
+    public static void PaintFrame(int index)
+    {
+        if (!Gfx.Active) return;
+        if (index < 0 || index >= _windowCount) return;
+        DrawFrame(&_windows[index]);
+    }
+
     private static void DrawFrame(Window* win)
     {
         if ((win->flags & WfVisible) == 0) return;
@@ -30,6 +40,12 @@ internal static unsafe partial class WindowManager
         byte titleColor = active ? Palette.TitleActive : Palette.TitleInactive;
         byte titleTextColor = Palette.TitleText;
         byte frameColor = Palette.WindowFace;
+
+        // Make the whole window opaque first. The border is 1px at x, the title
+        // bar starts at x+1 and the client at x+2, so without this the 1px ring
+        // between them (x+1, x+w-2, y+h-2) is never painted and whatever lies
+        // underneath shows through the frame.
+        Gfx.FillRect(win->x, win->y, win->w, win->h, frameColor);
 
         Gfx.Rect(win->x, win->y, win->w, win->h, Palette.DarkGray);
         Gfx.FillRect(win->x + 1, win->y + 1, win->w - 2, 17, titleColor);
