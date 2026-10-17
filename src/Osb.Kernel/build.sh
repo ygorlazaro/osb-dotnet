@@ -49,7 +49,6 @@ printf 'root\n' > "$OBJ/fs/sudoers.txt"
 
 # Create example OSLANG scripts
 mkdir -p "$OBJ/fs/apps"
-cp "$ROOT/../Osb.Shell/APPS/KISS/main.osl" "$OBJ/fs/apps/kiss.osl"
 cat > "$OBJ/fs/apps/simple.osl" <<'EOF'
 USING OSL.CONSOLE
 
@@ -607,7 +606,54 @@ echo "[4/6] Linking kernel.elf ..."
 ld.lld -T "$ROOT/linker.ld" -o "$OBJ/kernel.elf" \
     "$OBJ/boot.o" "$OBJ/interrupts.o" "$OBJ/sched.o" "$OBJ/user.o" "$OBJ/OsbKernel.o" --no-relax
 
+# ----- compile the userspace shell (SHELL.EXE) -----
+echo "[x/6] Compiling userspace shell ..."
+# Locate the native AOT compiler shipped with the SDK (NuGet cache).
+ILC_SHELL="$(ls -1d "$HOME"/.nuget/packages/runtime.linux-x64.microsoft.dotnet.ilcompiler/*/tools/ilc 2>/dev/null | sort -V | tail -n1)"
+if [[ -z "$ILC_SHELL" || ! -x "$ILC_SHELL" ]]; then
+    echo "ERROR: ilc (NativeAOT compiler) not found in ~/.nuget/packages." >&2
+    echo "Build the project once (dotnet build) or restore the SDK to fetch it." >&2
+    exit 1
+fi
+
+# Build managed DLL
+dotnet build -c Release "$ROOT/../Osb.Shell.Userspace/Osb.Shell.Userspace.csproj" -v q -nologo
+DLL_SHELL="$ROOT/../Osb.Shell.Userspace/bin/Release/net10.0/OsbShell.dll"
+test -f "$DLL_SHELL" || { echo "ERROR: $DLL_SHELL not produced"; exit 1; }
+
+# NativeAOT (ilc)
+"$ILC_SHELL" "$DLL_SHELL" -o "$OBJ/OsbShell.o" \
+    --systemmodule OsbShell \
+    --targetarch x64 --targetos linux \
+    -O -g --directpinvoke:osbnative \
+    --map "$OBJ/OsbShell.map"
+
+# Ring-3 entry / syscall shim / runtime helpers for the userspace image.
+clang -c -nostdlib -ffreestanding -o "$OBJ/userspace.o" \
+    "$ROOT/../Osb.Shell.Userspace/userspace.S"
+
+# Link the userspace shell as a standalone image at UserBase (0x2000000).
+ld.lld -T "$ROOT/../Osb.Xwin/user.ld" -o "$OBJ/OsbShell.elf" \
+    "$OBJ/userspace.o" "$OBJ/OsbShell.o" --no-relax
+
+# Convert to flat binary and wrap as OSBEXE.
+objcopy -O binary "$OBJ/OsbShell.elf" "$OBJ/OsbShell.bin"
+python3 "$ROOT/../Osb.Xwin/mkosbx.py" "$OBJ/OsbShell.bin" "$OBJ/SHELL.EXE" 0
+
+# Write the binary into the ext4 image at /OSB/BIN/SHELL.EXE
+debugfs -w -R "write \"$OBJ/SHELL.EXE\" /OSB/BIN/SHELL.EXE" "$OUT_IMG" >/dev/null 2>&1
+e2fsck -fy "$OUT_IMG" >/dev/null 2>&1
+echo "  staged /OSB/BIN/SHELL.EXE"
+
 echo "[5/6] Building ISO ..."
+rm -rf "$ISO_DIR"
+mkdir -p "$ISO_DIR/boot/grub"
+cp "$OBJ/kernel.elf" "$ISO_DIR/boot/kernel.elf"
+cp "$ROOT/grub.cfg" "$ISO_DIR/boot/grub/grub.cfg"
+cp "$OUT_IMG" "$ISO_DIR/osb.img" 2>/dev/null || true
+grub-mkrescue -o "$OUT_ISO" "$ISO_DIR" >/dev/null
+
+echo "OK -> $OUT_ISO"
 rm -rf "$ISO_DIR"
 mkdir -p "$ISO_DIR/boot/grub"
 cp "$OBJ/kernel.elf" "$ISO_DIR/boot/kernel.elf"

@@ -142,6 +142,7 @@ internal static unsafe partial class Desktop
             case 2: name = _strCalculator; nameLen = _strCalculatorLen; break;
             case 3: name = _strNotepad; nameLen = _strNotepadLen; break;
             case 4: name = _strTerminal; nameLen = _strTerminalLen; break;
+            case 5: name = _strLocator; nameLen = _strLocatorLen; break;
             default: name = _strClock; nameLen = _strClockLen; break;
         }
 

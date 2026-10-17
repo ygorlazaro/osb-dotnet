@@ -28,6 +28,37 @@ an OSLANG language/tooling stack, but `Osb.Kernel` is the bare-metal kernel and
 should be treated as freestanding code. **Osb.Shell is LEGACY: do not modify it.**
 All new work targets `Osb.Kernel`.
 
+## New Architecture (Userspace Shell & OsbKT)
+
+Starting from 2026‑10‑17 the project introduced a clean separation between the
+freestanding kernel and userspace programs:
+
+* **Osb.Kernel** – the freestanding NativeAOT kernel (no BCL, no runtime).  
+  It provides hardware initialization, memory management, process scheduling,
+  the INT 21h syscall gate (`Osb.Kernel.Cpu.Syscalls.Handle`), and minimal
+  filesystem services (Ext4 driver). The kernel no longer contains the legacy
+  shell command loop; instead it can spawn userspace programs via the `SPAWN`
+  and `WAIT` syscalls.
+
+* **OsbKT** – a static library (`src/OsbKT`) that wraps the kernel’s INT 21h
+  syscalls in a clean C# API (`PrintString`, `GetChar`, `Exit`, `Spawn`, `Wait`,
+  `MemInfo`, `PutChar`, plus file‑system helpers like `CreateFile`, `OpenFile`,
+  `ReadFile`, `WriteFile`, `DeleteFile`, `CreateDir`, `RemoveDir`, `Rename`,
+  `ResolvePath`, `DirNext`, `GetCwd`, `GetArgs`). Userspace programs link
+  against `OsbKT` and the kernel’s `MiniCoreLib` to obtain the necessary
+  `System` types while remaining freestanding.
+
+* **Osb.Shell.Userspace** – a new userspace shell project (`src/Osb.Shell.Userspace`)
+  that implements a simple REPL using only `OsbKT` for console I/O and file
+  operations. It is compiled as a freestanding NativeAOT executable (`SHELL.EXE`)
+  and placed on the ext4 image at `/OSB/BIN/SHELL.EXE`. The kernel’s boot
+   sequence (`Osb.Kernel.Kernel.KmMain`) now spawns this userspace shell via the
+   `SPAWN` (`AH=80h`) and `WAIT` (`AH=81h`) syscalls.
+
+This architecture makes the kernel truly modular: userspace programs (shell,
+OSLANG interpreter, utilities) can be developed, replaced, or extended without
+recompiling the kernel, as long as they respect the `OsbKT` ABI.
+
 ## Code policy
 
 1. **Implementation languages**
@@ -79,11 +110,13 @@ Main namespaces/classes:
   - Boot orchestration + embedded OSLANG 0.72 interpreter.
 - `MiniCoreLib`
   - Minimal runtime/type stubs required for freestanding NativeAOT.
+- **New**: `OsbKT` – static library providing INT 21h wrappers for userspace.
+- **New**: `Osb.Shell.Userspace` – userspace shell REPL.
 
 Key subsystem concepts:
 
 - Boot path: Serial/VGA -> PIC/PIT/RTC -> GDT -> physical memory detection -> IDT
-  -> scheduler -> environment -> shell.
+  -> scheduler -> environment -> (legacy) shell **or** userspace shell spawn.
 - Memory: frames start around `0x200000`; reserved user window `0x400000-0x5FFFFF`.
 - Interrupts: PIC remapped to `0x30-0x3F`; syscall vector `0x21`.
 - Tasks: 8 slots, slot 0 is console/shell.

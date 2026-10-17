@@ -22,6 +22,33 @@ terminal usando o truque do meio-bloco Unicode (▀): cada caractere vira 2 pixe
 (cor de primeiro plano em cima, cor de fundo embaixo) — a mesma técnica usada há
 décadas em telas de texto ANSI/BBS.
 
+## New Architecture (Userspace Shell & OsbKT)
+
+Starting from 2026-10-17 the project introduced a clean separation between the
+freestanding kernel and userspace programs:
+
+* **Osb.Kernel** – the freestanding NativeAOT kernel (no BCL, no runtime).  
+  It provides hardware initialization, memory management, process scheduling,
+  the INT 21h syscall gate (`Osb.Kernel.Cpu.Syscalls.Handle`), and minimal
+  filesystem services (Ext4 driver). The kernel no longer contains the legacy
+  shell command loop; instead it can spawn userspace programs via the `SPAWN`
+  and `WAIT` syscalls.
+
+* **OsbKT** – a static library (`src/OsbKT`) that wraps the kernel’s INT 21h
+  syscalls in a clean C# API (`PrintString`, `GetChar`, `Exit`, `Spawn`, `Wait`,
+  `MemInfo`, `PutChar`, plus file-system helpers like `CreateFile`, `OpenFile`,
+  `ReadFile`, `WriteFile`, `DeleteFile`, `CreateDir`, `RemoveDir`, `Rename`,
+  `ResolvePath`, `DirNext`, `GetCwd`, `GetArgs`). Userspace programs link
+  against `OsbKT` and the kernel’s `MiniCoreLib` to obtain the necessary
+  `System` types while remaining freestanding.
+
+* **Osb.Shell.Userspace** – a new userspace shell project (`src/Osb.Shell.Userspace`)
+  that implements a simple REPL using only `OsbKT` for console I/O and file
+  operations. It is compiled as a freestanding NativeAOT executable (`SHELL.EXE`)
+  and placed on the ext4 image at `/OSB/BIN/SHELL.EXE`. The kernel’s boot
+   sequence (`Osb.Kernel.Kernel.KmMain`) now spawns this userspace shell via the
+   `SPAWN` (`AH=80h`) and `WAIT` (`AH=81h`) syscalls.
+
 ## Osb.Shell (o kernel)
 
 O núcleo do OSB — o kernel de boot e o interpretador de comandos (`OSB.BAS`) — foi
@@ -85,13 +112,13 @@ cd src/Osb.Xwin && dotnet build && cd ../..
 cd src/Osb.Shell && dotnet run
 ```
 
-Na primeira execução, o OSB cria automaticamente uma instalação local no diretório da build do `Osb.Shell`, com `OSB.CFG` na raiz desse diretório e a pasta `CONF/` contendo arquivos como `OSB.HLP`, `HOSTNAME.CFG` e `USER.CFG`.
+Na primeira execução, o OSB cria automaticamente uma instalação local no diretorio da build do `Osb.Shell`, com `OSB.CFG` na raiz desse diretorio e a pasta `CONF/` contendo arquivos como `OSB.HLP`, `HOSTNAME.CFG` e `USER.CFG`.
 
-O sistema de ajuda agora carrega `CONF/OSB.HLP` em tempo de execução, em vez de deixar os textos de ajuda embutidos no código.
+O sistema de ajuda agora carrega `CONF/OSB.HLP` em tempo de execução, em vez de deixar os textos de ajuda embutidos no codigo.
 
 Dentro do OSB, digite `X` pra abrir o XWIN. O `Osb.Shell` procura o
-`Osb.Xwin.dll` já compilado ao lado (`src/Osb.Xwin/bin/Debug|Release/`, em
-qualquer subpasta de TFM); se você compilou em outro lugar, defina a variável
+`Osb.Xwin.dll` ja compilado ao lado (`src/Osb.Xwin/bin/Debug|Release/`, em
+qualquer subpasta de TFM); se você compilou em outro lugar, defina a variavel
 de ambiente `OSB_XWIN_PATH` apontando para o `.dll`.
 
 ## Estrutura
@@ -137,6 +164,12 @@ src/Osb.Lang/
 oslang-vscode/           - extensão VS Code para OSLANG (syntax highlighting, intellisense, document symbols, folding)
 
 original-src/            - código BASIC original, para referência
+
+src/Osb.kt/              - static library wrapping INT 21h syscalls for userspace
+  Syscall.cs             - INT 21h wrappers (PrintString, GetChar, etc.)
+
+src/Osb.Shell.Userspace/ - new userspace shell (freestanding NativeAOT)
+  Program.cs             - simple REPL using OsbKT for I/O and file ops
 ```
 
 ## OSLANG 0.62
@@ -193,8 +226,8 @@ A extensão **OSLANG 1.1.0** para VS Code oferece:
   - Keywords e builtins
   - Classes, interfaces, funções, métodos, variáveis e enums do arquivo atual
   - Métodos de contexto (`MATH.`, `STRING.`, `ARRAY.`, `I18N.`, `FILE.`, `DIR.`, `DATE.`)
-- **Hover** — documentação inline para 60+ funções e keywords
-- **Signature Help** — ajuda de assinatura para funções com múltiplos overloads
+- **Hover** — documentacao inline para 60+ funcoes e keywords
+- **Signature Help** — ajuda de assinatura para funcoes com múltiplos overloads
 - **Document Symbols** — outline view com classes, interfaces, funções, enums, métodos e propriedades
 - **Code Folding** — dobramento de blocos `CLASS`, `FUNCTION`, `IF`, `FOR`, `WHILE`, `DO`, `SWITCH`, `ENUM`, `TRY`
 - **Snippets** — 40+ snippets para código comum (enum, arrow functions, foreach, try-catch, etc.)
@@ -220,7 +253,7 @@ O comando `TYPE` agora aplica syntax highlighting OSLANG para arquivos `.osl`,
 
 | Original | Status |
 |---|---|
-| DIR, CD, MD, RD, COPY, ERASE, REN, TYPE, TREE, SIZE, PRINT | Portado, com resolução de caminho case-insensitive |
+| DIR, CD, MD, RD, COPY, ERASE, REN, TYPE, TREE, SIZE, PRINT | Portado, operando no sistema de arquivos real, com resolução de caminho case-insensitive |
 | CLS, VER, ABOUT, HELP, `/?`, RPT, `.comando`, `./comando` | Portado |
 | COLOR, CONFIG | Portado |
 | DATE, TIME | Portado (somente leitura) |

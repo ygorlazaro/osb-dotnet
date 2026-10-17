@@ -61,7 +61,23 @@ namespace Osb.Kernel
         Vga.WriteLine("");
 
         Environment.Init();     // session environment (PATH, PROMPT, USER, ...)
-        Osb.Kernel.Shell.Shell.Run();            // never returns
+
+        // Hand control to the userspace shell (SHELL.EXE)
+        fixed (char* sp = "A:\\OSB\\BIN\\SHELL.EXE")
+        {
+            int pid;
+            var r = Scheduler.SpawnFile(sp, 20, Scheduler.Console, out pid);
+            if (r != SpawnResult.Ok)
+            {
+                // If we cannot launch the userspace shell, halt the system.
+                Vga.WriteLine("Failed to launch userspace shell. Halting.");
+                while (true) { NativeMethods.hlt_cpu(); }
+            }
+            Scheduler.WaitFor(pid);
+            // If the userspace shell exits, halt the system.
+            Vga.WriteLine("Userspace shell exited. Halting.");
+            while (true) { NativeMethods.hlt_cpu(); }
+        }
     }
 }
 }

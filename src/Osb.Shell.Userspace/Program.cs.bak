@@ -1,0 +1,98 @@
+using System;
+using OsbKT;
+
+namespace Osb.Shell.Userspace
+{
+    internal static unsafe class Program
+    {
+        private static void Main()
+        {
+            const string welcome = "OSB Userspace Shell v0.1\r\n";
+            const string okMsg = "Userspace execution OK.\r\n";
+            const string prompt = "> ";
+            const string exitMsg = "Exiting...\r\n";
+
+            Syscall.PrintString(welcome);
+            Syscall.PrintString(okMsg);
+
+            // Stack-allocated buffers for input (max 255 chars) and lower-case version
+            char* inputBuf = stackalloc char[256];
+            char* lowerBuf = stackalloc char[256];
+
+            while (true)
+            {
+                Syscall.PrintString(prompt);
+
+                int pos = 0;
+                bool exitRequested = false;
+
+                while (true)
+                {
+                    int ch = Syscall.GetChar();
+                    if (ch == -1) continue; // Should not happen with blocking GetChar
+
+                    // Handle backspace
+                    if (ch == 8) // ASCII BS
+                    {
+                        if (pos > 0)
+                        {
+                            pos--;
+                            Syscall.PrintString("\b \b"); // Erase last character
+                        }
+                        continue;
+                    }
+
+                    // Handle Enter (ASCII CR or LF)
+                    if (ch == 13 || ch == 10)
+                    {
+                        Syscall.PrintString("\r\n");
+                        break;
+                    }
+
+                    // Printable character (ASCII 32-126)
+                    if (ch >= 32 && ch < 127 && pos < 255)
+                    {
+                        inputBuf[pos] = (char)ch;
+                        // Convert to lowercase: if 'A'..'Z', add 0x20; else keep as is.
+                        char c = (char)ch;
+                        if (c >= 'A' && c <= 'Z')
+                            c = (char)(c + 0x20);
+                        lowerBuf[pos] = c;
+                        pos++;
+                        Syscall.PutChar((char)ch); // Echo
+                    }
+                }
+
+                // Null-terminate for safety (though we use length)
+                inputBuf[pos] = '\0';
+                lowerBuf[pos] = '\0';
+
+                // Check if the command is "exit" (case-insensitive)
+                if (pos == 4)
+                {
+                    if (lowerBuf[0] == 'e' && lowerBuf[1] == 'x' && lowerBuf[2] == 'i' && lowerBuf[3] == 't')
+                    {
+                        exitRequested = true;
+                    }
+                }
+
+                if (exitRequested)
+                {
+                    Syscall.PrintString(exitMsg);
+                    break;
+                }
+
+                // Not exiting: show that we got the command
+                Syscall.PrintString("Command received: ");
+                // Echo the input buffer character by character
+                for (int i = 0; i < pos; i++)
+                {
+                    Syscall.PutChar(inputBuf[i]);
+                }
+                Syscall.PrintString("\r\n");
+            }
+
+            Syscall.Exit(0);
+        }
+    }
+}

@@ -51,6 +51,7 @@ internal static unsafe partial class Desktop
     private static char* _strPaintbrush;
     private static char* _strCalculator;
     private static char* _strNotepad;
+    private static char* _strLocator;
     private static char* _strTerminal;
     private static char* _strClock;
     private static char* _strAppWindow;
@@ -66,7 +67,7 @@ internal static unsafe partial class Desktop
     private static int _strShutDownTitleLen;
     private static int _strMainLen, _strAccessoriesLen, _strGamesLen, _strStartupLen;
     private static int _strWriteLen, _strPaintbrushLen, _strCalculatorLen, _strNotepadLen;
-    private static int _strTerminalLen, _strClockLen, _strAppWindowLen, _strCloseMsgLen;
+    private static int _strTerminalLen, _strClockLen, _strLocatorLen, _strAppWindowLen, _strCloseMsgLen;
     private static int _strGroupWindowLen, _strGroupMsgLen, _strStartLen;
 
     private struct Icon
@@ -147,6 +148,7 @@ internal static unsafe partial class Desktop
         _strPaintbrush = AllocString("Paintbrush", out _strPaintbrushLen);
         _strCalculator = AllocString("Calculator", out _strCalculatorLen);
         _strNotepad = AllocString("Notepad", out _strNotepadLen);
+        _strLocator = AllocString("Locator", out _strLocatorLen);
         _strTerminal = AllocString("Terminal", out _strTerminalLen);
         _strClock = AllocString("Clock", out _strClockLen);
         _strAppWindow = AllocString("Application Window", out _strAppWindowLen);
@@ -169,7 +171,7 @@ internal static unsafe partial class Desktop
 
     private static void SetupIcons()
     {
-        _iconCount = 8;
+        _iconCount = 9;
         _icons = (Icon*)Arena.Alloc(sizeof(Icon) * _iconCount);
 
         _iconCols = (Gfx.Width - IconStartX - DeskbarWidth) / (IconWidth + IconSpacingX);
@@ -187,6 +189,7 @@ internal static unsafe partial class Desktop
         _icons[idx++] = CreateIcon("Paint", "PAINT", 0);
         _icons[idx++] = CreateIcon("Calc", "CALC", 0);
         _icons[idx++] = CreateIcon("Notepad", "NOTEPAD", 0);
+        _icons[idx++] = CreateIcon("Locator", "Locator", 0);
 
         for (int i = 0; i < _iconCount; i++)
         {
